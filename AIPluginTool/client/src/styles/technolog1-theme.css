@@ -1,0 +1,16 @@
+:root {
+  /* TechnologyOne-inspired brand palette */
+  --t1-deep: #1a0b2e;
+  --t1-navy: #2a1446;
+  --t1-purple: #6b2b8c;
+  --t1-magenta: #e4007c;
+  --t1-magenta-dark: #c2006b;
+  --t1-orange: #f7941d;
+  --t1-orange-dark: #e86a10;
+  --t1-light: #fde8f3;
+  --t1-soft: #faf7fc;
+  --t1-border: #e8dff0;
+  --t1-body: #3b2a4d;
+  --t1-muted: #6f5f82;
+  --t1-gray: #9b8cab;
+}

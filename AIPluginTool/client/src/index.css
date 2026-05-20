@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "./styles/technolog1-theme.css";
+
+body {
+  margin: 0;
+  font-family: "Manrope", system-ui, sans-serif;
+  background: var(--t1-deep);
+  color: var(--t1-body);
+}

@@ -1,0 +1,121 @@
+case_id,created_date,resolved_date,status,priority,category,council,subject,search_query,search_found_answer,consultant,resolution_hours
+CIA-6001,2026-01-03 01:37,2026-01-03 18:43,Resolved,Low,Property Records,Logan City Council,Cannot bulk update property classification,DocOne CiA setup,No,Tom Bennett,17.1
+CIA-6002,2026-02-24 07:32,2026-02-25 06:38,Resolved,High,Payment Files,Cairns Regional Council,Payment workspace not loading transactions,payment workspace,No,Priya Patel,23.1
+CIA-6003,2025-12-25 22:25,2025-12-27 10:13,Closed,Medium,Reporting,Brisbane City Council,Report builder permissions question,transition tool error,Yes,James Wilson,35.8
+CIA-6004,2026-01-30 12:16,2026-02-01 14:58,Resolved,Critical,Property Records,Toowoomba Regional Council,Property record search returning incorrect results,payment workspace,Yes,Priya Patel,50.7
+CIA-6005,2026-02-12 11:32,2026-02-13 04:20,Closed,Medium,Payment Files,Wollongong City Council,Payment allocation rules behaving unexpectedly,levy effective date,No,Sophie Anderson,16.8
+CIA-6006,2026-04-18 18:26,2026-04-20 15:32,Resolved,High,Payment Files,Ballarat City Council,Direct debit retry logic question,CDD template,Yes,Sophie Anderson,45.1
+CIA-6007,2026-03-21 16:31,2026-03-23 14:25,Closed,Low,Reporting,Brisbane City Council,Report builder permissions question,charge control validator,Yes,Emma Thompson,45.9
+CIA-6008,2026-03-27 21:54,2026-03-27 22:12,Resolved,Low,Charge Controls,Logan City Council,How to configure charge group for new development,levy stacking,Yes,Sophie Anderson,0.3
+CIA-6009,2026-04-13 07:42,2026-04-14 08:36,Closed,Medium,DocOne,Logan City Council,DocOne CiA template needs update for new rate types,levy effective date,No,Aisha Mohamed,24.9
+CIA-6010,2026-02-02 14:43,2026-02-04 12:01,Resolved,Medium,Payment Files,Brisbane City Council,Payment workspace not loading transactions,transition tool error,Yes,David Liu,45.3
+CIA-6011,2025-11-21 10:34,2025-11-21 19:22,Closed,Low,Reporting,Wollongong City Council,Custom KPI tile configuration issue,DocOne CiA setup,Yes,James Wilson,8.8
+CIA-6012,2026-01-20 22:25,2026-01-21 01:31,Closed,Low,Terminology Help,Sunshine Coast Council,How does Ci 'Levy Code' map to CiA,property record search,Yes,Ravi Kumar,3.1
+CIA-6013,2026-01-01 00:07,2026-01-02 02:43,Closed,Medium,CDD & Transition,Wollongong City Council,CDD document section unclear to customer,analytics workspace,Yes,Marcus O'Brien,26.6
+CIA-6014,2025-11-28 06:47,2025-11-29 09:23,Resolved,Low,DocOne,Sunshine Coast Council,DocOne merge with new property fields,property record search,No,Ravi Kumar,26.6
+CIA-6015,2025-12-15 01:47,2025-12-15 10:35,Resolved,Medium,DocOne,Townsville City Council,DocOne merge with new property fields,CDD template,Yes,David Liu,8.8
+CIA-6016,2026-02-15 07:04,2026-02-17 09:16,Closed,High,Terminology Help,Ipswich City Council,Terminology question: Charge Group vs Charge Set,terminology mapping,No,David Liu,50.2
+CIA-6017,2025-12-25 16:13,2025-12-27 09:07,Closed,Medium,Reporting,Toowoomba Regional Council,Reporting workspace missing custom fields,analytics workspace,Yes,Aisha Mohamed,40.9
+CIA-6018,2026-02-23 16:36,2026-02-24 11:06,Closed,Low,Payment Files,Hawkesbury Council,Payment workspace not loading transactions,payment workspace,No,Ravi Kumar,18.5
+CIA-6019,2026-02-17 18:52,2026-02-19 06:34,Closed,Low,User Access,Brisbane City Council,Single sign-on configuration error,DocOne CiA setup,No,Sophie Anderson,35.7
+CIA-6020,2025-11-28 22:12,2025-11-30 05:00,Resolved,Medium,Charge Controls,Cairns Regional Council,Levy stacking question for mixed-use property,levy stacking,Yes,David Liu,30.8
+CIA-6021,2025-12-06 02:01,2025-12-07 11:01,Closed,Medium,Charge Controls,Townsville City Council,Multi-levy precedence rules unclear,levy stacking,Yes,Emma Thompson,33.0
+CIA-6022,2026-01-03 00:43,2026-01-03 14:55,Closed,High,Charge Controls,Sunshine Coast Council,Levy stacking question for mixed-use property,rate qualifier to levy,Yes,Sophie Anderson,14.2
+CIA-6023,2026-03-30 04:27,2026-03-31 14:33,Closed,Low,Payment Files,Toowoomba Regional Council,Payment workspace not loading transactions,transition tool error,Yes,Ravi Kumar,34.1
+CIA-6024,2026-03-22 14:17,2026-03-24 22:11,Resolved,Low,DocOne,Cairns Regional Council,DocOne merge with new property fields,transition tool error,Yes,Sarah Chen,55.9
+CIA-6025,2026-04-27 08:06,2026-04-28 23:06,Closed,Medium,Charge Controls,Newcastle City Council,How to configure charge group for new development,charge group configuration,No,Sarah Chen,39.0
+CIA-6026,2025-11-22 05:30,2025-11-23 18:24,Closed,High,DocOne,Gold Coast City Council,DocOne CiA template needs update for new rate types,analytics workspace,Yes,David Liu,36.9
+CIA-6027,2025-12-19 19:12,2025-12-20 03:24,Closed,High,Charge Controls,Logan City Council,How to configure charge group for new development,CDD template,Yes,Tom Bennett,8.2
+CIA-6028,2026-02-09 00:52,2026-02-09 16:46,Closed,Low,Reporting,Sunshine Coast Council,Custom KPI tile configuration issue,transition tool error,Yes,David Liu,15.9
+CIA-6029,2026-05-11 03:43,2026-05-11 16:25,Closed,Medium,Reporting,Toowoomba Regional Council,Custom KPI tile configuration issue,terminology mapping,Yes,Emma Thompson,12.7
+CIA-6030,2026-04-27 04:42,2026-04-27 21:24,Resolved,Medium,Payment Files,Toowoomba Regional Council,Payment allocation rules behaving unexpectedly,levy effective date,Yes,David Liu,16.7
+CIA-6031,2026-04-25 23:41,2026-04-26 12:05,Closed,Low,CDD & Transition,Cairns Regional Council,CDD document section unclear to customer,charge group configuration,Yes,Sophie Anderson,12.4
+CIA-6032,2026-05-12 21:38,2026-05-12 21:56,Closed,Low,Reporting,Sunshine Coast Council,Reporting workspace missing custom fields,transition tool error,Yes,Sophie Anderson,0.3
+CIA-6033,2026-01-05 18:17,2026-01-05 22:17,Resolved,Low,DocOne,Sunshine Coast Council,DocOne merge with new property fields,CDD template,Yes,Priya Patel,4.0
+CIA-6034,2026-01-31 14:30,2026-01-31 14:48,Closed,Medium,Reporting,Gold Coast City Council,Custom KPI tile configuration issue,property record search,Yes,Aisha Mohamed,0.3
+CIA-6035,2026-02-22 04:36,2026-02-24 00:24,Closed,Medium,Charge Controls,Wollongong City Council,Levy effective date drift detected by AI validator,transition tool error,No,Tom Bennett,43.8
+CIA-6036,2026-02-25 04:16,2026-02-25 08:04,Closed,Low,Payment Files,Mackay Regional Council,Direct debit retry logic question,charge control validator,Yes,James Wilson,3.8
+CIA-6037,2026-03-08 11:37,2026-03-10 14:55,Resolved,Medium,CDD & Transition,Geelong City Council,Pre-transition validation checklist questions,DocOne CiA setup,Yes,Sophie Anderson,51.3
+CIA-6038,2026-03-26 09:09,2026-03-26 18:03,Closed,Medium,Charge Controls,Logan City Council,Levy effective date drift detected by AI validator,rate qualifier to levy,Yes,Aisha Mohamed,8.9
+CIA-6039,2026-02-11 21:32,,In Progress,Medium,Payment Files,Newcastle City Council,Payment allocation rules behaving unexpectedly,DocOne CiA setup,Yes,Emma Thompson,
+CIA-6040,2025-11-20 06:22,2025-11-20 06:40,Resolved,Low,Charge Controls,Ipswich City Council,Charge control validator showing false positives,property record search,Yes,Priya Patel,0.3
+CIA-6041,2025-12-04 02:19,2025-12-04 20:55,Closed,Low,Charge Controls,Townsville City Council,Multi-levy precedence rules unclear,charge group configuration,Yes,Sophie Anderson,18.6
+CIA-6042,2026-02-12 11:31,2026-02-12 11:49,Resolved,Low,DocOne,Moreton Bay Regional Council,DocOne bulk processing slow in CiA,levy stacking,Yes,Emma Thompson,0.3
+CIA-6043,2026-04-12 12:41,2026-04-13 10:17,Closed,Medium,Property Records,Cairns Regional Council,Property record search returning incorrect results,payment workspace,Yes,David Liu,21.6
+CIA-6044,2026-05-07 01:53,2026-05-07 03:17,Closed,Medium,Property Records,Newcastle City Council,Property hierarchy not displaying correctly,levy effective date,No,James Wilson,1.4
+CIA-6045,2026-02-23 06:33,,Open,High,Payment Files,Hawkesbury Council,Payment workspace not loading transactions,levy effective date,Yes,Emma Thompson,
+CIA-6046,2025-12-12 17:32,2025-12-12 18:50,Resolved,Low,Reporting,Sunshine Coast Council,Reporting workspace missing custom fields,charge control validator,Yes,Tom Bennett,1.3
+CIA-6047,2026-02-14 13:48,2026-02-15 21:54,Closed,Medium,Property Records,Hawkesbury Council,Property type mapping incomplete after migration,payment workspace,Yes,David Liu,32.1
+CIA-6048,2025-12-19 20:38,2025-12-20 06:20,Closed,High,Reporting,Gold Coast City Council,Report builder permissions question,analytics workspace,Yes,David Liu,9.7
+CIA-6049,2026-03-01 20:49,2026-03-02 17:07,Resolved,Medium,Property Records,Mackay Regional Council,Property type mapping incomplete after migration,transition tool error,Yes,Emma Thompson,20.3
+CIA-6050,2026-01-14 03:26,2026-01-14 03:44,Resolved,Medium,Reporting,Wollongong City Council,Analytics dashboard not refreshing data,rate qualifier to levy,Yes,Ravi Kumar,0.3
+CIA-6051,2026-05-16 08:52,2026-05-16 09:10,Closed,Critical,Charge Controls,Toowoomba Regional Council,Charge control validator showing false positives,DocOne CiA setup,Yes,Ravi Kumar,0.3
+CIA-6052,2026-01-13 18:55,2026-01-14 15:43,Resolved,Low,Reporting,Geelong City Council,Report builder permissions question,DocOne CiA setup,Yes,Ravi Kumar,20.8
+CIA-6053,2026-01-08 20:24,2026-01-09 04:54,Closed,Medium,User Access,Cairns Regional Council,Workspace access not propagating to mobile,levy stacking,No,Sophie Anderson,8.5
+CIA-6054,2026-04-22 00:07,2026-04-22 18:31,Resolved,Medium,DocOne,Sunshine Coast Council,DocOne bulk processing slow in CiA,terminology mapping,Yes,Ravi Kumar,18.4
+CIA-6055,2026-03-26 00:23,2026-03-27 22:53,Closed,Low,Property Records,Wollongong City Council,Property type mapping incomplete after migration,rate qualifier to levy,Yes,James Wilson,46.5
+CIA-6056,2026-02-18 06:43,2026-02-19 19:49,Closed,Low,Charge Controls,Townsville City Council,Multi-levy precedence rules unclear,CDD template,No,Marcus O'Brien,37.1
+CIA-6057,2026-05-03 15:05,2026-05-05 18:59,Resolved,Low,Payment Files,Logan City Council,Payment allocation rules behaving unexpectedly,charge control validator,Yes,Emma Thompson,51.9
+CIA-6058,2025-12-22 03:43,2025-12-22 17:49,Resolved,Medium,User Access,Newcastle City Council,Single sign-on configuration error,charge control validator,Yes,David Liu,14.1
+CIA-6059,2026-02-24 06:00,2026-02-25 03:54,Resolved,Medium,User Access,Ballarat City Council,User role template for council finance team,payment workspace,Yes,David Liu,21.9
+CIA-6060,2026-03-24 10:08,2026-03-25 01:02,Closed,Medium,Property Records,Cairns Regional Council,Cannot bulk update property classification,rate qualifier to levy,Yes,David Liu,14.9
+CIA-6061,2026-04-23 03:10,2026-04-24 23:16,Resolved,Low,Charge Controls,Brisbane City Council,Levy stacking question for mixed-use property,rate qualifier to levy,Yes,Emma Thompson,44.1
+CIA-6062,2026-04-15 03:41,2026-04-16 07:53,Closed,Low,DocOne,Hawkesbury Council,DocOne merge with new property fields,terminology mapping,Yes,Priya Patel,28.2
+CIA-6063,2025-12-09 14:14,2025-12-10 03:38,Resolved,Medium,Charge Controls,Brisbane City Council,Levy effective date drift detected by AI validator,charge group configuration,Yes,James Wilson,13.4
+CIA-6064,2026-04-15 05:46,2026-04-15 22:04,Closed,High,User Access,Cairns Regional Council,Single sign-on configuration error,transition tool error,Yes,Marcus O'Brien,16.3
+CIA-6065,2026-04-26 00:09,2026-04-26 18:45,Closed,Medium,DocOne,Geelong City Council,DocOne bulk processing slow in CiA,CDD template,Yes,Priya Patel,18.6
+CIA-6066,2026-01-03 06:00,2026-01-04 06:42,Resolved,Medium,Payment Files,Mackay Regional Council,Payment file format change required for new bank,rate qualifier to levy,No,Ravi Kumar,24.7
+CIA-6067,2026-04-23 19:12,2026-04-25 00:24,Closed,Medium,DocOne,Gold Coast City Council,DocOne CiA template needs update for new rate types,transition tool error,Yes,James Wilson,29.2
+CIA-6068,2026-03-16 06:22,2026-03-16 06:40,Resolved,High,Terminology Help,Logan City Council,What is the CiA equivalent of Rate Qualifier,levy effective date,No,Sophie Anderson,0.3
+CIA-6069,2026-02-07 14:19,2026-02-07 17:07,Resolved,Medium,DocOne,Hawkesbury Council,DocOne merge with new property fields,charge group configuration,Yes,Tom Bennett,2.8
+CIA-6070,2026-02-15 13:52,2026-02-16 15:40,Resolved,High,Property Records,Sunshine Coast Council,Property record search returning incorrect results,charge group configuration,Yes,Sarah Chen,25.8
+CIA-6071,2026-05-08 22:10,2026-05-09 03:46,Closed,Medium,Terminology Help,Toowoomba Regional Council,How does Ci 'Levy Code' map to CiA,DocOne CiA setup,No,Emma Thompson,5.6
+CIA-6072,2026-03-08 21:41,2026-03-11 00:59,Resolved,Medium,Property Records,Geelong City Council,Property type mapping incomplete after migration,transition tool error,Yes,Marcus O'Brien,51.3
+CIA-6073,2026-03-18 22:45,2026-03-18 23:03,Closed,Low,Terminology Help,Moreton Bay Regional Council,AI assistant gave wrong terminology mapping,analytics workspace,Yes,Priya Patel,0.3
+CIA-6074,2026-04-13 02:00,2026-04-14 12:18,Closed,Low,Property Records,Wollongong City Council,Property record search returning incorrect results,rate qualifier to levy,Yes,Aisha Mohamed,34.3
+CIA-6075,2026-02-22 10:43,2026-02-22 23:43,Closed,Medium,Property Records,Cairns Regional Council,Property record search returning incorrect results,analytics workspace,Yes,Ravi Kumar,13.0
+CIA-6076,2026-01-11 05:50,2026-01-11 23:38,Resolved,Low,CDD & Transition,Wollongong City Council,CDD document section unclear to customer,DocOne CiA setup,Yes,Sarah Chen,17.8
+CIA-6077,2026-01-18 12:36,,Open,High,DocOne,Newcastle City Council,DocOne CiA template needs update for new rate types,levy stacking,Yes,Emma Thompson,
+CIA-6078,2026-03-16 10:02,2026-03-17 10:32,Closed,High,DocOne,Townsville City Council,DocOne bulk processing slow in CiA,analytics workspace,Yes,Sarah Chen,24.5
+CIA-6079,2026-01-06 22:35,2026-01-07 05:29,Closed,Low,Payment Files,Ipswich City Council,Payment workspace not loading transactions,DocOne CiA setup,Yes,James Wilson,6.9
+CIA-6080,2026-03-02 00:21,2026-03-02 20:51,Closed,Medium,Terminology Help,Geelong City Council,Need plain language explanation of Levy stacking,payment workspace,No,James Wilson,20.5
+CIA-6081,2026-05-17 10:59,2026-05-17 13:41,Resolved,Critical,DocOne,Toowoomba Regional Council,DocOne CiA template needs update for new rate types,levy stacking,No,Aisha Mohamed,2.7
+CIA-6082,2026-01-03 16:34,2026-01-05 08:34,Resolved,Critical,Property Records,Sunshine Coast Council,Property type mapping incomplete after migration,rate qualifier to levy,Yes,Sarah Chen,40.0
+CIA-6083,2026-02-02 01:03,2026-02-03 00:51,Resolved,Medium,DocOne,Sunshine Coast Council,DocOne merge with new property fields,levy effective date,No,Tom Bennett,23.8
+CIA-6084,2025-11-30 19:45,2025-12-01 12:51,Closed,High,Charge Controls,Ballarat City Council,Levy effective date drift detected by AI validator,transition tool error,Yes,David Liu,17.1
+CIA-6085,2026-03-10 16:56,,Open,High,CDD & Transition,Sunshine Coast Council,Pre-transition validation checklist questions,analytics workspace,Yes,Priya Patel,
+CIA-6086,2026-02-27 10:53,2026-02-28 14:11,Closed,Medium,User Access,Geelong City Council,User role template for council finance team,charge group configuration,Yes,Aisha Mohamed,27.3
+CIA-6087,2026-02-24 19:55,2026-02-25 11:49,Closed,Medium,Charge Controls,Moreton Bay Regional Council,How to configure charge group for new development,levy stacking,Yes,Priya Patel,15.9
+CIA-6088,2026-01-23 06:13,2026-01-24 05:37,Resolved,Low,Charge Controls,Logan City Council,Levy effective date drift detected by AI validator,levy stacking,No,Priya Patel,23.4
+CIA-6089,2026-02-12 02:20,,Open,Medium,DocOne,Sunshine Coast Council,DocOne bulk processing slow in CiA,CDD template,No,Sarah Chen,
+CIA-6090,2025-12-04 09:09,2025-12-05 06:45,Closed,Low,Property Records,Newcastle City Council,Property type mapping incomplete after migration,payment workspace,Yes,Tom Bennett,21.6
+CIA-6091,2026-01-11 23:36,2026-01-12 22:06,Resolved,Low,Reporting,Brisbane City Council,Report builder permissions question,payment workspace,No,Tom Bennett,22.5
+CIA-6092,2026-03-04 08:34,2026-03-05 11:10,Closed,Low,DocOne,Toowoomba Regional Council,DocOne merge with new property fields,CDD template,Yes,James Wilson,26.6
+CIA-6093,2025-12-30 23:36,2025-12-31 06:30,Closed,Low,DocOne,Toowoomba Regional Council,DocOne merge with new property fields,analytics workspace,Yes,Aisha Mohamed,6.9
+CIA-6094,2026-02-26 04:46,2026-02-27 12:22,Closed,Low,Payment Files,Geelong City Council,Payment file format change required for new bank,payment workspace,Yes,Tom Bennett,31.6
+CIA-6095,2026-04-23 16:18,2026-04-23 16:36,Resolved,High,DocOne,Geelong City Council,DocOne CiA template needs update for new rate types,property record search,Yes,Emma Thompson,0.3
+CIA-6096,2026-04-03 16:23,2026-04-04 05:11,Closed,High,CDD & Transition,Ipswich City Council,Need help drafting CDD for new council,levy stacking,Yes,Tom Bennett,12.8
+CIA-6097,2026-01-12 06:41,2026-01-13 05:17,Resolved,Low,Payment Files,Newcastle City Council,Payment workspace not loading transactions,payment workspace,Yes,Tom Bennett,22.6
+CIA-6098,2026-02-20 01:49,,In Progress,Low,DocOne,Newcastle City Council,DocOne CiA template needs update for new rate types,rate qualifier to levy,Yes,Priya Patel,
+CIA-6099,2026-04-30 12:15,,In Progress,Medium,Property Records,Gold Coast City Council,Property hierarchy not displaying correctly,terminology mapping,Yes,Priya Patel,
+CIA-6100,2025-12-03 13:49,2025-12-04 08:55,Closed,Low,Reporting,Toowoomba Regional Council,Report builder permissions question,analytics workspace,No,Aisha Mohamed,19.1
+CIA-6101,2026-04-03 01:00,,Awaiting Customer,Medium,Terminology Help,Mackay Regional Council,How does Ci 'Levy Code' map to CiA,analytics workspace,Yes,David Liu,
+CIA-6102,2025-12-25 20:01,2025-12-26 11:13,Closed,Critical,DocOne,Sunshine Coast Council,DocOne merge with new property fields,rate qualifier to levy,Yes,David Liu,15.2
+CIA-6103,2026-03-12 17:45,2026-03-13 16:39,Closed,Low,User Access,Brisbane City Council,Single sign-on configuration error,charge group configuration,Yes,Emma Thompson,22.9
+CIA-6104,2026-01-31 18:04,2026-02-01 21:40,Closed,Low,User Access,Mackay Regional Council,Workspace access not propagating to mobile,payment workspace,No,James Wilson,27.6
+CIA-6105,2026-04-30 22:42,2026-05-01 07:54,Closed,Critical,Payment Files,Newcastle City Council,Payment allocation rules behaving unexpectedly,charge group configuration,Yes,Emma Thompson,9.2
+CIA-6106,2025-12-29 21:39,2025-12-30 03:33,Resolved,Medium,Payment Files,Newcastle City Council,Payment file format change required for new bank,levy effective date,Yes,Emma Thompson,5.9
+CIA-6107,2026-04-23 13:47,,In Progress,Medium,Payment Files,Townsville City Council,Payment file format change required for new bank,charge control validator,No,Aisha Mohamed,
+CIA-6108,2026-03-19 20:57,2026-03-20 04:27,Closed,Low,Terminology Help,Sunshine Coast Council,Terminology question: Charge Group vs Charge Set,terminology mapping,Yes,Aisha Mohamed,7.5
+CIA-6109,2026-04-24 23:47,2026-04-25 16:17,Resolved,Low,User Access,Newcastle City Council,Single sign-on configuration error,transition tool error,Yes,Aisha Mohamed,16.5
+CIA-6110,2026-04-01 12:04,2026-04-02 11:40,Resolved,Medium,Property Records,Moreton Bay Regional Council,Cannot bulk update property classification,CDD template,Yes,James Wilson,23.6
+CIA-6111,2026-05-03 19:12,2026-05-05 06:18,Closed,Critical,Terminology Help,Brisbane City Council,Need plain language explanation of Levy stacking,analytics workspace,Yes,Emma Thompson,35.1
+CIA-6112,2025-12-23 16:30,2025-12-24 22:24,Closed,High,Reporting,Mackay Regional Council,Report builder permissions question,charge control validator,Yes,Sophie Anderson,29.9
+CIA-6113,2026-01-24 18:50,,Open,Low,Payment Files,Hawkesbury Council,Payment file format change required for new bank,transition tool error,Yes,Emma Thompson,
+CIA-6114,2026-04-11 04:44,2026-04-11 19:08,Resolved,Medium,DocOne,Wollongong City Council,DocOne merge with new property fields,transition tool error,Yes,Aisha Mohamed,14.4
+CIA-6115,2025-11-20 04:23,2025-11-20 04:41,Closed,Low,User Access,Mackay Regional Council,Single sign-on configuration error,rate qualifier to levy,Yes,Tom Bennett,0.3
+CIA-6116,2025-12-25 20:10,2025-12-26 01:40,Closed,Low,Property Records,Mackay Regional Council,Property record search returning incorrect results,levy effective date,Yes,Ravi Kumar,5.5
+CIA-6117,2026-03-09 11:51,2026-03-10 02:57,Closed,Low,Charge Controls,Brisbane City Council,How to configure charge group for new development,terminology mapping,Yes,Ravi Kumar,15.1
+CIA-6118,2026-05-13 13:08,2026-05-13 21:02,Resolved,Critical,Terminology Help,Ballarat City Council,Terminology question: Charge Group vs Charge Set,property record search,Yes,Ravi Kumar,7.9
+CIA-6119,2026-02-01 04:19,2026-02-02 23:19,Closed,Low,CDD & Transition,Geelong City Council,Transition tool flagged charge control discrepancy,transition tool error,No,Sophie Anderson,43.0
+CIA-6120,2026-01-07 18:56,2026-01-08 05:20,Resolved,Low,CDD & Transition,Logan City Council,CDD document section unclear to customer,property record search,No,Sarah Chen,10.4

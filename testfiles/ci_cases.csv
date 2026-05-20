@@ -1,0 +1,181 @@
+case_id,created_date,resolved_date,status,priority,category,council,subject,search_query,search_found_answer,consultant,resolution_hours
+CI-5001,2026-03-09 16:46,2026-03-12 17:34,Resolved,Medium,Property Records,Logan City Council,Property record duplicates after batch import,rate qualifier,Yes,James Wilson,72.8
+CI-5002,2026-03-29 01:19,2026-03-31 16:55,Closed,Low,Charge Controls,Wollongong City Council,Charge control config missing fields after upgrade,scheduled report,Yes,Sarah Chen,63.6
+CI-5003,2026-02-20 15:51,2026-02-22 04:57,Closed,Low,Payment Files,Geelong City Council,Payment reconciliation mismatch on weekend batch,DocOne template error,No,Sarah Chen,37.1
+CI-5004,2026-04-17 11:55,2026-04-18 10:55,Closed,Medium,Data Migration,Hawkesbury Council,Bulk update tool error code 4082,rates levy calculation,Yes,James Wilson,23.0
+CI-5005,2026-03-20 20:36,2026-03-21 15:00,Closed,Medium,General Ledger,Newcastle City Council,GL posting mismatch for residential rates,batch import error,Yes,Marcus O'Brien,18.4
+CI-5006,2026-03-17 18:31,2026-03-18 10:25,Resolved,Medium,Payment Files,Brisbane City Council,Payment file encoding issue causing failures,rate qualifier,Yes,David Liu,15.9
+CI-5007,2026-05-02 17:02,,Awaiting Customer,Low,User Access,Newcastle City Council,Permissions reset after upgrade,batch import error,No,Ravi Kumar,
+CI-5008,2026-04-13 16:13,2026-04-15 01:13,Closed,Medium,Payment Files,Sunshine Coast Council,Direct debit file format rejected by bank,property records duplicate,No,Sarah Chen,33.0
+CI-5009,2025-12-09 18:10,2025-12-12 19:10,Resolved,Medium,Property Records,Townsville City Council,Property type lookup missing categories,scheduled report,No,Aisha Mohamed,73.0
+CI-5010,2025-11-25 06:12,2025-11-26 09:36,Closed,Low,Charge Controls,Newcastle City Council,Rate Qualifier setup not pulling through to calculation,rate qualifier,No,Aisha Mohamed,27.4
+CI-5011,2026-04-21 03:41,,Awaiting Customer,Medium,Payment Files,Gold Coast City Council,Payment file encoding issue causing failures,property records duplicate,No,Sophie Anderson,
+CI-5012,2026-02-25 08:59,2026-02-26 10:29,Closed,High,Charge Controls,Logan City Council,Charge control config missing fields after upgrade,payment file format,Yes,Tom Bennett,25.5
+CI-5013,2026-01-14 21:12,2026-01-17 14:06,Resolved,Low,Property Records,Logan City Council,Property record duplicates after batch import,scheduled report,Yes,Sophie Anderson,64.9
+CI-5014,2026-02-05 02:19,2026-02-07 19:31,Closed,Low,DocOne,Brisbane City Council,DocOne output formatting broken in PDF,charge control config,Yes,Tom Bennett,65.2
+CI-5015,2026-05-17 21:15,2026-05-19 17:15,Closed,Low,DocOne,Cairns Regional Council,DocOne merge fields showing blank values,charge control config,Yes,James Wilson,44.0
+CI-5016,2025-12-22 08:45,2025-12-26 09:03,Closed,Low,Payment Files,Ipswich City Council,Payment file encoding issue causing failures,how to add levy,No,Emma Thompson,96.3
+CI-5017,2026-05-05 02:19,,Open,Low,User Access,Wollongong City Council,Permissions reset after upgrade,rates levy calculation,Yes,Marcus O'Brien,
+CI-5018,2026-03-31 06:32,2026-04-02 07:14,Resolved,Medium,DocOne,Hawkesbury Council,DocOne merge fields showing blank values,GL posting issue,Yes,Sophie Anderson,48.7
+CI-5019,2026-03-19 18:34,2026-03-22 11:04,Resolved,High,Charge Controls,Brisbane City Council,Rate Qualifier setup not pulling through to calculation,rate qualifier,Yes,Emma Thompson,64.5
+CI-5020,2026-03-06 10:16,,Awaiting Customer,Medium,General Ledger,Moreton Bay Regional Council,GL journal entries duplicating,user permissions,Yes,James Wilson,
+CI-5021,2025-12-31 22:13,2026-01-03 16:31,Resolved,Low,Charge Controls,Gold Coast City Council,Charge control config missing fields after upgrade,GL posting issue,Yes,Marcus O'Brien,66.3
+CI-5022,2026-02-04 20:04,2026-02-06 17:58,Resolved,Medium,Property Records,Mackay Regional Council,Property type lookup missing categories,data migration timeout,No,Sophie Anderson,45.9
+CI-5023,2026-03-27 02:15,2026-03-28 12:45,Closed,Medium,Reporting,Mackay Regional Council,Report export to Excel truncating data,how to add levy,Yes,Tom Bennett,34.5
+CI-5024,2026-01-01 17:28,2026-01-03 20:16,Closed,High,Property Records,Gold Coast City Council,Property record duplicates after batch import,charge control config,Yes,Ravi Kumar,50.8
+CI-5025,2025-11-29 06:41,,Open,High,General Ledger,Newcastle City Council,GL posting mismatch for residential rates,property records duplicate,Yes,Marcus O'Brien,
+CI-5026,2026-03-07 04:47,2026-03-09 04:11,Closed,Medium,Payment Files,Wollongong City Council,Direct debit file format rejected by bank,payment file format,No,Sarah Chen,47.4
+CI-5027,2026-03-09 23:00,2026-03-13 01:00,Resolved,Medium,Property Records,Cairns Regional Council,Cannot link property record to parent entity,payment file format,Yes,Sophie Anderson,74.0
+CI-5028,2026-05-16 20:56,,Awaiting Customer,High,User Access,Ipswich City Council,Role mapping incorrect for new starter,GL posting issue,Yes,Tom Bennett,
+CI-5029,2026-04-16 22:41,2026-04-21 07:05,Resolved,High,Payment Files,Hawkesbury Council,Payment reconciliation mismatch on weekend batch,charge control config,No,Marcus O'Brien,104.4
+CI-5030,2025-12-11 00:51,,Open,High,Reporting,Brisbane City Council,Scheduled report not running,property records duplicate,No,Priya Patel,
+CI-5031,2025-11-28 00:09,2025-11-28 05:33,Resolved,High,Reporting,Brisbane City Council,Scheduled report not running,how to add levy,Yes,Ravi Kumar,5.4
+CI-5032,2026-01-21 12:41,,Open,Low,DocOne,Ipswich City Council,DocOne merge fields showing blank values,batch import error,Yes,Aisha Mohamed,
+CI-5033,2026-02-18 03:28,2026-02-21 01:58,Resolved,Low,Property Records,Moreton Bay Regional Council,Property search returning incorrect results,payment file format,Yes,Sarah Chen,70.5
+CI-5034,2026-01-27 12:14,2026-01-28 20:08,Closed,Medium,Property Records,Newcastle City Council,Property valuation field not updating,GL posting issue,Yes,Tom Bennett,31.9
+CI-5035,2026-05-07 01:33,2026-05-09 20:39,Resolved,Medium,DocOne,Newcastle City Council,DocOne output formatting broken in PDF,how to add levy,No,David Liu,67.1
+CI-5036,2026-03-03 07:41,2026-03-04 03:59,Closed,Medium,Reporting,Logan City Council,Rates levy report not matching summary,payment file format,No,Emma Thompson,20.3
+CI-5037,2026-04-04 04:24,2026-04-05 15:36,Closed,Low,User Access,Ipswich City Council,Role mapping incorrect for new starter,scheduled report,No,Ravi Kumar,35.2
+CI-5038,2025-11-27 17:28,2025-11-29 05:16,Resolved,Medium,Data Migration,Hawkesbury Council,Migration log shows phantom errors,payment file format,No,Tom Bennett,35.8
+CI-5039,2026-03-19 02:41,2026-03-20 16:41,Resolved,Critical,Reporting,Sunshine Coast Council,Rates levy report not matching summary,scheduled report,No,Ravi Kumar,38.0
+CI-5040,2025-12-22 17:15,2025-12-24 11:09,Closed,Medium,User Access,Brisbane City Council,Role mapping incorrect for new starter,property records duplicate,No,Marcus O'Brien,41.9
+CI-5041,2026-04-03 01:27,2026-04-03 01:57,Resolved,Medium,User Access,Townsville City Council,User cannot access charge control config,user permissions,No,Tom Bennett,0.5
+CI-5042,2025-12-13 00:03,2025-12-13 13:57,Closed,High,Reporting,Cairns Regional Council,Scheduled report not running,rates levy calculation,No,Aisha Mohamed,13.9
+CI-5043,2026-01-05 08:20,2026-01-05 08:50,Resolved,Low,DocOne,Sunshine Coast Council,DocOne output formatting broken in PDF,DocOne template error,No,Priya Patel,0.5
+CI-5044,2026-02-09 01:51,2026-02-11 06:09,Resolved,Medium,Payment Files,Toowoomba Regional Council,Payment batch failed with timeout error,DocOne template error,No,Sarah Chen,52.3
+CI-5045,2026-02-08 05:16,2026-02-10 20:04,Closed,Low,DocOne,Toowoomba Regional Council,DocOne template version conflict,DocOne template error,Yes,Emma Thompson,62.8
+CI-5046,2026-03-23 15:33,2026-03-24 02:33,Closed,Low,DocOne,Ballarat City Council,DocOne template version conflict,batch import error,No,Priya Patel,11.0
+CI-5047,2025-12-10 06:59,,Awaiting Customer,Medium,Data Migration,Toowoomba Regional Council,Data migration script timeout,rate qualifier,Yes,Priya Patel,
+CI-5048,2026-05-06 15:36,2026-05-07 03:12,Closed,Low,Data Migration,Sunshine Coast Council,Data migration script timeout,data migration timeout,Yes,Ravi Kumar,11.6
+CI-5049,2026-05-05 12:46,2026-05-07 07:52,Resolved,High,Charge Controls,Brisbane City Council,Charge control config missing fields after upgrade,charge control config,Yes,Tom Bennett,43.1
+CI-5050,2026-04-16 08:18,2026-04-19 01:54,Closed,High,Payment Files,Ballarat City Council,Payment batch failed with timeout error,property records duplicate,No,Marcus O'Brien,65.6
+CI-5051,2026-04-21 05:59,,Awaiting Customer,Medium,Payment Files,Ballarat City Council,Direct debit file format rejected by bank,data migration timeout,No,James Wilson,
+CI-5052,2025-11-23 03:45,2025-11-24 05:39,Closed,High,Property Records,Geelong City Council,Property valuation field not updating,scheduled report,No,Tom Bennett,25.9
+CI-5053,2026-01-02 10:18,2026-01-02 20:42,Closed,High,Charge Controls,Ipswich City Council,Levy summary report showing zero values,how to add levy,No,Ravi Kumar,10.4
+CI-5054,2026-04-03 00:27,,In Progress,Medium,Payment Files,Cairns Regional Council,Payment reconciliation mismatch on weekend batch,GL posting issue,No,Emma Thompson,
+CI-5055,2026-03-17 21:43,,Open,High,General Ledger,Toowoomba Regional Council,Period-end close failing on GL reconciliation,scheduled report,No,David Liu,
+CI-5056,2026-02-24 18:29,2026-02-26 05:29,Closed,Low,Charge Controls,Moreton Bay Regional Council,Rate Qualifier not applying to mixed-use property,scheduled report,No,Sophie Anderson,35.0
+CI-5057,2026-03-31 21:45,2026-03-31 22:15,Closed,Medium,Charge Controls,Brisbane City Council,Charge control config missing fields after upgrade,user permissions,Yes,Marcus O'Brien,0.5
+CI-5058,2026-02-04 01:45,2026-02-05 17:09,Closed,Medium,General Ledger,Ballarat City Council,GL account code not found error,GL posting issue,Yes,Sophie Anderson,39.4
+CI-5059,2025-11-20 09:43,2025-11-22 03:13,Closed,Low,Reporting,Ballarat City Council,Report export to Excel truncating data,GL posting issue,No,Priya Patel,41.5
+CI-5060,2026-01-15 15:14,2026-01-18 23:38,Closed,Critical,DocOne,Ipswich City Council,DocOne merge fields showing blank values,charge control config,Yes,Priya Patel,80.4
+CI-5061,2026-01-02 19:43,2026-01-05 05:37,Resolved,Medium,General Ledger,Brisbane City Council,GL posting mismatch for residential rates,user permissions,Yes,Tom Bennett,57.9
+CI-5062,2026-01-16 09:39,2026-01-18 05:27,Resolved,Low,General Ledger,Sunshine Coast Council,GL journal entries duplicating,user permissions,Yes,Emma Thompson,43.8
+CI-5063,2025-12-22 03:17,2025-12-24 12:35,Closed,Low,Data Migration,Geelong City Council,Data migration script timeout,charge control config,Yes,Emma Thompson,57.3
+CI-5064,2026-01-23 09:41,,In Progress,Low,DocOne,Ballarat City Council,DocOne template version conflict,scheduled report,Yes,Marcus O'Brien,
+CI-5065,2026-03-12 02:55,2026-03-14 19:55,Resolved,Medium,DocOne,Cairns Regional Council,DocOne merge fields showing blank values,property records duplicate,Yes,Tom Bennett,65.0
+CI-5066,2026-05-10 16:42,2026-05-11 19:42,Resolved,High,Data Migration,Geelong City Council,Migration log shows phantom errors,batch import error,No,James Wilson,27.0
+CI-5067,2025-12-30 16:19,2025-12-30 22:49,Closed,High,User Access,Geelong City Council,User cannot access charge control config,how to add levy,Yes,Aisha Mohamed,6.5
+CI-5068,2026-04-17 09:16,2026-04-18 02:58,Closed,Medium,General Ledger,Toowoomba Regional Council,GL journal entries duplicating,scheduled report,Yes,David Liu,17.7
+CI-5069,2026-04-25 16:17,,Awaiting Customer,Medium,General Ledger,Hawkesbury Council,GL posting mismatch for residential rates,rate qualifier,No,Aisha Mohamed,
+CI-5070,2026-01-18 07:19,2026-01-20 08:07,Closed,Low,Charge Controls,Wollongong City Council,Charge control variance between source and target,scheduled report,Yes,Ravi Kumar,48.8
+CI-5071,2026-02-18 10:39,2026-02-20 11:45,Closed,Medium,Property Records,Toowoomba Regional Council,Cannot link property record to parent entity,payment file format,No,Sophie Anderson,49.1
+CI-5072,2026-04-26 13:44,2026-04-28 11:50,Closed,High,Charge Controls,Townsville City Council,Rate Qualifier not applying to mixed-use property,rate qualifier,No,Ravi Kumar,46.1
+CI-5073,2026-03-31 07:37,2026-03-31 13:25,Resolved,Low,User Access,Moreton Bay Regional Council,User cannot access charge control config,GL posting issue,Yes,Ravi Kumar,5.8
+CI-5074,2026-05-11 03:22,2026-05-12 15:40,Resolved,Low,Data Migration,Sunshine Coast Council,Data migration script timeout,rate qualifier,No,James Wilson,36.3
+CI-5075,2026-04-18 03:07,2026-04-20 12:19,Closed,Medium,Property Records,Logan City Council,Cannot link property record to parent entity,user permissions,No,Ravi Kumar,57.2
+CI-5076,2026-03-31 04:28,2026-04-01 06:52,Resolved,High,Payment Files,Wollongong City Council,Payment reconciliation mismatch on weekend batch,payment file format,No,Emma Thompson,26.4
+CI-5077,2026-05-18 14:14,2026-05-18 14:44,Closed,High,Reporting,Ipswich City Council,Report export to Excel truncating data,user permissions,Yes,David Liu,0.5
+CI-5078,2026-02-25 17:16,2026-02-25 17:46,Closed,Low,User Access,Ballarat City Council,Permissions reset after upgrade,data migration timeout,Yes,Ravi Kumar,0.5
+CI-5079,2025-11-30 03:51,2025-12-03 00:03,Closed,High,User Access,Newcastle City Council,Permissions reset after upgrade,user permissions,Yes,Ravi Kumar,68.2
+CI-5080,2026-02-03 03:51,2026-02-04 23:27,Closed,Low,Charge Controls,Sunshine Coast Council,Charge control variance between source and target,rates levy calculation,Yes,David Liu,43.6
+CI-5081,2025-12-09 01:04,2025-12-10 18:22,Resolved,Low,User Access,Logan City Council,Permissions reset after upgrade,batch import error,No,Marcus O'Brien,41.3
+CI-5082,2025-12-07 01:05,2025-12-08 07:41,Resolved,Medium,User Access,Geelong City Council,User cannot access charge control config,rate qualifier,Yes,Sarah Chen,30.6
+CI-5083,2026-02-12 10:51,2026-02-12 11:21,Resolved,Low,General Ledger,Toowoomba Regional Council,Period-end close failing on GL reconciliation,how to add levy,No,Tom Bennett,0.5
+CI-5084,2025-12-20 19:46,2025-12-23 05:58,Closed,Medium,DocOne,Geelong City Council,DocOne template version conflict,batch import error,Yes,Ravi Kumar,58.2
+CI-5085,2026-04-30 09:38,,In Progress,Medium,General Ledger,Cairns Regional Council,GL account code not found error,data migration timeout,No,Aisha Mohamed,
+CI-5086,2026-01-15 20:45,2026-01-16 17:57,Closed,Low,DocOne,Brisbane City Council,DocOne template version conflict,batch import error,No,Tom Bennett,21.2
+CI-5087,2026-01-11 14:11,2026-01-13 20:23,Closed,Low,Charge Controls,Hawkesbury Council,Charge control config missing fields after upgrade,charge control config,No,Priya Patel,54.2
+CI-5088,2026-02-28 09:58,2026-03-01 20:40,Closed,Low,Property Records,Gold Coast City Council,Property record duplicates after batch import,data migration timeout,Yes,Sophie Anderson,34.7
+CI-5089,2026-04-06 15:02,,In Progress,Critical,Reporting,Ipswich City Council,Report export to Excel truncating data,payment file format,No,Marcus O'Brien,
+CI-5090,2026-04-12 16:05,2026-04-13 15:59,Closed,Critical,Data Migration,Geelong City Council,Data migration script timeout,GL posting issue,Yes,Emma Thompson,23.9
+CI-5091,2026-01-01 20:31,2026-01-03 08:25,Closed,High,Charge Controls,Logan City Council,Levy summary report showing zero values,DocOne template error,Yes,Ravi Kumar,35.9
+CI-5092,2025-12-26 13:02,2025-12-27 03:14,Resolved,Medium,Charge Controls,Moreton Bay Regional Council,Charge control config missing fields after upgrade,user permissions,No,Emma Thompson,14.2
+CI-5093,2026-05-07 22:41,,Open,Low,Property Records,Cairns Regional Council,Property type lookup missing categories,GL posting issue,Yes,David Liu,
+CI-5094,2026-04-09 10:19,2026-04-09 17:43,Closed,Low,User Access,Cairns Regional Council,Role mapping incorrect for new starter,DocOne template error,Yes,James Wilson,7.4
+CI-5095,2025-11-24 12:26,,Awaiting Customer,Medium,Reporting,Sunshine Coast Council,Rates levy report not matching summary,data migration timeout,Yes,Ravi Kumar,
+CI-5096,2025-12-05 03:22,,Open,High,Property Records,Geelong City Council,Property type lookup missing categories,charge control config,No,Tom Bennett,
+CI-5097,2025-12-28 17:23,2025-12-30 07:17,Resolved,Low,DocOne,Mackay Regional Council,DocOne template failing on bulk run,property records duplicate,No,Sarah Chen,37.9
+CI-5098,2026-04-15 06:44,2026-04-18 14:02,Resolved,Low,General Ledger,Brisbane City Council,GL account code not found error,charge control config,No,Priya Patel,79.3
+CI-5099,2026-04-16 00:34,2026-04-19 00:22,Resolved,Medium,General Ledger,Sunshine Coast Council,GL posting mismatch for residential rates,DocOne template error,No,Ravi Kumar,71.8
+CI-5100,2025-12-01 07:41,2025-12-03 05:23,Closed,High,DocOne,Cairns Regional Council,DocOne template failing on bulk run,data migration timeout,No,Ravi Kumar,45.7
+CI-5101,2026-02-25 04:51,2026-02-26 14:39,Closed,Medium,Property Records,Ipswich City Council,Property record duplicates after batch import,scheduled report,No,Emma Thompson,33.8
+CI-5102,2026-01-09 04:33,2026-01-10 00:09,Resolved,Medium,General Ledger,Wollongong City Council,GL journal entries duplicating,charge control config,Yes,Ravi Kumar,19.6
+CI-5103,2026-04-24 13:33,2026-04-24 14:03,Closed,Medium,User Access,Cairns Regional Council,Permissions reset after upgrade,property records duplicate,No,Marcus O'Brien,0.5
+CI-5104,2026-04-25 10:54,2026-04-26 12:36,Resolved,Medium,Property Records,Hawkesbury Council,Property record duplicates after batch import,GL posting issue,No,Marcus O'Brien,25.7
+CI-5105,2025-11-29 10:05,,Open,Critical,User Access,Sunshine Coast Council,Permissions reset after upgrade,scheduled report,Yes,Tom Bennett,
+CI-5106,2025-12-01 08:46,,In Progress,High,DocOne,Moreton Bay Regional Council,DocOne merge fields showing blank values,DocOne template error,Yes,Tom Bennett,
+CI-5107,2025-12-26 04:21,2025-12-28 02:57,Resolved,Medium,DocOne,Moreton Bay Regional Council,DocOne template version conflict,batch import error,No,Sarah Chen,46.6
+CI-5108,2025-11-20 14:02,2025-11-24 10:32,Closed,Low,Payment Files,Brisbane City Council,Direct debit file format rejected by bank,rates levy calculation,No,Marcus O'Brien,92.5
+CI-5109,2026-01-31 09:39,2026-02-01 23:51,Closed,Medium,DocOne,Newcastle City Council,DocOne template version conflict,scheduled report,No,Sarah Chen,38.2
+CI-5110,2025-12-11 22:17,2025-12-12 06:41,Closed,Medium,Payment Files,Sunshine Coast Council,Payment batch failed with timeout error,charge control config,No,David Liu,8.4
+CI-5111,2026-03-07 02:17,2026-03-09 00:35,Closed,Low,User Access,Brisbane City Council,User cannot access charge control config,data migration timeout,No,Sarah Chen,46.3
+CI-5112,2026-03-25 19:12,2026-03-27 05:36,Closed,Low,DocOne,Logan City Council,DocOne output formatting broken in PDF,data migration timeout,No,Sophie Anderson,34.4
+CI-5113,2026-02-06 00:58,2026-02-07 16:04,Closed,High,Reporting,Mackay Regional Council,Rates levy report not matching summary,DocOne template error,No,Emma Thompson,39.1
+CI-5114,2026-04-19 11:59,,Open,High,User Access,Ballarat City Council,Permissions reset after upgrade,scheduled report,Yes,David Liu,
+CI-5115,2026-04-21 16:33,2026-04-22 00:45,Closed,Medium,Property Records,Gold Coast City Council,Cannot link property record to parent entity,charge control config,Yes,Marcus O'Brien,8.2
+CI-5116,2026-01-08 17:03,2026-01-10 00:51,Closed,Medium,Property Records,Logan City Council,Property valuation field not updating,batch import error,No,Marcus O'Brien,31.8
+CI-5117,2026-03-29 18:22,2026-03-31 06:58,Closed,Medium,Payment Files,Cairns Regional Council,Direct debit file format rejected by bank,scheduled report,No,Tom Bennett,36.6
+CI-5118,2026-04-10 09:56,2026-04-11 10:50,Closed,High,Reporting,Townsville City Council,Report export to Excel truncating data,scheduled report,Yes,Marcus O'Brien,24.9
+CI-5119,2026-01-23 22:57,2026-01-25 01:39,Resolved,Medium,General Ledger,Mackay Regional Council,GL journal entries duplicating,GL posting issue,Yes,Sophie Anderson,26.7
+CI-5120,2025-12-23 03:48,2025-12-26 07:00,Closed,Medium,Charge Controls,Geelong City Council,Rate Qualifier not applying to mixed-use property,rate qualifier,No,David Liu,75.2
+CI-5121,2025-12-04 18:58,2025-12-05 03:04,Resolved,Medium,Property Records,Geelong City Council,Property valuation field not updating,payment file format,Yes,David Liu,8.1
+CI-5122,2026-05-02 13:54,2026-05-04 13:24,Closed,Low,Charge Controls,Newcastle City Council,Levy summary report showing zero values,rates levy calculation,No,Tom Bennett,47.5
+CI-5123,2026-04-28 05:18,2026-04-28 05:48,Closed,Low,Payment Files,Moreton Bay Regional Council,Direct debit file format rejected by bank,rates levy calculation,No,Sophie Anderson,0.5
+CI-5124,2026-02-23 19:18,2026-02-27 18:42,Resolved,Medium,User Access,Brisbane City Council,Role mapping incorrect for new starter,data migration timeout,No,David Liu,95.4
+CI-5125,2026-03-25 13:11,2026-03-27 03:23,Resolved,Low,General Ledger,Townsville City Council,GL account code not found error,how to add levy,No,Sophie Anderson,38.2
+CI-5126,2025-12-11 19:22,2025-12-13 22:28,Resolved,Low,Charge Controls,Geelong City Council,Levy summary report showing zero values,rates levy calculation,No,Priya Patel,51.1
+CI-5127,2026-02-02 12:17,2026-02-05 14:05,Closed,Low,Data Migration,Geelong City Council,Data migration script timeout,charge control config,Yes,Ravi Kumar,73.8
+CI-5128,2025-11-26 05:32,2025-11-27 10:14,Closed,High,DocOne,Gold Coast City Council,DocOne output formatting broken in PDF,GL posting issue,No,James Wilson,28.7
+CI-5129,2026-05-05 03:30,,Awaiting Customer,High,Payment Files,Wollongong City Council,Direct debit file format rejected by bank,rates levy calculation,No,Marcus O'Brien,
+CI-5130,2026-04-07 15:32,,Open,High,General Ledger,Logan City Council,GL posting mismatch for residential rates,how to add levy,No,Ravi Kumar,
+CI-5131,2026-02-01 22:35,2026-02-03 18:41,Closed,Low,Reporting,Wollongong City Council,Rates levy report not matching summary,DocOne template error,No,David Liu,44.1
+CI-5132,2026-05-09 14:02,,Awaiting Customer,High,Payment Files,Mackay Regional Council,Payment batch failed with timeout error,rates levy calculation,No,Sarah Chen,
+CI-5133,2026-03-14 17:07,2026-03-19 23:07,Closed,Low,Property Records,Sunshine Coast Council,Property record duplicates after batch import,payment file format,Yes,Sarah Chen,126.0
+CI-5134,2025-12-06 04:31,2025-12-08 09:37,Resolved,Medium,DocOne,Gold Coast City Council,DocOne template version conflict,scheduled report,Yes,Aisha Mohamed,53.1
+CI-5135,2025-12-12 12:45,2025-12-12 20:33,Resolved,Medium,User Access,Ipswich City Council,User cannot access charge control config,how to add levy,No,Marcus O'Brien,7.8
+CI-5136,2026-01-18 22:20,2026-01-19 01:50,Closed,High,Charge Controls,Hawkesbury Council,Rate Qualifier not applying to mixed-use property,DocOne template error,Yes,Marcus O'Brien,3.5
+CI-5137,2026-05-07 12:26,2026-05-10 09:38,Resolved,High,Reporting,Ballarat City Council,Custom report missing date filter,batch import error,No,Ravi Kumar,69.2
+CI-5138,2026-05-02 01:11,,Open,Low,Payment Files,Newcastle City Council,Payment batch failed with timeout error,rate qualifier,No,Sarah Chen,
+CI-5139,2026-01-07 11:08,2026-01-08 22:08,Resolved,Low,Reporting,Ipswich City Council,Report export to Excel truncating data,rate qualifier,No,Aisha Mohamed,35.0
+CI-5140,2026-01-27 11:13,2026-01-30 22:01,Closed,Low,Property Records,Cairns Regional Council,Property search returning incorrect results,property records duplicate,No,David Liu,82.8
+CI-5141,2026-01-30 21:33,2026-02-02 00:57,Closed,Low,General Ledger,Moreton Bay Regional Council,GL posting mismatch for residential rates,DocOne template error,No,Ravi Kumar,51.4
+CI-5142,2025-11-23 09:38,2025-11-23 14:02,Closed,Medium,User Access,Geelong City Council,User cannot access charge control config,data migration timeout,Yes,Sarah Chen,4.4
+CI-5143,2026-02-14 07:09,2026-02-15 22:57,Closed,Low,Property Records,Hawkesbury Council,Cannot link property record to parent entity,how to add levy,Yes,David Liu,39.8
+CI-5144,2025-12-24 22:22,2025-12-26 16:16,Closed,High,Reporting,Sunshine Coast Council,Scheduled report not running,DocOne template error,No,Tom Bennett,41.9
+CI-5145,2026-02-14 11:40,2026-02-15 23:40,Resolved,Medium,Payment Files,Sunshine Coast Council,Payment file encoding issue causing failures,data migration timeout,No,Aisha Mohamed,36.0
+CI-5146,2026-03-25 04:42,2026-03-27 06:24,Closed,Low,General Ledger,Cairns Regional Council,GL journal entries duplicating,property records duplicate,No,Priya Patel,49.7
+CI-5147,2025-11-25 13:18,2025-11-28 09:24,Closed,High,Data Migration,Ballarat City Council,Data migration script timeout,rates levy calculation,No,Priya Patel,68.1
+CI-5148,2026-04-17 17:10,2026-04-19 19:04,Closed,Low,Reporting,Cairns Regional Council,Custom report missing date filter,GL posting issue,No,Sophie Anderson,49.9
+CI-5149,2026-04-26 21:41,2026-04-28 03:05,Closed,High,Payment Files,Ipswich City Council,Payment file encoding issue causing failures,scheduled report,Yes,Marcus O'Brien,29.4
+CI-5150,2025-11-25 07:38,2025-11-25 12:20,Resolved,High,Data Migration,Newcastle City Council,Migration log shows phantom errors,property records duplicate,No,Sarah Chen,4.7
+CI-5151,2026-04-09 14:50,2026-04-11 21:14,Closed,High,Property Records,Townsville City Council,Property valuation field not updating,payment file format,Yes,Aisha Mohamed,54.4
+CI-5152,2025-12-12 06:55,2025-12-13 10:55,Resolved,Medium,Payment Files,Hawkesbury Council,Direct debit file format rejected by bank,scheduled report,Yes,Tom Bennett,28.0
+CI-5153,2026-05-11 21:58,,Awaiting Customer,Low,Reporting,Toowoomba Regional Council,Rates levy report not matching summary,charge control config,No,Tom Bennett,
+CI-5154,2025-12-09 06:42,2025-12-10 12:00,Closed,Low,Charge Controls,Gold Coast City Council,Rate Qualifier not applying to mixed-use property,how to add levy,No,Ravi Kumar,29.3
+CI-5155,2026-01-20 17:39,2026-01-23 01:33,Closed,High,User Access,Wollongong City Council,Permissions reset after upgrade,DocOne template error,No,David Liu,55.9
+CI-5156,2026-02-13 07:25,2026-02-14 20:07,Closed,Low,User Access,Toowoomba Regional Council,User cannot access charge control config,how to add levy,Yes,Tom Bennett,36.7
+CI-5157,2026-04-08 13:01,2026-04-10 15:19,Closed,Low,User Access,Townsville City Council,User cannot access charge control config,property records duplicate,No,Ravi Kumar,50.3
+CI-5158,2026-01-11 23:55,,Awaiting Customer,Medium,Data Migration,Ipswich City Council,Migration log shows phantom errors,charge control config,Yes,Sarah Chen,
+CI-5159,2026-01-12 04:04,,Awaiting Customer,Medium,Charge Controls,Sunshine Coast Council,Levy summary report showing zero values,GL posting issue,Yes,Emma Thompson,
+CI-5160,2026-02-14 11:37,2026-02-17 09:43,Closed,Medium,Payment Files,Cairns Regional Council,Direct debit file format rejected by bank,how to add levy,Yes,Sophie Anderson,70.1
+CI-5161,2026-04-16 20:35,2026-04-18 19:59,Closed,Medium,General Ledger,Logan City Council,GL posting mismatch for residential rates,DocOne template error,No,Tom Bennett,47.4
+CI-5162,2026-05-08 22:58,2026-05-09 19:10,Closed,Low,User Access,Newcastle City Council,Role mapping incorrect for new starter,GL posting issue,Yes,Tom Bennett,20.2
+CI-5163,2026-02-07 04:13,,Awaiting Customer,Low,Reporting,Ballarat City Council,Custom report missing date filter,GL posting issue,No,Tom Bennett,
+CI-5164,2026-05-14 12:39,2026-05-17 04:09,Closed,Medium,General Ledger,Hawkesbury Council,GL journal entries duplicating,rates levy calculation,No,Sarah Chen,63.5
+CI-5165,2025-12-02 05:24,2025-12-04 23:48,Closed,Low,Data Migration,Mackay Regional Council,Migration log shows phantom errors,batch import error,Yes,Marcus O'Brien,66.4
+CI-5166,2026-01-26 13:34,2026-01-28 11:46,Resolved,Medium,DocOne,Wollongong City Council,DocOne template failing on bulk run,scheduled report,No,Sarah Chen,46.2
+CI-5167,2026-03-26 06:40,,In Progress,Medium,Payment Files,Cairns Regional Council,Payment file encoding issue causing failures,DocOne template error,No,Sophie Anderson,
+CI-5168,2025-11-26 00:17,2025-11-26 22:53,Resolved,Critical,Reporting,Logan City Council,Report export to Excel truncating data,payment file format,No,Aisha Mohamed,22.6
+CI-5169,2025-11-23 01:29,2025-11-23 01:59,Closed,Medium,General Ledger,Sunshine Coast Council,GL account code not found error,rates levy calculation,Yes,Tom Bennett,0.5
+CI-5170,2026-02-19 19:42,2026-02-21 18:36,Closed,Medium,User Access,Logan City Council,Permissions reset after upgrade,rates levy calculation,No,Sophie Anderson,46.9
+CI-5171,2026-04-13 20:21,2026-04-15 05:15,Resolved,Low,General Ledger,Logan City Council,Period-end close failing on GL reconciliation,batch import error,No,James Wilson,32.9
+CI-5172,2026-02-02 13:15,2026-02-03 18:51,Resolved,Medium,Charge Controls,Logan City Council,Rate Qualifier setup not pulling through to calculation,user permissions,Yes,Aisha Mohamed,29.6
+CI-5173,2025-12-04 22:02,2025-12-05 20:14,Resolved,Medium,Reporting,Brisbane City Council,Report export to Excel truncating data,rates levy calculation,No,Priya Patel,22.2
+CI-5174,2026-05-09 11:10,2026-05-13 17:10,Closed,High,User Access,Mackay Regional Council,User cannot access charge control config,rate qualifier,Yes,Marcus O'Brien,102.0
+CI-5175,2026-01-22 03:26,2026-01-22 11:38,Resolved,High,Reporting,Geelong City Council,Report export to Excel truncating data,user permissions,Yes,Marcus O'Brien,8.2
+CI-5176,2026-01-21 03:44,2026-01-23 17:02,Closed,Medium,Reporting,Wollongong City Council,Custom report missing date filter,charge control config,Yes,Emma Thompson,61.3
+CI-5177,2026-02-24 21:35,2026-02-26 11:47,Resolved,Critical,User Access,Logan City Council,Role mapping incorrect for new starter,user permissions,Yes,Sarah Chen,38.2
+CI-5178,2026-03-19 09:12,2026-03-20 03:24,Resolved,Low,General Ledger,Brisbane City Council,GL journal entries duplicating,DocOne template error,No,Marcus O'Brien,18.2
+CI-5179,2026-04-08 11:17,2026-04-11 07:47,Closed,Medium,Data Migration,Moreton Bay Regional Council,Migration log shows phantom errors,batch import error,No,David Liu,68.5
+CI-5180,2026-04-14 08:51,2026-04-16 23:51,Closed,High,DocOne,Geelong City Council,DocOne merge fields showing blank values,batch import error,No,James Wilson,63.0

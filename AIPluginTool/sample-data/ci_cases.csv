@@ -1,0 +1,16 @@
+case_id,status,created_at,resolved_at,search_term,resolution,search_success,topic
+CI-1001,open,2026-04-28,,"rate qualifier",,false,rates and levies
+CI-1002,closed,2026-04-28,2026-04-29,"rate qualifier","Mapped legacy rate qualifier to CiA levy code",true,rates and levies
+CI-1003,closed,2026-04-29,2026-04-30,"charge control","Aligned charge controls between source and target",true,charge controls
+CI-1004,open,2026-04-30,,"charge control",,false,charge controls
+CI-1005,closed,2026-05-01,2026-05-02,"cdd draft","Completed CDD checklist and attached council policy pack",true,cdd transition
+CI-1006,closed,2026-05-01,2026-05-03,"cdd draft","Published CDD template for pilot council",true,cdd transition
+CI-1007,open,2026-05-02,,"cdd draft",,false,cdd transition
+CI-1008,closed,2026-05-02,2026-05-04,"rate qualifier","Documented levy mapping for transition wiki",true,rates and levies
+CI-1009,closed,2026-05-03,2026-05-04,"billing issue","Reversed duplicate invoice and reissued levy notice",true,billing
+CI-1010,open,2026-05-04,,"billing issue",,false,billing
+CI-1011,closed,2026-05-04,2026-05-05,"charge control","Reconciled valuation charge controls",true,charge controls
+CI-1012,closed,2026-05-05,2026-05-06,"rate qualifier","Validated rate qualifier export mapping",true,rates and levies
+CI-1013,closed,2026-05-05,2026-05-07,"password reset","Reset credentials and cleared stale CI sessions",true,account access
+CI-1014,open,2026-05-06,,"charge control",,false,charge controls
+CI-1015,closed,2026-05-07,2026-05-08,"billing issue","Corrected invoice line items for transition pilot",true,billing

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: t1-cia-assistant
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_CLIENT
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_EMAIL
+        sync: false
+      - key: AUTH_PASSWORD
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: DB_PATH
+        value: /var/data/chat.db
+    disk:
+      name: sqlite-data
+      mountPath: /var/data
+      sizeGB: 1

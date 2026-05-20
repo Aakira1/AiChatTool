@@ -1,0 +1,31 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-sqlite --watch src/index.js",
+    "build": "node -e \"console.log('No build needed for server')\"",
+    "start": "node --experimental-sqlite src/index.js",
+    "hash-password": "node scripts/hash-password.mjs",
+    "test": "vitest run",
+    "lint": "node -e \"console.log('No linter configured')\""
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "mammoth": "^1.9.0",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1",
+    "vitest": "^3.0.5"
+  }
+}

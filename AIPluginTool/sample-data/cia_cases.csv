@@ -1,0 +1,16 @@
+case_id,status,created_at,resolved_at,search_term,resolution,search_success,topic
+CIA-2001,open,2026-04-28,,"rate qualifier",,false,rates and levies
+CIA-2002,closed,2026-04-28,2026-04-30,"rate qualifier","Documented Ci equivalent for legacy rate qualifier",true,rates and levies
+CIA-2003,closed,2026-04-29,2026-04-30,"charge control","Reconciled 12 controls and closed validation gap",true,charge controls
+CIA-2004,open,2026-04-30,,"charge control",,false,charge controls
+CIA-2005,closed,2026-05-01,2026-05-02,"cdd draft","Approved CDD draft with CiA levy references",true,cdd transition
+CIA-2006,closed,2026-05-01,2026-05-03,"cdd draft","Uploaded council pack to CiA CDD workflow",true,cdd transition
+CIA-2007,open,2026-05-02,,"cdd draft",,false,cdd transition
+CIA-2008,closed,2026-05-02,2026-05-04,"rate qualifier","Mapped levy categories for cutover",true,rates and levies
+CIA-2009,closed,2026-05-03,2026-05-04,"billing issue","Issued refund for duplicate transaction",true,billing
+CIA-2010,open,2026-05-04,,"billing issue",,false,billing
+CIA-2011,closed,2026-05-04,2026-05-05,"charge control","Added charge control runbook to transition wiki",true,charge controls
+CIA-2012,closed,2026-05-05,2026-05-06,"rate qualifier","Validated levy setup against source export",true,rates and levies
+CIA-2013,closed,2026-05-05,2026-05-07,"password reset","Reset credentials and enabled recovery options",true,account access
+CIA-2014,open,2026-05-06,,"charge control",,false,charge controls
+CIA-2015,closed,2026-05-07,2026-05-09,"billing issue","Applied promotional credit after migration",true,billing
