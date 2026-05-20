@@ -23,6 +23,13 @@ export async function prepareAssistantMessages({
   const preferences = getPreferences();
   const attachmentContext = buildAttachmentContext(attachments);
 
+  const artifactSummary = {
+    intent: artifacts.intent,
+    comparison: artifacts.comparison,
+    caseLinkCount: artifacts.caseLinks?.length ?? 0,
+    chartCount: artifacts.metricsCharts?.length ?? 0,
+  };
+
   const systemPrompt = `${buildSystemPrompt({
     preferences,
     pageContext,
@@ -32,8 +39,8 @@ export async function prepareAssistantMessages({
     knowledgeChunks,
   })}
 
-Structured review prepared for this answer:
-${JSON.stringify(artifacts, null, 2)}`;
+Structured review hints for this answer (expand in the response when relevant):
+${JSON.stringify(artifactSummary)}`;
 
   const userContent = attachmentContext
     ? `${latestUserMessage}\n\n${attachmentContext}\n\nAnalyze the attached document(s) and relate findings to Ci/CiA transition context when relevant.`

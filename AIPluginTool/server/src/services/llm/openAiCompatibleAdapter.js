@@ -33,7 +33,13 @@ export class OpenAiCompatibleAdapter extends BaseLlmAdapter {
     });
 
     if (!response.ok || !response.body) {
-      throw new Error(`Provider request failed with status ${response.status}`);
+      const detail = await response.text().catch(() => "");
+      const snippet = detail.slice(0, 280).trim();
+      throw new Error(
+        snippet
+          ? `Workers AI error (${response.status}): ${snippet}`
+          : `Workers AI request failed with status ${response.status}`,
+      );
     }
 
     const reader = response.body.getReader();

@@ -198,7 +198,10 @@ async function consumeChatStream(response, callbacks) {
 
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error ?? "Failed to stream chat");
+    throw new Error(
+      payload.error ??
+        `Chat request failed (${response.status}). Check server logs and Cloudflare API keys.`,
+    );
   }
 
   const decoder = new TextDecoder();

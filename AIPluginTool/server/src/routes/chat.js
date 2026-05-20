@@ -65,10 +65,6 @@ async function runAssistantStream({
   pageContext,
   request,
 }) {
-  response.setHeader("Content-Type", "text/event-stream");
-  response.setHeader("Cache-Control", "no-cache");
-  response.setHeader("Connection", "keep-alive");
-
   let assistantContent = "";
   const abortController = new AbortController();
   const timeout = setTimeout(() => abortController.abort(), env.requestTimeoutMs);
@@ -82,6 +78,11 @@ async function runAssistantStream({
       pageContext,
       conversationId,
     });
+
+    response.setHeader("Content-Type", "text/event-stream");
+    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("Connection", "keep-alive");
+    response.flushHeaders?.();
 
     for await (const token of streamFromMessages({
       messages,

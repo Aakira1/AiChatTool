@@ -56,7 +56,9 @@ export const env = {
   cloudflareModel:
     process.env.CLOUDFLARE_MODEL ?? "@cf/meta/llama-3.1-8b-instruct",
   vectorizeIndexName,
-  vectorizeEnabled: Boolean(vectorizeIndexName && cloudflareAccountId && cloudflareApiToken),
+  vectorizeEnabled:
+    process.env.VECTORIZE_ENABLED === "true" &&
+    Boolean(vectorizeIndexName && cloudflareAccountId && cloudflareApiToken),
   embeddingModel:
     process.env.CLOUDFLARE_EMBEDDING_MODEL ?? "@cf/baai/bge-base-en-v1.5",
   ragTopK: Number(process.env.RAG_TOP_K ?? 8),

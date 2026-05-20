@@ -220,23 +220,28 @@ export async function retrieveKnowledge(query, { topK } = {}) {
     return [];
   }
 
-  const [queryVector] = await embedTexts([trimmed]);
-  const matches = await queryVectors(queryVector, { topK: limit });
+  try {
+    const [queryVector] = await embedTexts([trimmed]);
+    const matches = await queryVectors(queryVector, { topK: limit });
 
-  return matches
-    .map((match) => ({
-      id: match.id,
-      score: match.score ?? 0,
-      title: match.metadata?.title ?? match.id,
-      snippet: match.metadata?.snippet ?? "",
-      sourceType: match.metadata?.sourceType ?? "knowledge",
-      source: match.metadata?.source ?? null,
-      caseId: match.metadata?.caseId ?? null,
-      ciTerm: match.metadata?.ciTerm ?? null,
-      ciaTerm: match.metadata?.ciaTerm ?? null,
-      fileName: match.metadata?.fileName ?? null,
-    }))
-    .filter((item) => item.score > 0.55);
+    return matches
+      .map((match) => ({
+        id: match.id,
+        score: match.score ?? 0,
+        title: match.metadata?.title ?? match.id,
+        snippet: match.metadata?.snippet ?? "",
+        sourceType: match.metadata?.sourceType ?? "knowledge",
+        source: match.metadata?.source ?? null,
+        caseId: match.metadata?.caseId ?? null,
+        ciTerm: match.metadata?.ciTerm ?? null,
+        ciaTerm: match.metadata?.ciaTerm ?? null,
+        fileName: match.metadata?.fileName ?? null,
+      }))
+      .filter((item) => item.score > 0.55);
+  } catch (error) {
+    console.warn("Vectorize retrieval skipped:", error.message);
+    return [];
+  }
 }
 
 export function ragChunksToInsightSources(chunks) {

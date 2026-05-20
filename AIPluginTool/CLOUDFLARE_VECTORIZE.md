@@ -28,10 +28,13 @@ Use the same token as `CLOUDFLARE_API_TOKEN` in `server/.env`.
 ```env
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 CLOUDFLARE_API_TOKEN=your-token
+VECTORIZE_ENABLED=true
 VECTORIZE_INDEX_NAME=cia-transition-kb
 CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5
 RAG_TOP_K=8
 ```
+
+`VECTORIZE_ENABLED` must be `true` only after the index exists. Chat works without it (keyword case search still runs).
 
 Restart the server after changes.
 
