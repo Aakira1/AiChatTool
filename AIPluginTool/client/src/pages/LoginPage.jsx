@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import t1Logo from "../assets/T1_Logo.svg";
 
 export const DEMO_ADMIN_EMAIL = "admin@demo.local";
 export const DEMO_ADMIN_PASSWORD = "Admin12345!";
@@ -37,8 +38,8 @@ export function LoginPage() {
   return (
     <div className="t1-login-page">
       <form className="t1-login-card" onSubmit={(event) => void handleSubmit(event)}>
-        <div className="t1-login-logo" aria-hidden="true">
-          T1
+        <div className="t1-login-logo">
+          <img src={t1Logo} alt="TechnologyOne" />
         </div>
         <h1>TechnologyOne AI Assistant</h1>
         <p className="t1-login-subtitle">Sign in to access Ci → CiA transition tools</p>

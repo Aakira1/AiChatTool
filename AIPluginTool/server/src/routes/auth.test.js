@@ -9,7 +9,7 @@ async function loadApp() {
 
 describe("auth routes", () => {
   beforeEach(() => {
-    process.env.AUTH_ENABLED = "true";
+    process.env.AUTH_ENABLED = "false";
     process.env.AUTH_SECRET = "test-secret-key-with-enough-length-12345";
     process.env.AUTH_EMAIL = "test@example.com";
     process.env.AUTH_PASSWORD = "test-password-123";

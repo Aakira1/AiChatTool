@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-sqlite --watch src/index.js",
+    "dev": "node --watch src/index.js",
     "build": "node -e \"console.log('No build needed for server')\"",
-    "start": "node --experimental-sqlite src/index.js",
+    "start": "node src/index.js",
     "hash-password": "node scripts/hash-password.mjs",
     "test": "vitest run",
     "lint": "node -e \"console.log('No linter configured')\""
