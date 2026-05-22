@@ -177,6 +177,12 @@
   min-width: 0;
 }
 
+.t1-navbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .t1-navbar-title {
   margin: 0;
   font-family: "Helvetica", serif;

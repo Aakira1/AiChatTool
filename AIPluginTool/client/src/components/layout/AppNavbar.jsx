@@ -43,11 +43,13 @@ export function AppNavbar({ activeView, onNavigate }) {
     <>
       <header className="t1-navbar">
         <div className="t1-navbar-brand">
-          <div className="cia-logo">
-            <img src={tneIcon} alt="TechnologyOne" />
-          </div>
           <div>
-            <p className="t1-navbar-title">TechnologyOne AI Assistant</p>
+            <div className="t1-navbar-title-row">
+              <div className="cia-logo">
+                <img src={tneIcon} alt="TechnologyOne" />
+              </div>
+              <p className="t1-navbar-title">TechnologyOne AI Assistant</p>
+            </div>
             <p className="t1-navbar-subtitle">Ci → CiA Transitions</p>
           </div>
         </div>
