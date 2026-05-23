@@ -42,7 +42,7 @@ export function LoginPage() {
           <img src={t1Logo} alt="TechnologyOne" />
         </div>
         <h1>TechnologyOne AI Assistant</h1>
-        <p className="t1-login-subtitle">Sign in to access Ci → CiA transition tools</p>
+        <p className="t1-login-subtitle">Sign in to access OneChat transition tools</p>
 
         <div className="t1-login-demo">
           <strong>Demo admin</strong>

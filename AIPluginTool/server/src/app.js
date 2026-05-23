@@ -30,6 +30,10 @@ export function createApp() {
           callback(null, true);
           return;
         }
+        if (origin.startsWith("chrome-extension://") || origin.startsWith("moz-extension://")) {
+          callback(null, true);
+          return;
+        }
         callback(null, false);
       },
       credentials: true,

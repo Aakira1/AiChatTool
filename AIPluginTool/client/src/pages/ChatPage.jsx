@@ -27,7 +27,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your CiA Transition Assistant. I review stored CI/CIA case data, attached documents, and can show comparisons, metrics, and likely resolutions in this chat.",
+    "Hi! I'm your OneChat Transition Assistant...",
   metadata: {},
 };
 
@@ -167,7 +167,7 @@ export function ChatPage() {
                 ? {
                     ...message,
                     content:
-                      "I reviewed your stored CI/CIA records and prepared comparison insights below.",
+                      "I reviewed your stored records and prepared comparison insights below.",
                     metadata: { artifacts: latestArtifacts },
                   }
                 : message,
@@ -474,7 +474,7 @@ export function ChatPage() {
           {pending ? (
             <article className="cia-message assistant">
               <div className="cia-avatar">AI</div>
-              <div className="cia-bubble cia-bubble-pending">Reviewing stored CI/CIA data…</div>
+              <div className="cia-bubble cia-bubble-pending">Reviewing stored data…</div>
             </article>
           ) : null}
         </div>

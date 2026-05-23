@@ -1,0 +1,30 @@
+{
+  "name": "extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Chrome extension shell for the CiA Transition Assistant (side panel + context menu).",
+  "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
+    "predev": "node scripts/generate-icons.mjs",
+    "prebuild": "node scripts/generate-icons.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "@types/chrome": "^0.0.287",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.20.1",
+    "vite": "^6.1.0"
+  }
+}

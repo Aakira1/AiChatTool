@@ -4,17 +4,24 @@
   "version": "0.1.0",
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "extension"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:extension": "concurrently \"npm run dev -w server\" \"npm run dev -w extension\"",
     "build": "npm run build -w server && npm run build -w client",
+    "build:extension": "npm run build -w extension",
     "start": "npm run start -w server",
     "test": "npm run test -w server && npm run test -w client",
     "lint": "npm run lint -w server && npm run lint -w client"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "volta": {
     "node": "26.2.0"

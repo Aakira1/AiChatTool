@@ -69,9 +69,9 @@ export function DashboardPage() {
     <div className="t1-dashboard-page">
       <header className="t1-animate-in mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">TechnologyOne Analytics Dashboard</h1>
+          <h1 className="text-2xl font-semibold"> OneChat Analytics Dashboard</h1>
           <p className="text-sm text-[var(--t1-gray)]">
-            Compare CI vs CIA case systems, monitor search reliability, and track hot topics.
+            Compare OneChat case systems, monitor search reliability, and track hot topics.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -90,7 +90,7 @@ export function DashboardPage() {
           <div>
             <h3 className="text-sm font-semibold text-white">Cloudflare knowledge (Vectorize)</h3>
             <p className="mt-1 text-xs text-[var(--t1-gray)]">
-              Semantic search over glossary, CI/CIA cases, and uploaded documents. See{" "}
+              Semantic search over glossary, cases, and uploaded documents. See{" "}
               <code>CLOUDFLARE_VECTORIZE.md</code>.
             </p>
           </div>

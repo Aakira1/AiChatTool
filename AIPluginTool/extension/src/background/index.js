@@ -1,0 +1,175 @@
+const CONTEXT_MENU_ID = "cia-ask-about-selection";
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: CONTEXT_MENU_ID,
+    title: 'Ask CiA about "%s"',
+    contexts: ["selection"],
+  });
+
+  // The toolbar action manages the floating widget itself, so don't auto-open
+  // the side panel on action click.
+  chrome.sidePanel
+    ?.setPanelBehavior?.({ openPanelOnActionClick: false })
+    .catch((error) => {
+      console.warn("[CiA] sidePanel.setPanelBehavior failed", error);
+    });
+});
+
+const RESTRICTED_PREFIXES = [
+  "chrome://",
+  "chrome-extension://",
+  "edge://",
+  "about:",
+  "view-source:",
+  "https://chrome.google.com/webstore",
+  "https://chromewebstore.google.com",
+];
+
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  return RESTRICTED_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
+
+/**
+ * IMPORTANT: chrome.sidePanel.open() must be invoked SYNCHRONOUSLY inside the
+ * user-gesture handler that triggered it. Any `await` (or .then() callback)
+ * before the call yields to the microtask queue and Chrome will reject it with
+ *   "sidePanel.open() may only be called in response to a user gesture."
+ *
+ * So we call sidePanel.open *first* and only do async storage writes afterward.
+ */
+function openSidePanelWithFallbackHint(tab, reason) {
+  if (tab?.windowId != null) {
+    // Synchronous call — preserves the gesture token from the action click.
+    chrome.sidePanel
+      .open({ windowId: tab.windowId })
+      .catch((error) => console.warn("[CiA] sidePanel.open fallback failed", error));
+  }
+  // Fire-and-forget storage write so the side panel can render its hint banner.
+  chrome.storage.local
+    .set({
+      sidePanelFallback: {
+        reason,
+        url: tab?.url ?? "",
+        title: tab?.title ?? "",
+        createdAt: Date.now(),
+      },
+    })
+    .catch(() => {});
+}
+
+function toggleWidget(tab) {
+  if (!tab?.id) return;
+
+  // Branch on the URL synchronously so we can open the side panel inside the
+  // user-gesture window if needed.
+  if (isRestrictedUrl(tab.url)) {
+    openSidePanelWithFallbackHint(tab, "restricted");
+    return;
+  }
+
+  // Normal pages — try the content script. From here on we're past the gesture
+  // window after any await, so we can no longer fall back to sidePanel.open();
+  // we route through chrome.scripting.executeScript instead.
+  void (async () => {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: "CIA_TOGGLE_WIDGET" });
+      chrome.storage.local.remove("sidePanelFallback").catch(() => {});
+    } catch (sendError) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["src/content/floating-widget.js"],
+        });
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, { type: "CIA_TOGGLE_WIDGET" }).catch(() => {});
+        }, 100);
+        chrome.storage.local.remove("sidePanelFallback").catch(() => {});
+      } catch (injectError) {
+        console.warn("[CiA] failed to inject floating widget", injectError, sendError);
+        // Can't open the side panel from here — the gesture token is gone.
+        // Surface a notification instead so the user isn't left guessing.
+        chrome.notifications
+          ?.create?.({
+            type: "basic",
+            iconUrl: "icons/icon-128.png",
+            title: "CiA Assistant",
+            message:
+              "Couldn't show the floating chat on this page. Try reloading the tab, or open the full web app from the toolbar.",
+          })
+          .catch(() => {});
+      }
+    }
+  })();
+}
+
+chrome.action.onClicked.addListener((tab) => {
+  void toggleWidget(tab);
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== CONTEXT_MENU_ID) return;
+  if (!tab?.id) return;
+
+  const selection = (info.selectionText ?? "").slice(0, 8000);
+  const payload = {
+    type: "CIA_PREFILL_FROM_SELECTION",
+    selection,
+    url: tab.url ?? info.pageUrl ?? "",
+    title: tab.title ?? "",
+  };
+
+  // Queue the prefill so the widget/side panel can pick it up after mounting.
+  chrome.storage.local.set({
+    pendingPrefill: { ...payload, createdAt: Date.now() },
+  });
+
+  // Toggle widget open (or fall back to side panel for restricted pages).
+  await toggleWidget(tab);
+
+  // Best-effort: forward immediately to whichever surface is listening.
+  setTimeout(() => {
+    chrome.tabs.sendMessage(tab.id, payload).catch(() => {});
+    chrome.runtime.sendMessage(payload).catch(() => {});
+  }, 250);
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "CIA_OPEN_SIDE_PANEL") {
+    // Must call sidePanel.open synchronously inside the gesture-bearing
+    // message handler. Read windowId from the sender (the tab the click
+    // happened in) so we don't have to await tabs.query first.
+    const windowId = sender?.tab?.windowId;
+    if (windowId != null) {
+      chrome.sidePanel
+        .open({ windowId })
+        .catch((error) => console.warn("[CiA] sidePanel.open from message failed", error));
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message?.type === "CIA_OPEN_WEB_APP") {
+    chrome.storage.local.get(["webAppUrl"], (data) => {
+      const url = (data?.webAppUrl || "http://localhost:5173").replace(/\/$/, "");
+      chrome.tabs.create({ url }).catch(() => {});
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === "CIA_TOGGLE_WIDGET_FROM_PANEL") {
+    // Reading the active tab requires await, so by the time we return we've
+    // lost the gesture. This message path is only used when the side panel
+    // wants to summon the floating widget on the current tab (no sidePanel.open
+    // involved), so it's safe.
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([tab]) => {
+      if (tab) toggleWidget(tab);
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  return false;
+});
