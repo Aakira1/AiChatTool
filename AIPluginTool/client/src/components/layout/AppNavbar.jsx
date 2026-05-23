@@ -4,6 +4,7 @@ import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profi
 import { ProfilePanel } from "./ProfilePanel.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../ui/ToastProvider.jsx";
+import tneIcon from "../../assets/TNE_icon.svg";
 
 export function AppNavbar({ activeView, onNavigate }) {
   const toast = useToast();
@@ -42,9 +43,13 @@ export function AppNavbar({ activeView, onNavigate }) {
     <>
       <header className="t1-navbar">
         <div className="t1-navbar-brand">
-          <div className="cia-logo">T1</div>
           <div>
-            <p className="t1-navbar-title">TechnologyOne AI Assistant</p>
+            <div className="t1-navbar-title-row">
+              <div className="cia-logo">
+                <img src={tneIcon} alt="TechnologyOne" />
+              </div>
+              <p className="t1-navbar-title">TechnologyOne AI Assistant</p>
+            </div>
             <p className="t1-navbar-subtitle">Ci → CiA Transitions</p>
           </div>
         </div>

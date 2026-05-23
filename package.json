@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "dev": "npm run dev --prefix AIPluginTool",
+    "build": "npm run build --prefix AIPluginTool",
+    "start": "npm run start --prefix AIPluginTool",
+    "test": "npm run test --prefix AIPluginTool"
+  }
+}
