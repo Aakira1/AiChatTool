@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CiaInsightsPanel } from "./CiaInsightsPanel.jsx";
 import { TerminologyGlossary } from "./TerminologyGlossary.jsx";
 
-export function CiaSidePanel({ insights, onAskTerm }) {
+export function CiaSidePanel({ insights, artifacts, onAskTerm }) {
   const [tab, setTab] = useState("insights");
 
   return (
@@ -25,7 +25,7 @@ export function CiaSidePanel({ insights, onAskTerm }) {
       </div>
 
       {tab === "insights" ? (
-        <CiaInsightsPanel insights={insights} embedded />
+        <CiaInsightsPanel insights={insights} artifacts={artifacts} embedded />
       ) : (
         <TerminologyGlossary onAsk={onAskTerm} />
       )}

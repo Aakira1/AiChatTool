@@ -85,28 +85,46 @@ export function buildResponseArtifacts(query, { knowledgeChunks = [] } = {}) {
   }
 
   if (summary.hasData && (intent === "analytics" || intent === "general")) {
+    const { comparison } = summary;
     artifacts.metricsCharts = [
       {
         label: "Open Cases",
         ci: summary.ci.open,
         cia: summary.cia.open,
+        delta: comparison.openDelta,
+        higherIsBetter: false,
       },
       {
         label: "Search Reliability %",
         ci: summary.ci.searchReliability,
         cia: summary.cia.searchReliability,
+        delta: comparison.reliabilityDelta,
+        higherIsBetter: true,
       },
       {
         label: "Total Cases",
         ci: summary.ci.total,
         cia: summary.cia.total,
+        delta: comparison.totalDelta,
+        higherIsBetter: false,
       },
     ];
+    artifacts.analytics = {
+      openDelta: comparison.openDelta,
+      reliabilityDelta: comparison.reliabilityDelta,
+      totalDelta: comparison.totalDelta,
+      ciOpen: summary.ci.open,
+      ciaOpen: summary.cia.open,
+      ciReliability: summary.ci.searchReliability,
+      ciaReliability: summary.cia.searchReliability,
+    };
+    artifacts.headline = buildAnalyticsHeadline(summary);
+    artifacts.takeaways = buildAnalyticsTakeaways(summary);
     artifacts.comparison = artifacts.comparison ?? {
       ciLabel: "Ci System",
-      ciValue: `${summary.ci.open} open / ${summary.ci.searchReliability}% reliability`,
+      ciValue: `${summary.ci.open} open · ${summary.ci.searchReliability}% search reliability`,
       ciaLabel: "CiA System",
-      ciaValue: `${summary.cia.open} open / ${summary.cia.searchReliability}% reliability`,
+      ciaValue: `${summary.cia.open} open · ${summary.cia.searchReliability}% search reliability`,
     };
     insights.confidence = 94;
     insights.sources.push({
@@ -161,4 +179,64 @@ export function buildResponseArtifacts(query, { knowledgeChunks = [] } = {}) {
     }));
 
   return { artifacts, insights };
+}
+
+function buildAnalyticsHeadline(summary) {
+  const { openDelta, reliabilityDelta } = summary.comparison;
+  if (openDelta > 0) {
+    return `CiA carries ${openDelta} fewer open cases than CI in your imported data`;
+  }
+  if (openDelta < 0) {
+    return `CiA has ${Math.abs(openDelta)} more open cases than CI — review backlog drivers`;
+  }
+  if (reliabilityDelta > 5) {
+    return `CiA search reliability is ${reliabilityDelta} pts higher than CI`;
+  }
+  if (reliabilityDelta < -5) {
+    return `CI search reliability leads CiA by ${Math.abs(reliabilityDelta)} pts`;
+  }
+  return "CI and CiA case volumes are closely aligned in your dataset";
+}
+
+function buildAnalyticsTakeaways(summary) {
+  const items = [];
+  const { openDelta, reliabilityDelta, totalDelta } = summary.comparison;
+
+  if (openDelta !== 0) {
+    const direction = openDelta > 0 ? "fewer" : "more";
+    items.push(
+      `Open backlog: CiA has ${Math.abs(openDelta)} ${direction} open cases than CI (${summary.ci.open} vs ${summary.cia.open}).`,
+    );
+  }
+
+  if (reliabilityDelta !== 0) {
+    items.push(
+      `Search success rate: CI ${summary.ci.searchReliability}% vs CiA ${summary.cia.searchReliability}% (Δ ${reliabilityDelta > 0 ? "+" : ""}${reliabilityDelta} pts).`,
+    );
+  } else if (summary.ci.searchReliability === 0 && summary.cia.searchReliability === 0) {
+    items.push(
+      "Search reliability is 0% in both systems — import rows may be missing search-success flags.",
+    );
+  }
+
+  if (totalDelta !== 0) {
+    items.push(
+      `Total volume: ${summary.ci.total} CI records vs ${summary.cia.total} CiA records (Δ ${totalDelta > 0 ? "+" : ""}${totalDelta}).`,
+    );
+  }
+
+  if (summary.hotTopics[0]) {
+    items.push(
+      `Hot topic: “${summary.hotTopics[0].term}” appears ${summary.hotTopics[0].count} times in searches.`,
+    );
+  }
+
+  const topResolution = summary.cia.likelyResolutions[0] ?? summary.ci.likelyResolutions[0];
+  if (topResolution) {
+    items.push(
+      `Common resolution pattern: “${topResolution.resolution}” (${topResolution.confidence}% of cases).`,
+    );
+  }
+
+  return items.slice(0, 4);
 }

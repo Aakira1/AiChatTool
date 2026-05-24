@@ -21,7 +21,9 @@ export function buildSystemPrompt({
   const pageBlock = pageContext?.url
     ? `Current page URL: ${pageContext.url}
 Page title: ${pageContext.title ?? "Unknown"}
-Selected text: ${pageContext.selection?.trim() || "None"}`
+Selected text: ${pageContext.selection?.trim() || "None"}
+Page text excerpt: ${pageContext.excerpt?.trim() ? pageContext.excerpt.trim().slice(0, 3000) : "Not provided"}
+Visual description of captured screenshot: ${pageContext.visualDescription?.trim() || "Not captured — user may enable the eye icon in the extension to snapshot the visible tab."}`
     : "No page context provided.";
 
   return `You are a smart browser assistant for a single user.

@@ -8,56 +8,84 @@ function isRich(artifacts) {
     artifacts.comparison ||
       artifacts.metricsCharts?.length ||
       artifacts.validation ||
+      artifacts.headline ||
+      (artifacts.takeaways?.length ?? 0) > 0 ||
       (artifacts.bulletPoints?.length ?? 0) > 0 ||
       (artifacts.caseLinks?.length ?? 0) > 0,
   );
 }
 
-/**
- * Heuristic for whether to auto-expand the rich artifact panel.
- * Auto-expands when the answer is clearly analytical (comparison + numbers + linked cases).
- * Otherwise we collapse so generic Q&A doesn't get crowded.
- */
-function shouldAutoExpand(artifacts) {
-  if (!artifacts) return false;
-  let score = 0;
-  if (artifacts.comparison) score += 2;
-  if ((artifacts.metricsCharts?.length ?? 0) > 0) score += 2;
-  if ((artifacts.caseLinks?.length ?? 0) >= 2) score += 1;
-  if (artifacts.validation) score += 2;
-  // Bullet points alone aren't rich enough to auto-expand.
-  return score >= 3;
-}
-
 function summarise(artifacts) {
   if (!artifacts) return "";
+  if (artifacts.headline) return artifacts.headline;
   const parts = [];
-  if (artifacts.comparison) parts.push("comparison");
+  if (artifacts.comparison) parts.push("CI ↔ CiA");
   if ((artifacts.metricsCharts?.length ?? 0) > 0) {
-    parts.push(`${artifacts.metricsCharts.length} metric${artifacts.metricsCharts.length === 1 ? "" : "s"}`);
+    parts.push(`${artifacts.metricsCharts.length} metrics`);
   }
   if ((artifacts.caseLinks?.length ?? 0) > 0) {
-    parts.push(`${artifacts.caseLinks.length} case${artifacts.caseLinks.length === 1 ? "" : "s"}`);
+    parts.push(`${artifacts.caseLinks.length} related cases`);
   }
   if (artifacts.validation) parts.push("validation");
-  if ((artifacts.bulletPoints?.length ?? 0) > 0) parts.push("notes");
-  return parts.join(" · ");
+  return parts.join(" · ") || "details";
+}
+
+function formatDelta(delta, { higherIsBetter = false, suffix = "" } = {}) {
+  if (delta === 0 || delta == null) return { text: "Even", tone: "neutral" };
+  const improved = higherIsBetter ? delta > 0 : delta < 0;
+  const sign = delta > 0 ? "+" : "";
+  return {
+    text: `${sign}${delta}${suffix}`,
+    tone: improved ? "positive" : "negative",
+  };
+}
+
+function MetricRow({ metric }) {
+  const max = Math.max(metric.ci, metric.cia, 1);
+  const delta = formatDelta(metric.delta, {
+    higherIsBetter: metric.higherIsBetter,
+    suffix: metric.label.includes("%") ? " pts" : "",
+  });
+
+  return (
+    <div className="cia-metric-block">
+      <div className="cia-metric-block-head">
+        <span className="cia-metric-block-label">{metric.label}</span>
+        <span className={`cia-metric-delta ${delta.tone}`}>{delta.text}</span>
+      </div>
+      <div className="cia-metric-dual">
+        <div className="cia-metric-track">
+          <span className="cia-metric-tag ci">CI</span>
+          <div className="cia-metric-bar-wrap">
+            <div className="cia-metric-bar ci" style={{ width: `${(metric.ci / max) * 100}%` }} />
+          </div>
+          <span className="cia-metric-num">{metric.ci}</span>
+        </div>
+        <div className="cia-metric-track">
+          <span className="cia-metric-tag cia">CiA</span>
+          <div className="cia-metric-bar-wrap">
+            <div className="cia-metric-bar cia" style={{ width: `${(metric.cia / max) * 100}%` }} />
+          </div>
+          <span className="cia-metric-num">{metric.cia}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function AssistantArtifacts({ content, artifacts }) {
   const rich = useMemo(() => isRich(artifacts), [artifacts]);
-  const [forceShow, setForceShow] = useState(() => Boolean(getSettings().showArtifactsByDefault));
+  const [expanded, setExpanded] = useState(() => Boolean(getSettings().showArtifactsByDefault));
+
   useEffect(() => {
-    return subscribeSettings((next) => setForceShow(Boolean(next.showArtifactsByDefault)));
+    return subscribeSettings((next) => {
+      if (next.showArtifactsByDefault) {
+        setExpanded(true);
+      }
+    });
   }, []);
-  const auto = useMemo(
-    () => forceShow || shouldAutoExpand(artifacts),
-    [forceShow, artifacts],
-  );
-  const [expanded, setExpanded] = useState(auto);
-  useEffect(() => {
-    setExpanded(auto);
-  }, [auto]);
+
+  const collapsedHint = summarise(artifacts);
 
   return (
     <div>
@@ -81,7 +109,9 @@ export function AssistantArtifacts({ content, artifacts }) {
             </span>
             <span className="cia-artifacts-toggle-text">
               <strong>{expanded ? "Insights" : "Show insights"}</strong>
-              <span className="cia-artifacts-toggle-meta">{summarise(artifacts)}</span>
+              <span className="cia-artifacts-toggle-meta" title={collapsedHint}>
+                {collapsedHint}
+              </span>
             </span>
             <span className={`cia-artifacts-chevron ${expanded ? "open" : ""}`} aria-hidden="true">
               ▾
@@ -90,13 +120,27 @@ export function AssistantArtifacts({ content, artifacts }) {
 
           {expanded ? (
             <div className="cia-artifacts-body" id="cia-artifacts-body">
+              {artifacts?.headline ? (
+                <p className="cia-insights-headline">{artifacts.headline}</p>
+              ) : null}
+
+              {artifacts?.takeaways?.length > 0 ? (
+                <ul className="cia-insights-takeaways">
+                  {artifacts.takeaways.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              ) : null}
+
               {artifacts?.comparison ? (
                 <div className="cia-term-card">
                   <div>
                     <div className="cia-term-label">{artifacts.comparison.ciLabel}</div>
                     <div className="cia-term-value">{artifacts.comparison.ciValue}</div>
                   </div>
-                  <div className="cia-term-arrow">→</div>
+                  <div className="cia-term-arrow" aria-hidden="true">
+                    →
+                  </div>
                   <div>
                     <div className="cia-term-label">{artifacts.comparison.ciaLabel}</div>
                     <div className="cia-term-value">{artifacts.comparison.ciaValue}</div>
@@ -105,46 +149,30 @@ export function AssistantArtifacts({ content, artifacts }) {
               ) : null}
 
               {artifacts?.metricsCharts?.length > 0 ? (
-                <div className="cia-metric-chart">
-                  {artifacts.metricsCharts.map((metric) => {
-                    const max = Math.max(metric.ci, metric.cia, 1);
-                    return (
-                      <div key={metric.label}>
-                        <div className="cia-metric-row">
-                          <span>{metric.label}</span>
-                          <div className="cia-metric-bar-wrap">
-                            <div
-                              className="cia-metric-bar ci"
-                              style={{ width: `${(metric.ci / max) * 100}%` }}
-                            />
-                          </div>
-                          <div className="cia-metric-bar-wrap">
-                            <div
-                              className="cia-metric-bar cia"
-                              style={{ width: `${(metric.cia / max) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="cia-metric-row text-[var(--t1-muted)]">
-                          <span />
-                          <span>CI: {metric.ci}</span>
-                          <span>CIA: {metric.cia}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="cia-metric-chart cia-metric-chart-v2">
+                  <div className="cia-metric-legend">
+                    <span>
+                      <i className="cia-legend-swatch ci" /> CI
+                    </span>
+                    <span>
+                      <i className="cia-legend-swatch cia" /> CiA
+                    </span>
+                  </div>
+                  {artifacts.metricsCharts.map((metric) => (
+                    <MetricRow key={metric.label} metric={metric} />
+                  ))}
                 </div>
               ) : null}
 
               {artifacts?.validation ? (
-                <div className="mt-3 text-sm">
+                <div className="cia-validation-block">
                   <p>
-                    ✅ <strong>{artifacts.validation.matched} controls matched</strong> source ↔ target
+                    <strong>{artifacts.validation.matched}</strong> controls matched
                   </p>
-                  <p className="mt-1">
-                    ⚠️ <strong>{artifacts.validation.discrepancies} discrepancies found</strong>
+                  <p className="cia-validation-warn">
+                    <strong>{artifacts.validation.discrepancies}</strong> discrepancies flagged
                   </p>
-                  <ul className="mt-2 list-disc pl-5">
+                  <ul>
                     {artifacts.validation.items.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
@@ -153,7 +181,7 @@ export function AssistantArtifacts({ content, artifacts }) {
               ) : null}
 
               {artifacts?.bulletPoints?.length > 0 ? (
-                <ul className="mt-3 list-disc pl-5 text-sm">
+                <ul className="cia-insights-bullets">
                   {artifacts.bulletPoints.map((point) => (
                     <li key={point}>{point}</li>
                   ))}
@@ -161,11 +189,14 @@ export function AssistantArtifacts({ content, artifacts }) {
               ) : null}
 
               {artifacts?.caseLinks?.length > 0 ? (
-                <div className="mt-2">
+                <div className="cia-case-links">
+                  <p className="cia-case-links-title">Related cases</p>
                   {artifacts.caseLinks.map((item) => (
                     <div key={`${item.source}-${item.id}`} className="cia-case-link">
-                      <div className="cia-case-id">{item.id}</div>
-                      <div className="text-sm text-[var(--t1-navy)]">{item.title}</div>
+                      <div className="cia-case-id">
+                        {item.source?.toUpperCase()} · {item.id}
+                      </div>
+                      <div className="cia-case-title">{item.title}</div>
                     </div>
                   ))}
                 </div>

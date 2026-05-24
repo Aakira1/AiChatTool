@@ -11,11 +11,13 @@ import {
   streamChat,
 } from "../lib/api.js";
 import { openWebApp } from "../lib/storage.js";
-import { getPageContext } from "../lib/pageContext.js";
+import { pickPageContextForApi } from "../lib/pageContextPayload.js";
+import { capturePageView, getPageContext } from "../lib/pageContext.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ConversationPicker } from "./components/ConversationPicker.jsx";
 import { MessageList } from "./components/MessageList.jsx";
 import { Composer } from "./components/Composer.jsx";
+import { QuickPrompts } from "./components/QuickPrompts.jsx";
 import { PageContextChip } from "./components/PageContextChip.jsx";
 import { TopBar } from "./components/TopBar.jsx";
 import { Banner } from "./components/Banner.jsx";
@@ -32,6 +34,16 @@ function localId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function sanitizeContextForSend(context) {
+  if (!context) return undefined;
+  const payload = pickPageContextForApi(context);
+  if (payload) return payload;
+  if (typeof context.screenshot === "string" && context.screenshot.length > 550_000) {
+    return pickPageContextForApi({ ...context, screenshot: undefined });
+  }
+  return undefined;
+}
+
 export function SidePanelApp() {
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -44,13 +56,44 @@ export function SidePanelApp() {
   const [input, setInput] = useState("");
   const [pageContext, setPageContext] = useState(null);
   const [includeContext, setIncludeContext] = useState(true);
+  const [capturingPage, setCapturingPage] = useState(false);
   const [fallbackHint, setFallbackHint] = useState(null);
   const messagesRef = useRef(null);
   const abortRef = useRef(null);
 
   const refreshPageContext = useCallback(async () => {
-    const ctx = await getPageContext({ includeExcerpt: false });
-    setPageContext(ctx);
+    const ctx = await getPageContext({ includeExcerpt: includeContext });
+    setPageContext((current) => ({
+      ...ctx,
+      screenshot: current?.screenshot ?? null,
+      capturedAt: current?.capturedAt ?? null,
+    }));
+  }, [includeContext]);
+
+  const handleCapturePage = useCallback(async () => {
+    setCapturingPage(true);
+    setError("");
+    try {
+      const ctx = await capturePageView();
+      setPageContext(ctx);
+      setIncludeContext(true);
+      if (ctx.screenshot) {
+        chrome.storage?.local?.set?.({ lastPageCaptureHint: ctx.capturedAt }).catch(() => {});
+      }
+    } catch (captureError) {
+      setError(captureError.message ?? "Failed to capture page");
+    } finally {
+      setCapturingPage(false);
+    }
+  }, []);
+
+  const handleClearScreenshot = useCallback(() => {
+    setPageContext((current) =>
+      current ? { ...current, screenshot: null, capturedAt: null, captureError: null } : current,
+    );
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "CIA_CAPTURE_CLEARED" }, "*");
+    }
   }, []);
 
   const loadThreads = useCallback(async () => {
@@ -158,6 +201,15 @@ export function SidePanelApp() {
       if (event.data.type === "CIA_PREFILL_FROM_SELECTION") {
         handleMessage(event.data);
       }
+      if (event.data.type === "CIA_PAGE_CAPTURE" && event.data.context) {
+        setPageContext(event.data.context);
+        setIncludeContext(true);
+        if (event.data.context.captureError) {
+          setError(event.data.context.captureError);
+        } else {
+          setError("");
+        }
+      }
     };
     window.addEventListener("message", handleWindowMessage);
 
@@ -245,7 +297,26 @@ export function SidePanelApp() {
 
     let streamed = "";
     try {
-      const ctx = includeContext ? pageContext ?? (await getPageContext()) : null;
+      const rawCtx = includeContext
+        ? pageContext ?? (await getPageContext({ includeExcerpt: true }))
+        : pageContext?.screenshot
+          ? {
+              url: pageContext.url,
+              title: pageContext.title,
+              screenshot: pageContext.screenshot,
+            }
+          : null;
+      const ctx = sanitizeContextForSend(rawCtx);
+      if (
+        rawCtx?.screenshot &&
+        typeof rawCtx.screenshot === "string" &&
+        rawCtx.screenshot.length > 550_000 &&
+        !ctx?.screenshot
+      ) {
+        setError(
+          "Screenshot was too large to send. Page text context is still included — try recapturing after zooming out.",
+        );
+      }
       await streamChat({
         conversationId: activeId,
         message: content,
@@ -260,7 +331,26 @@ export function SidePanelApp() {
             ),
           );
         },
+        onArtifacts: (payload) => {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantId
+                ? { ...message, metadata: { ...message.metadata, artifacts: payload } }
+                : message,
+            ),
+          );
+        },
+        onInsights: (payload) => {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantId
+                ? { ...message, metadata: { ...message.metadata, insights: payload } }
+                : message,
+            ),
+          );
+        },
         onComplete: async () => {
+          handleClearScreenshot();
           await loadConversation(activeId);
           await loadThreads();
         },
@@ -324,8 +414,19 @@ export function SidePanelApp() {
       <PageContextChip
         context={pageContext}
         included={includeContext}
+        capturing={capturingPage}
         onToggle={() => setIncludeContext((value) => !value)}
         onRefresh={refreshPageContext}
+        onCapture={() => void handleCapturePage()}
+        onClearScreenshot={handleClearScreenshot}
+      />
+
+      <QuickPrompts
+        disabled={pending}
+        onSelect={(text) => {
+          const prefix = includeContext && pageContext?.selection ? `${text} ${pageContext.selection}` : text;
+          setInput(prefix);
+        }}
       />
 
       <Composer

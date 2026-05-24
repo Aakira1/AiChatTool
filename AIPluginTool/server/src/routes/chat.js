@@ -17,13 +17,63 @@ import { ingestAttachments } from "../services/ragService.js";
 import { extractSearchPhrase } from "../utils/searchPhrase.js";
 import { sanitizeAttachments } from "../utils/documentText.js";
 
-const pageContextSchema = z
-  .object({
-    url: z.string().max(2000).optional(),
-    title: z.string().max(500).optional(),
-    selection: z.string().max(8000).optional(),
-  })
-  .optional();
+const pageContextObjectSchema = z.object({
+  url: z.string().max(2000).optional(),
+  title: z.string().max(500).optional(),
+  selection: z.string().max(8000).optional(),
+  excerpt: z.string().max(8000).optional(),
+  /** JPEG/PNG data URL from chrome.tabs.captureVisibleTab (extension eye icon) */
+  screenshot: z.string().max(2_000_000).optional(),
+  visualDescription: z.string().max(5000).optional(),
+});
+
+const pageContextSchema = pageContextObjectSchema.optional();
+
+/** Extension UI stores screenshot: null and may send pageContext: null — coerce for Zod. */
+function normalizePageContext(pageContext) {
+  if (pageContext == null) {
+    return undefined;
+  }
+  if (typeof pageContext !== "object") {
+    return undefined;
+  }
+
+  const allowed = ["url", "title", "selection", "excerpt", "screenshot", "visualDescription"];
+  const out = {};
+  for (const key of allowed) {
+    const value = pageContext[key];
+    if (value == null || value === "") {
+      continue;
+    }
+    if (key === "screenshot" && typeof value === "string" && value.length > 2_000_000) {
+      continue;
+    }
+    if (typeof value === "string") {
+      out[key] = value;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function normalizeChatBody(body) {
+  if (!body || typeof body !== "object") {
+    return body;
+  }
+  return {
+    ...body,
+    pageContext: normalizePageContext(body.pageContext),
+  };
+}
+
+/** Don't persist multi-hundred-KB screenshots in SQLite message metadata. */
+function pageContextForStorage(pageContext) {
+  if (!pageContext) return null;
+  const { screenshot: _omit, ...rest } = pageContext;
+  return {
+    ...rest,
+    hadScreenshot: Boolean(pageContext.screenshot),
+  };
+}
 
 const attachmentSchema = z.object({
   name: z.string().min(1).max(200),
@@ -39,8 +89,11 @@ const chatSchema = z
     attachments: z.array(attachmentSchema).max(3).optional(),
   })
   .refine(
-    (data) => data.message.length > 0 || (data.attachments?.length ?? 0) > 0,
-    { message: "Provide a message or at least one attachment" },
+    (data) =>
+      data.message.length > 0 ||
+      (data.attachments?.length ?? 0) > 0 ||
+      Boolean(data.pageContext?.screenshot),
+    { message: "Provide a message, screenshot, or at least one attachment" },
   );
 
 const actionSchema = z.object({
@@ -216,9 +269,14 @@ chatRouter.post("/edit", async (request, response, next) => {
 });
 
 chatRouter.post("/", async (request, response, next) => {
-  const parsed = chatSchema.safeParse(request.body);
+  const parsed = chatSchema.safeParse(normalizeChatBody(request.body));
   if (!parsed.success) {
-    response.status(400).json({ error: "Invalid chat payload" });
+    const details = parsed.error.flatten();
+    console.warn("[CiA] POST /api/chat validation failed", details.fieldErrors);
+    response.status(400).json({
+      error: "Invalid chat payload",
+      details: details.fieldErrors,
+    });
     return;
   }
 
@@ -245,7 +303,7 @@ chatRouter.post("/", async (request, response, next) => {
     content: parsed.data.message,
     metadata: {
       source: "chat-stream",
-      pageContext: parsed.data.pageContext ?? null,
+      pageContext: pageContextForStorage(parsed.data.pageContext),
       searchPhrase,
       attachments: attachments.map(({ name, type, size }) => ({ name, type, size })),
     },

@@ -12,7 +12,7 @@ export function TopBar({ healthState, user, onLogout, onOpenOptions, compact = f
           T1
         </div>
         <div className="cia-ext-brand-text">
-          <strong>CiA Assistant</strong>
+          <strong>OneChat Assistant</strong>
           <span className={`cia-ext-status cia-ext-status-${status}`}>
             <span className="cia-ext-status-dot" /> {statusLabel}
           </span>

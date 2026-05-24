@@ -115,8 +115,14 @@ async function consumeChatStream(response, callbacks) {
 
   if (!response.ok || !response.body) {
     const payload = await response.json().catch(() => ({}));
+    const detailText =
+      payload.details && typeof payload.details === "object"
+        ? Object.entries(payload.details)
+            .map(([field, messages]) => `${field}: ${(messages ?? []).join(", ")}`)
+            .join("; ")
+        : "";
     throw new Error(
-      payload.error ??
+      [payload.error, detailText].filter(Boolean).join(" — ") ||
         `Chat request failed (${response.status}). Check the server logs and your API URL.`,
     );
   }
@@ -185,7 +191,12 @@ export async function streamChat({
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId, message, pageContext, attachments }),
+    body: JSON.stringify({
+      conversationId,
+      message,
+      attachments,
+      ...(pageContext != null ? { pageContext } : {}),
+    }),
     signal,
   });
   if (response.status === 401) {

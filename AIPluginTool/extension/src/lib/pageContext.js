@@ -35,6 +35,38 @@ function fallbackContextFromTab(tab) {
   };
 }
 
+/**
+ * Capture a JPEG snapshot of the visible tab (requires user gesture — call from a click handler).
+ * Also refreshes URL, title, selection, and main-page text excerpt.
+ */
+export async function capturePageView() {
+  const tab = await getActiveTab();
+  if (!tab?.id || isRestrictedUrl(tab.url)) {
+    return {
+      ...(await getPageContext({ includeExcerpt: true })),
+      screenshot: null,
+      captureError: "Screenshots aren't available on this page type.",
+    };
+  }
+
+  let screenshot = null;
+  let captureError = null;
+
+  try {
+    const shot = await chrome.runtime.sendMessage({ type: "CIA_CAPTURE_SCREENSHOT" });
+    if (shot?.ok && shot.dataUrl) {
+      screenshot = shot.dataUrl;
+    } else {
+      captureError = shot?.error ?? "Could not capture the visible tab.";
+    }
+  } catch (error) {
+    captureError = error?.message ?? "Screenshot capture failed.";
+  }
+
+  const context = await getPageContext({ includeExcerpt: true });
+  return { ...context, screenshot, captureError, capturedAt: screenshot ? Date.now() : null };
+}
+
 export async function getPageContext({ includeExcerpt = false } = {}) {
   const tab = await getActiveTab();
   if (!tab) {

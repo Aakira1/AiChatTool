@@ -6,6 +6,7 @@ import { buildSystemPrompt } from "./promptBuilder.js";
 import { OpenAiCompatibleAdapter } from "./llm/openAiCompatibleAdapter.js";
 import { buildAttachmentContext } from "../utils/documentText.js";
 import { retrieveKnowledge } from "./ragService.js";
+import { describePageScreenshot } from "./visionService.js";
 
 const adapter = new OpenAiCompatibleAdapter(getLlmConfig());
 
@@ -23,6 +24,19 @@ export async function prepareAssistantMessages({
   const preferences = getPreferences();
   const attachmentContext = buildAttachmentContext(attachments);
 
+  let enrichedPageContext = pageContext;
+  if (pageContext?.screenshot) {
+    const visualDescription = await describePageScreenshot(pageContext.screenshot, {
+      url: pageContext.url,
+      title: pageContext.title,
+    });
+    enrichedPageContext = {
+      ...pageContext,
+      visualDescription: visualDescription ?? undefined,
+      screenshot: undefined,
+    };
+  }
+
   const artifactSummary = {
     intent: artifacts.intent,
     comparison: artifacts.comparison,
@@ -32,7 +46,7 @@ export async function prepareAssistantMessages({
 
   const systemPrompt = `${buildSystemPrompt({
     preferences,
-    pageContext,
+    pageContext: enrichedPageContext,
     memories,
     cases,
     attachments,

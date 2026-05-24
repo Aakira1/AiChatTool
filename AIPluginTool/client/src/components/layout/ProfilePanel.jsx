@@ -285,14 +285,14 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
 
       <div className="t1-settings-section">
         <h3>Insights panel</h3>
-        <p>Auto-expand the insights panel under assistant replies.</p>
+        <p>Insights under each reply are collapsed by default. Enable this to expand them automatically.</p>
         <label className="t1-profile-toggle">
           <input
             type="checkbox"
             checked={Boolean(settings.showArtifactsByDefault)}
             onChange={(event) => onUpdate({ showArtifactsByDefault: event.target.checked })}
           />
-          Always show insights when available
+          Always expand insights under replies
         </label>
       </div>
 

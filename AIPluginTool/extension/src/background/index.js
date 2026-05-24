@@ -159,6 +159,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "CIA_CAPTURE_SCREENSHOT") {
+    void (async () => {
+      let windowId = sender?.tab?.windowId;
+      if (windowId == null) {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        windowId = tab?.windowId;
+      }
+      if (windowId == null) {
+        sendResponse({ ok: false, error: "No active browser window to capture." });
+        return;
+      }
+      chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 72 }, (dataUrl) => {
+        if (chrome.runtime.lastError || !dataUrl) {
+          sendResponse({
+            ok: false,
+            error: chrome.runtime.lastError?.message ?? "Screenshot capture failed.",
+          });
+          return;
+        }
+        sendResponse({ ok: true, dataUrl });
+      });
+    })();
+    return true;
+  }
+
   if (message?.type === "CIA_TOGGLE_WIDGET_FROM_PANEL") {
     // Reading the active tab requires await, so by the time we return we've
     // lost the gesture. This message path is only used when the side panel

@@ -16,8 +16,14 @@ export async function embedTexts(texts) {
     return [];
   }
 
-  const modelPath = encodeURIComponent(config.model);
-  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/run/${modelPath}`;
+  const model = String(config.model).trim();
+  if (!model.startsWith("@cf/")) {
+    throw new Error(`Invalid embedding model "${model}". Expected a Workers AI model id like @cf/baai/bge-base-en-v1.5.`);
+  }
+
+  // Do NOT encodeURIComponent the model path — Cloudflare expects literal slashes
+  // in URLs like .../ai/run/@cf/baai/bge-base-en-v1.5. Encoding breaks routing (400).
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/run/${model}`;
 
   const response = await fetch(url, {
     method: "POST",

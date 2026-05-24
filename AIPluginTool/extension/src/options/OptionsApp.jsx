@@ -58,9 +58,9 @@ export function OptionsApp() {
 
   return (
     <div className="cia-ext-options">
-      <h1>CiA Assistant — Settings</h1>
+      <h1>OneChat Assistant — Settings</h1>
       <p>
-        Connect this extension to your CiA Assistant server and the full web app. The defaults work
+        Connect this extension to your OneChat Assistant server and the full web app. The defaults work
         when you run <code>npm run dev</code> at the project root.
       </p>
 

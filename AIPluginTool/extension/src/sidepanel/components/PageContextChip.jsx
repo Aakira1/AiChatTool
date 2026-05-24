@@ -7,44 +7,106 @@ function shortHost(url) {
   }
 }
 
-export function PageContextChip({ context, included, onToggle, onRefresh }) {
+export function PageContextChip({
+  context,
+  included,
+  capturing,
+  onToggle,
+  onRefresh,
+  onCapture,
+  onClearScreenshot,
+}) {
   if (!context) {
     return null;
   }
+
   const restricted = context.restricted;
   const host = shortHost(context.url);
   const hasSelection = (context.selection ?? "").length > 0;
+  const hasScreenshot = Boolean(context.screenshot);
+  const hasExcerpt = (context.excerpt ?? "").length > 0;
 
   return (
-    <div className={`cia-ext-context ${included && !restricted ? "is-on" : "is-off"}`}>
-      <button
-        type="button"
-        className="cia-ext-context-toggle"
-        onClick={onToggle}
-        disabled={restricted}
-        title={restricted ? "Page context isn't available on this URL" : "Toggle page context"}
-      >
-        <span className="cia-ext-context-icon" aria-hidden="true">
-          {included && !restricted ? "✓" : restricted ? "🚫" : "○"}
-        </span>
-        <span className="cia-ext-context-text">
-          <strong>{restricted ? "No page context" : included ? "Including page context" : "Page context off"}</strong>
-          <span className="cia-ext-context-meta">
-            {restricted
-              ? "Browser restricts this URL"
-              : `${host}${hasSelection ? " · selected text" : ""}`}
+    <div className={`cia-ext-context-wrap ${included && !restricted ? "is-on" : "is-off"}`}>
+      <div className={`cia-ext-context ${included && !restricted ? "is-on" : "is-off"}`}>
+        <button
+          type="button"
+          className="cia-ext-context-toggle"
+          onClick={onToggle}
+          disabled={restricted}
+          title={restricted ? "Page context isn't available on this URL" : "Toggle page context"}
+        >
+          <span className="cia-ext-context-icon" aria-hidden="true">
+            {included && !restricted ? "✓" : restricted ? "🚫" : "○"}
           </span>
-        </span>
-      </button>
-      <button
-        type="button"
-        className="cia-ext-context-refresh"
-        onClick={onRefresh}
-        title="Refresh page context"
-        aria-label="Refresh page context"
-      >
-        ↻
-      </button>
+          <span className="cia-ext-context-text">
+            <strong>
+              {restricted
+                ? "No page context"
+                : included
+                  ? "Including page context"
+                  : "Page context off"}
+            </strong>
+            <span className="cia-ext-context-meta">
+              {restricted
+                ? "Browser restricts this URL"
+                : [
+                    host,
+                    hasSelection ? "selected text" : null,
+                    hasExcerpt ? "page text" : null,
+                    hasScreenshot ? "screenshot" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+            </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={`cia-ext-context-eye ${hasScreenshot ? "has-shot" : ""}`}
+          onClick={onCapture}
+          disabled={restricted || capturing}
+          title={
+            restricted
+              ? "Not available on this URL"
+              : hasScreenshot
+                ? "Re-capture visible page"
+                : "Capture what you see (screenshot + page text)"
+          }
+          aria-label="Capture visible page"
+        >
+          {capturing ? "…" : "👁"}
+        </button>
+
+        <button
+          type="button"
+          className="cia-ext-context-refresh"
+          onClick={onRefresh}
+          title="Refresh page context"
+          aria-label="Refresh page context"
+        >
+          ↻
+        </button>
+      </div>
+
+      {context.captureError ? (
+        <p className="cia-ext-context-error" role="alert">
+          {context.captureError}
+        </p>
+      ) : null}
+
+      {hasScreenshot ? (
+        <div className="cia-ext-screenshot-preview">
+          <img src={context.screenshot} alt="Captured view of the current tab" />
+          <div className="cia-ext-screenshot-actions">
+            <span>Snapshot attached to your next message</span>
+            <button type="button" onClick={onClearScreenshot}>
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

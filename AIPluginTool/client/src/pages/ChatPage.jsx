@@ -27,7 +27,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your OneChat Transition Assistant...",
+    "Hi! I'm your CiA Transition Assistant. I review stored CI/CIA case data, attached documents, and can show comparisons, metrics, and likely resolutions in this chat.",
   metadata: {},
 };
 
@@ -167,7 +167,7 @@ export function ChatPage() {
                 ? {
                     ...message,
                     content:
-                      "I reviewed your stored records and prepared comparison insights below.",
+                      "I reviewed your stored submitted records and prepared comparison insights below.",
                     metadata: { artifacts: latestArtifacts },
                   }
                 : message,
@@ -424,7 +424,7 @@ export function ChatPage() {
         onArchive={handleArchiveThread}
       />
 
-      <section className="cia-chat-panel">
+      <section className={`cia-chat-panel${pending ? " is-thinking" : ""}`}>
         <div className="cia-chat-header">
           <div>
             <div className="cia-chat-title">Conversation</div>
@@ -441,8 +441,12 @@ export function ChatPage() {
         </div>
 
         <div className="cia-messages" ref={messagesRef}>
-          {messages.map((message) => (
-            <article key={message.id} className={`cia-message ${message.role}`}>
+          {messages.map((message, index) => (
+            <article
+              key={message.id}
+              className={`cia-message ${message.role}${message.id === "welcome" ? " cia-message-welcome" : ""}`}
+              style={{ animationDelay: `${Math.min(index, 12) * 0.045}s` }}
+            >
               <div className="cia-avatar">{message.role === "assistant" ? "AI" : "You"}</div>
               <div className="cia-bubble-wrap">
                 <div className="cia-bubble">
@@ -472,9 +476,16 @@ export function ChatPage() {
             </article>
           ))}
           {pending ? (
-            <article className="cia-message assistant">
+            <article className="cia-message assistant cia-message-pending">
               <div className="cia-avatar">AI</div>
-              <div className="cia-bubble cia-bubble-pending">Reviewing stored data…</div>
+              <div className="cia-bubble cia-bubble-pending">
+                <span className="cia-typing-dots" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="cia-typing-label">Reviewing stored CI/CIA data…</span>
+              </div>
             </article>
           ) : null}
         </div>

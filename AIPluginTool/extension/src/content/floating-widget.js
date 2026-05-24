@@ -19,6 +19,68 @@ const PANEL_URL = chrome.runtime.getURL("src/sidepanel/index.html?embedded=1");
 // zone and throw `ReferenceError: Cannot access 'SHADOW_CSS' before initialization`
 // once Vite bundles everything into a single IIFE.
 
+function pickMainExcerpt() {
+  const candidates = [
+    document.querySelector("main"),
+    document.querySelector("article"),
+    document.querySelector('[role="main"]'),
+    document.body,
+  ].filter(Boolean);
+
+  for (const node of candidates) {
+    const text = node.innerText?.trim();
+    if (text && text.length > 200) {
+      return text;
+    }
+  }
+  return document.body?.innerText?.trim() ?? "";
+}
+
+async function captureCurrentPageForWidget() {
+  let screenshot = null;
+  let captureError = null;
+
+  try {
+    const shot = await chrome.runtime.sendMessage({ type: "CIA_CAPTURE_SCREENSHOT" });
+    if (shot?.ok && shot.dataUrl) {
+      screenshot = shot.dataUrl;
+    } else {
+      captureError = shot?.error ?? "Could not capture the visible tab.";
+    }
+  } catch (error) {
+    captureError = error?.message ?? "Screenshot capture failed.";
+  }
+
+  return {
+    url: window.location.href,
+    title: document.title,
+    selection: (window.getSelection?.()?.toString().trim() ?? "").slice(0, 8000),
+    excerpt: pickMainExcerpt().slice(0, 8000),
+    screenshot,
+    captureError,
+    restricted: false,
+    capturedAt: screenshot ? Date.now() : null,
+  };
+}
+
+function postPageCaptureToIframe(iframe, context) {
+  const send = () => {
+    iframe.contentWindow?.postMessage({ type: "CIA_PAGE_CAPTURE", context }, "*");
+  };
+  if (iframe.src === "about:blank") {
+    return;
+  }
+  try {
+    if (iframe.contentDocument?.readyState === "complete") {
+      send();
+    } else {
+      iframe.addEventListener("load", send, { once: true });
+    }
+  } catch {
+    send();
+  }
+}
+
 function initFloatingWidget() {
   const host = document.createElement("div");
   host.id = HOST_ID;
@@ -59,6 +121,7 @@ function initFloatingWidget() {
         <span>CiA Assistant</span>
       </div>
       <div class="cia-fw-actions">
+        <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture visible page (screenshot + text)" aria-label="Capture visible page">👁</button>
         <button type="button" class="cia-fw-icon-btn" data-action="webapp" title="Open the full web app">↗</button>
         <button type="button" class="cia-fw-icon-btn" data-action="dock" title="Open in browser side panel">⇲</button>
         <button type="button" class="cia-fw-icon-btn" data-action="minimize" title="Minimize">—</button>
@@ -73,6 +136,7 @@ function initFloatingWidget() {
   document.documentElement.appendChild(host);
 
   const iframe = panel.querySelector(".cia-fw-iframe");
+  const captureBtn = panel.querySelector('[data-action="capture"]');
   const dockBtn = panel.querySelector('[data-action="dock"]');
   const webappBtn = panel.querySelector('[data-action="webapp"]');
   const minimizeBtn = panel.querySelector('[data-action="minimize"]');
@@ -113,6 +177,28 @@ function initFloatingWidget() {
     firstRunDismiss?.();
     widget.expand();
   });
+  captureBtn.addEventListener("click", () => {
+    void (async () => {
+      captureBtn.disabled = true;
+      captureBtn.classList.add("is-capturing");
+      const wasOpen = widget.getState().open;
+      if (!wasOpen) {
+        widget.expand();
+      }
+      const context = await captureCurrentPageForWidget();
+      captureBtn.disabled = false;
+      captureBtn.classList.remove("is-capturing");
+      if (context.screenshot) {
+        captureBtn.classList.add("has-shot");
+        captureBtn.title = "Page captured — send a message to analyse it";
+      } else {
+        captureBtn.classList.remove("has-shot");
+        captureBtn.title = context.captureError ?? "Capture failed";
+      }
+      postPageCaptureToIframe(iframe, context);
+    })();
+  });
+
   dockBtn.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "CIA_OPEN_SIDE_PANEL" }).catch(() => {});
     widget.collapse();
@@ -145,6 +231,10 @@ function initFloatingWidget() {
     if (data.type === "CIA_PANEL_DOCK") {
       chrome.runtime.sendMessage({ type: "CIA_OPEN_SIDE_PANEL" }).catch(() => {});
       widget.collapse();
+    }
+    if (data.type === "CIA_CAPTURE_CLEARED") {
+      captureBtn.classList.remove("has-shot");
+      captureBtn.title = "Capture visible page (screenshot + text)";
     }
   });
 }
@@ -651,6 +741,21 @@ const SHADOW_CSS = `
   .cia-fw-icon-btn:hover {
     background: rgba(124, 58, 237, 0.1);
     color: #1f1235;
+  }
+
+  .cia-fw-icon-btn[data-action="capture"] {
+    font-size: 14px;
+  }
+
+  .cia-fw-icon-btn[data-action="capture"].has-shot {
+    background: rgba(34, 197, 94, 0.18);
+    color: #15803d;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  }
+
+  .cia-fw-icon-btn[data-action="capture"].is-capturing {
+    opacity: 0.65;
+    cursor: wait;
   }
 
   .cia-fw-iframe {

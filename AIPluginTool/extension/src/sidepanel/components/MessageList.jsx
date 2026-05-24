@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import ReactMarkdown from "react-markdown";
+import { InsightsArtifacts } from "./InsightsArtifacts.jsx";
 
 export const MessageList = forwardRef(function MessageList({ messages, pending }, ref) {
   return (
@@ -11,7 +12,10 @@ export const MessageList = forwardRef(function MessageList({ messages, pending }
           </div>
           <div className="cia-ext-bubble">
             {message.role === "assistant" ? (
-              <ReactMarkdown>{message.content || "…"}</ReactMarkdown>
+              <>
+                {message.content ? <ReactMarkdown>{message.content}</ReactMarkdown> : null}
+                <InsightsArtifacts artifacts={message.metadata?.artifacts} />
+              </>
             ) : (
               <p>{message.content}</p>
             )}
