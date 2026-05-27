@@ -740,6 +740,40 @@ button:disabled {
   height: 40px;
 }
 
+.cia-ext-options-insights {
+  margin: 20px 0 24px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--cia-border);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.cia-ext-options-insights h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--cia-body);
+}
+
+.cia-ext-options-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--cia-body);
+  cursor: pointer;
+}
+
+.cia-ext-options-toggle input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.cia-ext-options-toggle.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .cia-ext-options-tips {
   margin-top: 28px;
   padding: 18px 20px;
@@ -860,6 +894,8 @@ button:disabled {
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
 }
 

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getSettings, subscribeSettings } from "../../lib/settings.js";
 
 function summarise(artifacts) {
   if (!artifacts) return "";
@@ -40,8 +41,19 @@ function MetricRow({ metric }) {
 }
 
 export function InsightsArtifacts({ artifacts }) {
-  const [expanded, setExpanded] = useState(false);
+  const [showInsights, setShowInsights] = useState(() => getSettings().showInsights !== false);
+  const [expanded, setExpanded] = useState(() => Boolean(getSettings().showArtifactsByDefault));
 
+  useEffect(() => {
+    return subscribeSettings((next) => {
+      setShowInsights(next.showInsights !== false);
+      if (next.showArtifactsByDefault) {
+        setExpanded(true);
+      }
+    });
+  }, []);
+
+  if (!showInsights) return null;
   if (!artifacts) return null;
 
   const hasContent =

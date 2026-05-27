@@ -75,10 +75,12 @@ function MetricRow({ metric }) {
 
 export function AssistantArtifacts({ content, artifacts }) {
   const rich = useMemo(() => isRich(artifacts), [artifacts]);
+  const [showInsights, setShowInsights] = useState(() => getSettings().showInsights !== false);
   const [expanded, setExpanded] = useState(() => Boolean(getSettings().showArtifactsByDefault));
 
   useEffect(() => {
     return subscribeSettings((next) => {
+      setShowInsights(next.showInsights !== false);
       if (next.showArtifactsByDefault) {
         setExpanded(true);
       }
@@ -95,7 +97,7 @@ export function AssistantArtifacts({ content, artifacts }) {
         </div>
       ) : null}
 
-      {rich ? (
+      {showInsights && rich ? (
         <div className={`cia-artifacts ${expanded ? "expanded" : "collapsed"}`}>
           <button
             type="button"

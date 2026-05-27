@@ -106,6 +106,16 @@ export const AI_PROVIDERS = [
     defaultModel: "gpt-4o-mini",
   },
   {
+    id: "azure",
+    label: "Azure OpenAI",
+    description:
+      "Microsoft Azure OpenAI Service (enterprise). Not the same as the Copilot consumer app.",
+    requiresKey: true,
+    defaultBaseUrl:
+      "https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT",
+    defaultModel: "gpt-4o",
+  },
+  {
     id: "cloudflare",
     label: "Cloudflare Workers AI",
     description: "Use a Cloudflare account ID + API token for Workers AI.",
@@ -121,11 +131,20 @@ export const AI_PROVIDERS = [
     defaultBaseUrl: "http://localhost:11434/v1",
     defaultModel: "llama3.1",
   },
+  {
+    id: "copilot-studio",
+    label: "Copilot Studio agent",
+    description:
+      "Route chat through a Microsoft Copilot Studio bot (Direct Line). Requires server configuration.",
+    connector: "copilot-studio",
+    requiresKey: false,
+  },
 ];
 
 const DEFAULTS = {
   theme: "magenta",
   density: "comfortable",
+  showInsights: true,
   showArtifactsByDefault: false,
   ai: {
     provider: "server",
@@ -133,6 +152,13 @@ const DEFAULTS = {
     baseUrl: "",
     model: "",
     accountId: "",
+    copilotStudio: {
+      agentName: "",
+      environmentId: "",
+      botId: "",
+      tenantId: "",
+      directLineSecret: "",
+    },
   },
 };
 
@@ -151,16 +177,31 @@ export function getSettings() {
   return {
     ...DEFAULTS,
     ...(stored ?? {}),
-    ai: { ...DEFAULTS.ai, ...(stored?.ai ?? {}) },
+    ai: {
+      ...DEFAULTS.ai,
+      ...(stored?.ai ?? {}),
+      copilotStudio: {
+        ...DEFAULTS.ai.copilotStudio,
+        ...(stored?.ai?.copilotStudio ?? {}),
+      },
+    },
   };
 }
 
 export function saveSettings(updates) {
   if (typeof window === "undefined") return DEFAULTS;
+  const current = getSettings();
   const next = {
-    ...getSettings(),
+    ...current,
     ...updates,
-    ai: { ...getSettings().ai, ...(updates.ai ?? {}) },
+    ai: {
+      ...current.ai,
+      ...(updates.ai ?? {}),
+      copilotStudio: {
+        ...current.ai.copilotStudio,
+        ...(updates.ai?.copilotStudio ?? {}),
+      },
+    },
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: next }));
@@ -199,4 +240,13 @@ export function maskApiKey(key) {
   if (!key) return "";
   const last = key.slice(-4);
   return `••••••••${last}`;
+}
+
+/** Payload sent with chat requests — secrets stay on the server. */
+export function getChatAiProvider() {
+  const { ai } = getSettings();
+  if (ai.provider === "copilot-studio") {
+    return { aiProvider: "copilot-studio" };
+  }
+  return { aiProvider: "default" };
 }

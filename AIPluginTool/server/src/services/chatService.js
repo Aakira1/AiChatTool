@@ -1,4 +1,5 @@
 import { getLlmConfig } from "../config/env.js";
+import { isCopilotStudioConfigured, streamCopilotStudioAgent } from "./copilotStudioService.js";
 import { findSimilarCases } from "../db/repositories/caseRepo.js";
 import { buildResponseArtifacts } from "./artifactService.js";
 import { retrieveRelevantMemories, getPreferences } from "./memoryService.js";
@@ -69,8 +70,31 @@ ${JSON.stringify(artifactSummary)}`;
   return { messages, knowledgeChunks, artifacts };
 }
 
-export async function* streamFromMessages({ messages, signal }) {
+export async function* streamFromMessages({ messages, signal, aiProvider = "default" }) {
+  if (aiProvider === "copilot-studio") {
+    const latestUser = [...messages].reverse().find((entry) => entry.role === "user");
+    const system = messages.find((entry) => entry.role === "system");
+    const userText = latestUser?.content ?? "";
+    const contextPrefix = system?.content
+      ? `[Context from CiA Transition Assistant — use if helpful, otherwise answer as your Copilot Studio agent.]\n${system.content.slice(0, 4000)}\n\n---\n\nUser: `
+      : "";
+    yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, { signal });
+    return;
+  }
+
   yield* adapter.streamGenerate({ messages, signal });
+}
+
+export function resolveAiProvider(requested) {
+  if (requested === "copilot-studio" && isCopilotStudioConfigured()) {
+    return "copilot-studio";
+  }
+  if (requested === "copilot-studio" && !isCopilotStudioConfigured()) {
+    throw new Error(
+      "Copilot Studio agent was requested but the server is not configured. Add COPILOT_STUDIO_ENABLED=true and COPILOT_STUDIO_DIRECT_LINE_SECRET to server/.env.",
+    );
+  }
+  return "default";
 }
 
 export async function* streamAssistantReply(options) {

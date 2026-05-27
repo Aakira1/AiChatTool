@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getAuthMe, login as apiLogin, logout as apiLogout } from "../lib/api.js";
+import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "../lib/authDefaults.js";
 
 const AuthContext = createContext(null);
+const MANUAL_LOGOUT_KEY = "t1_manual_logout";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -30,8 +32,29 @@ export function AuthProvider({ children }) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (loading || user || authDisabled) {
+      return;
+    }
+    if (sessionStorage.getItem(MANUAL_LOGOUT_KEY)) {
+      return;
+    }
+    if (!import.meta.env.DEV || import.meta.env.VITE_AUTO_LOGIN === "false") {
+      return;
+    }
+    void (async () => {
+      try {
+        const session = await apiLogin(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD);
+        setUser({ email: session.email });
+      } catch {
+        // User can sign in manually with pre-filled demo credentials.
+      }
+    })();
+  }, [loading, user, authDisabled]);
+
   const login = useCallback(
     async (email, password) => {
+      sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
       const session = await apiLogin(email, password);
       setUser({ email: session.email });
       setAuthDisabled(false);
@@ -41,8 +64,10 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(async () => {
+    sessionStorage.setItem(MANUAL_LOGOUT_KEY, "1");
     await apiLogout();
     setUser(null);
+    setAuthDisabled(false);
   }, []);
 
   const value = useMemo(

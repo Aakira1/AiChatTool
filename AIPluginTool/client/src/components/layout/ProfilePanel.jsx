@@ -239,10 +239,17 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
 
   const handleProviderChange = (event) => {
     const next = AI_PROVIDERS.find((p) => p.id === event.target.value) ?? AI_PROVIDERS[0];
-    onUpdateAi({
+    const updates = {
       provider: next.id,
       baseUrl: next.defaultBaseUrl ?? "",
       model: next.defaultModel ?? "",
+    };
+    onUpdateAi(updates);
+  };
+
+  const updateCopilotStudio = (updates) => {
+    onUpdateAi({
+      copilotStudio: { ...settings.ai.copilotStudio, ...updates },
     });
   };
 
@@ -284,16 +291,33 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
       </div>
 
       <div className="t1-settings-section">
-        <h3>Insights panel</h3>
-        <p>Insights under each reply are collapsed by default. Enable this to expand them automatically.</p>
+        <h3>Insights under replies</h3>
+        <p>
+          Charts, comparisons, and takeaways below assistant messages. Turn off to hide the insights
+          block entirely.
+        </p>
         <label className="t1-profile-toggle">
           <input
             type="checkbox"
+            checked={settings.showInsights !== false}
+            onChange={(event) => onUpdate({ showInsights: event.target.checked })}
+          />
+          Show insights under replies
+        </label>
+        <label
+          className={`t1-profile-toggle${settings.showInsights === false ? " is-disabled" : ""}`}
+        >
+          <input
+            type="checkbox"
             checked={Boolean(settings.showArtifactsByDefault)}
+            disabled={settings.showInsights === false}
             onChange={(event) => onUpdate({ showArtifactsByDefault: event.target.checked })}
           />
           Always expand insights under replies
         </label>
+        <p className="t1-settings-hint">
+          When insights are shown, they stay collapsed until you expand them unless this option is on.
+        </p>
       </div>
 
       <div className="t1-settings-section">
@@ -311,7 +335,14 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
           </select>
         </label>
 
-        {provider.requiresKey ? (
+        {provider.connector === "copilot-studio" ? (
+          <CopilotStudioConnectorForm
+            copilotStudio={settings.ai.copilotStudio ?? {}}
+            showSecret={showApiKey}
+            onToggleSecret={onToggleApiKey}
+            onChange={updateCopilotStudio}
+          />
+        ) : provider.requiresKey ? (
           <>
             {provider.id === "cloudflare" ? (
               <label>
@@ -327,7 +358,7 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
 
             <label>
               API key
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="t1-api-key-row">
                 <input
                   className="t1-api-key-input"
                   type={showApiKey ? "text" : "password"}
@@ -339,14 +370,8 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
                       : "sk-..."
                   }
                   autoComplete="off"
-                  style={{ flex: 1 }}
                 />
-                <button
-                  type="button"
-                  className="t1-btn-secondary"
-                  onClick={onToggleApiKey}
-                  style={{ padding: "0 12px" }}
-                >
+                <button type="button" className="t1-btn-secondary" onClick={onToggleApiKey}>
                   {showApiKey ? "Hide" : "Show"}
                 </button>
               </div>
@@ -373,12 +398,117 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
               />
             </label>
 
-            <small className="t1-settings-help">
-              Note: API key overrides are not yet wired into the backend. Today these settings are stored
-              for upcoming per-user model routing — the server's configured provider still serves chat.
-            </small>
+            <div className="t1-settings-callout" role="note">
+              <strong>What this connects to</strong>
+              <ul>
+                <li>
+                  <strong>Works today:</strong> chat uses the server&apos;s provider (Cloudflare Workers AI
+                  from <code>server/.env</code>). Pick <em>Use server default</em> above.
+                </li>
+                <li>
+                  <strong>OpenAI-compatible endpoints</strong> (Ollama, Groq, Together, Azure OpenAI)
+                  can be saved here for a future release — they do <em>not</em> drive chat yet.
+                </li>
+                <li>
+                  <strong>Microsoft Copilot</strong> (browser / M365 / GitHub Copilot) is a separate
+                  product and is <em>not</em> plugged in via this URL field. Use Azure OpenAI or your
+                  server token for this assistant instead.
+                </li>
+              </ul>
+            </div>
           </>
-        ) : null}
+        ) : (
+          <p className="t1-settings-callout" role="note">
+            Chat uses the API server configuration (Cloudflare Workers AI from{" "}
+            <code>server/.env</code>). To use a Copilot Studio agent instead, pick{" "}
+            <strong>Copilot Studio agent</strong> above and configure Direct Line on the server.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CopilotStudioConnectorForm({ copilotStudio, showSecret, onToggleSecret, onChange }) {
+  return (
+    <div className="t1-copilot-connector">
+      <label>
+        Agent display name
+        <input
+          value={copilotStudio.agentName ?? ""}
+          onChange={(event) => onChange({ agentName: event.target.value })}
+          placeholder="e.g. CiA Transition Agent"
+        />
+        <small className="t1-settings-help">Label for your reference; optional on server.</small>
+      </label>
+
+      <label>
+        Environment ID
+        <input
+          value={copilotStudio.environmentId ?? ""}
+          onChange={(event) => onChange({ environmentId: event.target.value })}
+          placeholder="Power Platform environment GUID"
+        />
+      </label>
+
+      <label>
+        Bot / schema name
+        <input
+          value={copilotStudio.botId ?? ""}
+          onChange={(event) => onChange({ botId: event.target.value })}
+          placeholder="copilots_header_… or bot schema name"
+        />
+      </label>
+
+      <label>
+        Microsoft Entra tenant ID
+        <input
+          value={copilotStudio.tenantId ?? ""}
+          onChange={(event) => onChange({ tenantId: event.target.value })}
+          placeholder="Optional — for your records"
+        />
+      </label>
+
+      <label>
+        Direct Line secret (reference only)
+        <div className="t1-api-key-row">
+          <input
+            className="t1-api-key-input"
+            type={showSecret ? "text" : "password"}
+            value={copilotStudio.directLineSecret ?? ""}
+            onChange={(event) => onChange({ directLineSecret: event.target.value })}
+            placeholder="Paste from Copilot Studio → Channels → Direct Line"
+            autoComplete="off"
+          />
+          <button type="button" className="t1-btn-secondary" onClick={onToggleSecret}>
+            {showSecret ? "Hide" : "Show"}
+          </button>
+        </div>
+        <small className="t1-settings-help">
+          Stored locally for your notes only — chat uses{" "}
+          <code>COPILOT_STUDIO_DIRECT_LINE_SECRET</code> in <code>server/.env</code>, not this field.
+        </small>
+      </label>
+
+      <div className="t1-settings-callout" role="note">
+        <strong>Enable on the server</strong>
+        <ol>
+          <li>
+            In Copilot Studio, publish your agent and open <strong>Channels → Direct Line</strong>.
+            Copy the secret.
+          </li>
+          <li>
+            Add to <code>server/.env</code>:
+            <pre className="t1-env-snippet">{`COPILOT_STUDIO_ENABLED=true
+COPILOT_STUDIO_DIRECT_LINE_SECRET=your-direct-line-secret
+COPILOT_STUDIO_AGENT_NAME=CiA Transition Agent`}</pre>
+          </li>
+          <li>Restart the API server, then select this provider and send a chat message.</li>
+        </ol>
+        <p>
+          This is <strong>not</strong> the same as Microsoft 365 Copilot in Teams (Graph + Entra).
+          It routes through your custom Copilot Studio bot via Direct Line.
+        </p>
       </div>
     </div>
   );

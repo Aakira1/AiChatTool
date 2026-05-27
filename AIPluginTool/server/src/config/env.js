@@ -1,10 +1,18 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_AUTH_SECRET,
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_PASSWORD,
+} from "./authDefaults.js";
 import { hashPassword } from "../utils/password.js";
 
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 dotenv.config({ path: path.join(serverRoot, ".env") });
+
+const nodeEnv = process.env.NODE_ENV ?? "development";
+const isProduction = nodeEnv === "production";
 
 const llmProvider = process.env.LLM_PROVIDER ?? "cloudflare";
 const clientOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
@@ -12,25 +20,33 @@ const clientOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const authEnabled = process.env.AUTH_ENABLED === "true";
-const demoAdminEmail = "admin@demo.local";
-const demoAdminPassword = "Admin12345!";
-const authEmail =
-  process.env.AUTH_EMAIL || (authEnabled ? demoAdminEmail : "");
+/** Default on in local dev when AUTH_ENABLED is unset; set AUTH_ENABLED=false to disable. */
+const authEnabled =
+  process.env.AUTH_ENABLED === "true" ||
+  (!isProduction && process.env.AUTH_ENABLED !== "false");
+
+const authEmail = process.env.AUTH_EMAIL || (authEnabled ? DEMO_ADMIN_EMAIL : "");
 const authPasswordPlain =
-  process.env.AUTH_PASSWORD || (authEnabled ? demoAdminPassword : "");
+  process.env.AUTH_PASSWORD || (authEnabled ? DEMO_ADMIN_PASSWORD : "");
 const authPasswordHash =
   process.env.AUTH_PASSWORD_HASH ||
   (authPasswordPlain ? hashPassword(authPasswordPlain) : "");
 
-if (authEnabled && (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32)) {
+const authSecret =
+  process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32
+    ? process.env.AUTH_SECRET
+    : DEFAULT_AUTH_SECRET;
+
+if (authEnabled && process.env.AUTH_SECRET && process.env.AUTH_SECRET.length < 32) {
   console.warn(
-    "AUTH_ENABLED is true but AUTH_SECRET is missing or too short (min 32 chars).",
+    "AUTH_SECRET is too short (min 32 chars). Using DEFAULT_AUTH_SECRET for this process.",
   );
 }
 
-if (authEnabled && !process.env.AUTH_EMAIL && !process.env.AUTH_PASSWORD) {
-  console.log(`Auth: using demo admin (${demoAdminEmail}) — change AUTH_EMAIL/AUTH_PASSWORD in production.`);
+if (authEnabled) {
+  console.log(
+    `[CiA] Auth enabled — sign in with ${authEmail} (password in server/.env or default Admin12345!)`,
+  );
 }
 
 const vectorizeIndexName = process.env.VECTORIZE_INDEX_NAME?.trim() ?? "";
@@ -38,7 +54,8 @@ const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
 const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN ?? "";
 
 export const env = {
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv,
+  isProduction,
   port: Number(process.env.PORT ?? 3001),
   clientOrigin: clientOrigins[0] ?? "http://localhost:5173",
   clientOrigins,
@@ -47,7 +64,8 @@ export const env = {
   authEnabled,
   authEmail,
   authPasswordHash,
-  authSecret: process.env.AUTH_SECRET ?? "dev-only-change-me-use-32-char-secret-min",
+  authSecret,
+  demoAdminEmail: DEMO_ADMIN_EMAIL,
   sessionMaxAgeMs: Number(process.env.SESSION_MAX_AGE_HOURS ?? 168) * 60 * 60 * 1000,
   cookieSecure: process.env.COOKIE_SECURE === "true",
   llmProvider,
@@ -67,6 +85,9 @@ export const env = {
   openAiBaseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 30000),
   dbPath: process.env.DB_PATH ?? "./data/chat.db",
+  copilotStudioEnabled: process.env.COPILOT_STUDIO_ENABLED === "true",
+  copilotStudioDirectLineSecret: process.env.COPILOT_STUDIO_DIRECT_LINE_SECRET ?? "",
+  copilotStudioAgentName: process.env.COPILOT_STUDIO_AGENT_NAME ?? "",
 };
 
 export function getEmbeddingConfig() {

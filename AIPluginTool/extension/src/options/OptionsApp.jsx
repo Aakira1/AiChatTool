@@ -8,6 +8,7 @@ import {
   setApiBaseUrl,
   setWebAppUrl,
 } from "../lib/storage.js";
+import { getSettings, saveSettings } from "../lib/settings.js";
 import { pingHealth } from "../lib/api.js";
 
 export function OptionsApp() {
@@ -16,13 +17,19 @@ export function OptionsApp() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [insightsSettings, setInsightsSettings] = useState(() => getSettings());
 
   useEffect(() => {
     void Promise.all([getApiBaseUrl(), getWebAppUrl()]).then(([api, web]) => {
       setApiUrl(api);
       setWebUrl(web);
     });
+    setInsightsSettings(getSettings());
   }, []);
+
+  const updateInsightsSetting = (updates) => {
+    setInsightsSettings(saveSettings(updates));
+  };
 
   const requestOriginPermission = async (url) => {
     try {
@@ -76,6 +83,35 @@ export function OptionsApp() {
         >
           Open in new tab ↗
         </button>
+      </section>
+
+      <section className="cia-ext-options-insights">
+        <h3>Insights under replies</h3>
+        <p className="cia-ext-options-help">
+          Same behavior as the web app settings. Turn off to hide charts and comparisons below
+          assistant messages in the side panel.
+        </p>
+        <label className="cia-ext-options-toggle">
+          <input
+            type="checkbox"
+            checked={insightsSettings.showInsights !== false}
+            onChange={(event) => updateInsightsSetting({ showInsights: event.target.checked })}
+          />
+          Show insights under replies
+        </label>
+        <label
+          className={`cia-ext-options-toggle${insightsSettings.showInsights === false ? " is-disabled" : ""}`}
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(insightsSettings.showArtifactsByDefault)}
+            disabled={insightsSettings.showInsights === false}
+            onChange={(event) =>
+              updateInsightsSetting({ showArtifactsByDefault: event.target.checked })
+            }
+          />
+          Always expand insights under replies
+        </label>
       </section>
 
       <form onSubmit={handleSave}>

@@ -142,21 +142,21 @@ export function AppNavbar({ activeView, onNavigate }) {
                   Help & support
                 </button>
                 <hr />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="danger"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    if (authDisabled) {
-                      toast.info("Auth is disabled on this server.");
-                      return;
-                    }
-                    void logout().then(() => toast.info("Signed out"));
-                  }}
-                >
-                  Sign out
-                </button>
+                {!authDisabled ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void logout().then(() => {
+                        toast.info("Signed out");
+                      });
+                    }}
+                  >
+                    Sign out
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

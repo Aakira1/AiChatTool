@@ -1,3 +1,5 @@
+import { getChatAiProvider } from "./settings.js";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 function loginErrorMessage(status, payloadError) {
@@ -267,7 +269,13 @@ export async function streamChat({
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId, message, pageContext, attachments }),
+    body: JSON.stringify({
+      conversationId,
+      message,
+      pageContext,
+      attachments,
+      ...getChatAiProvider(),
+    }),
     signal,
   });
   if (response.status === 401) {
@@ -281,7 +289,7 @@ export async function regenerateChat({ conversationId, signal, ...callbacks }) {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId }),
+    body: JSON.stringify({ conversationId, ...getChatAiProvider() }),
     signal,
   });
   if (response.status === 401) {
@@ -295,7 +303,7 @@ export async function editChatMessage({ conversationId, messageId, content, sign
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId, messageId, content }),
+    body: JSON.stringify({ conversationId, messageId, content, ...getChatAiProvider() }),
     signal,
   });
   if (response.status === 401) {

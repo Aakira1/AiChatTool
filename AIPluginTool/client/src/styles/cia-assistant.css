@@ -466,9 +466,11 @@
 }
 
 .t1-profile-panel {
-  width: min(480px, 100%);
-  max-height: 90vh;
-  overflow: auto;
+  width: min(520px, 100%);
+  max-height: min(90vh, 820px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(26, 11, 46, 0.3);
@@ -535,6 +537,9 @@
 
 .t1-profile-panel-body {
   padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .t1-profile-form {
@@ -581,6 +586,224 @@
   gap: 8px;
   padding: 12px 20px 20px;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: #fff;
+}
+
+/* Settings tab (theme, density, AI connection) */
+.t1-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--t1-border);
+  border-radius: 14px;
+  background: rgba(250, 247, 252, 0.6);
+}
+
+.t1-settings-section + .t1-settings-section {
+  margin-top: 14px;
+}
+
+.t1-settings-section h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--t1-magenta-dark);
+}
+
+.t1-settings-section > p {
+  margin: 0;
+  color: var(--t1-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.t1-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.t1-theme-swatch {
+  border: 2px solid var(--t1-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1-navy);
+  text-align: left;
+  transition:
+    transform 80ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.t1-theme-swatch:hover {
+  transform: translateY(-1px);
+  border-color: rgba(228, 0, 124, 0.35);
+}
+
+.t1-theme-swatch.active {
+  border-color: var(--t1-magenta);
+  box-shadow: 0 0 0 3px rgba(228, 0, 124, 0.18);
+}
+
+.t1-theme-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.t1-density-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.t1-density-row button {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--t1-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1-muted);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.t1-density-row button:hover {
+  border-color: rgba(228, 0, 124, 0.35);
+  color: var(--t1-navy);
+}
+
+.t1-density-row button.active {
+  background: var(--t1-magenta);
+  border-color: var(--t1-magenta);
+  color: #fff;
+}
+
+.t1-settings-section .t1-profile-toggle {
+  margin-top: 4px;
+  align-items: flex-start;
+  font-weight: 500;
+  color: var(--t1-body);
+}
+
+.t1-settings-section .t1-profile-toggle input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.t1-settings-section .t1-profile-toggle.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.t1-settings-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--t1-muted);
+  line-height: 1.45;
+}
+
+.t1-api-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.t1-api-key-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.t1-api-key-row .t1-btn-secondary {
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.t1-api-key-input {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.01em;
+}
+
+.t1-settings-help {
+  display: block;
+  margin-top: 4px;
+  color: var(--t1-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.t1-settings-callout {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(228, 0, 124, 0.06);
+  border: 1px solid rgba(228, 0, 124, 0.18);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t1-body);
+}
+
+.t1-settings-callout strong {
+  color: var(--t1-navy);
+}
+
+.t1-settings-callout ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.t1-settings-callout li + li {
+  margin-top: 4px;
+}
+
+.t1-settings-callout code {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.t1-settings-callout ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.t1-copilot-connector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.t1-env-snippet {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .t1-btn-primary,
@@ -1096,6 +1319,64 @@
   font-size: 13px;
   color: var(--muted);
   font-weight: 500;
+}
+
+.cia-artifacts {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cia-artifacts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cia-artifacts-toggle-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cia-artifacts-toggle-text strong {
+  font-size: 12px;
+  color: var(--navy);
+}
+
+.cia-artifacts-toggle-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cia-artifacts-chevron {
+  color: var(--muted);
+  transition: transform 180ms ease;
+}
+
+.cia-artifacts-chevron.open {
+  transform: rotate(180deg);
+}
+
+.cia-artifacts-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
 }
 
 .cia-term-card {
@@ -1970,4 +2251,35 @@
   .t1-navbar-subtitle {
     display: none;
   }
+}
+
+/* Settings cog on the dark navbar */
+.t1-navbar-cog {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+  flex-shrink: 0;
+  padding: 0;
+  transition:
+    transform 220ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.t1-navbar-cog:hover {
+  transform: rotate(40deg);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(228, 0, 124, 0.55);
+  color: #ffe8f3;
+}
+
+.t1-navbar-cog svg {
+  width: 18px;
+  height: 18px;
 }

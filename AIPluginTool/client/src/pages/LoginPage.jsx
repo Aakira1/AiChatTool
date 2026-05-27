@@ -1,14 +1,14 @@
 import { useState } from "react";
+import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "../lib/authDefaults.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import t1Logo from "../assets/T1_Logo.svg";
 
-export const DEMO_ADMIN_EMAIL = "admin@demo.local";
-export const DEMO_ADMIN_PASSWORD = "Admin12345!";
+export { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD };
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(DEMO_ADMIN_EMAIL);
+  const [password, setPassword] = useState(DEMO_ADMIN_PASSWORD);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 

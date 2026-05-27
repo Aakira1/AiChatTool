@@ -12,7 +12,11 @@ import {
 } from "../db/repositories/conversationRepo.js";
 import { deriveConversationTitle } from "../services/promptBuilder.js";
 import { buildResponseArtifacts } from "../services/artifactService.js";
-import { prepareAssistantMessages, streamFromMessages } from "../services/chatService.js";
+import {
+  prepareAssistantMessages,
+  resolveAiProvider,
+  streamFromMessages,
+} from "../services/chatService.js";
 import { ingestAttachments } from "../services/ragService.js";
 import { extractSearchPhrase } from "../utils/searchPhrase.js";
 import { sanitizeAttachments } from "../utils/documentText.js";
@@ -87,6 +91,7 @@ const chatSchema = z
     message: z.string().trim().max(12_000),
     pageContext: pageContextSchema,
     attachments: z.array(attachmentSchema).max(3).optional(),
+    aiProvider: z.enum(["default", "copilot-studio"]).optional(),
   })
   .refine(
     (data) =>
@@ -98,12 +103,14 @@ const chatSchema = z
 
 const actionSchema = z.object({
   conversationId: z.string().min(1),
+  aiProvider: z.enum(["default", "copilot-studio"]).optional(),
 });
 
 const editSchema = z.object({
   conversationId: z.string().min(1),
   messageId: z.string().min(1),
   content: z.string().trim().min(1).max(12_000),
+  aiProvider: z.enum(["default", "copilot-studio"]).optional(),
 });
 
 export const chatRouter = Router();
@@ -117,6 +124,7 @@ async function runAssistantStream({
   attachments,
   pageContext,
   request,
+  aiProvider: requestedAiProvider = "default",
 }) {
   let assistantContent = "";
   const abortController = new AbortController();
@@ -137,9 +145,12 @@ async function runAssistantStream({
     response.setHeader("Connection", "keep-alive");
     response.flushHeaders?.();
 
+    const aiProvider = resolveAiProvider(requestedAiProvider);
+
     for await (const token of streamFromMessages({
       messages,
       signal: abortController.signal,
+      aiProvider,
     })) {
       assistantContent += token;
       response.write(`data: ${JSON.stringify({ type: "token", token })}\n\n`);
@@ -224,6 +235,7 @@ chatRouter.post("/regenerate", async (request, response, next) => {
     attachments: [],
     pageContext: lastUser.metadata?.pageContext ?? null,
     request,
+    aiProvider: parsed.data.aiProvider ?? "default",
   });
 });
 
@@ -265,6 +277,7 @@ chatRouter.post("/edit", async (request, response, next) => {
     attachments: [],
     pageContext: target.metadata?.pageContext ?? null,
     request,
+    aiProvider: parsed.data.aiProvider ?? "default",
   });
 });
 
@@ -332,5 +345,6 @@ chatRouter.post("/", async (request, response, next) => {
     attachments,
     pageContext: parsed.data.pageContext ?? null,
     request,
+    aiProvider: parsed.data.aiProvider ?? "default",
   });
 });
