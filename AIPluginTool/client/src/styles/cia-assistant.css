@@ -2009,6 +2009,122 @@
   opacity: 0.6;
 }
 
+.t1-help-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.t1-help-header {
+  margin-bottom: 32px;
+}
+
+.t1-help-header h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.t1-help-header p {
+  margin: 0;
+  color: var(--gray);
+  font-size: 14px;
+}
+
+.t1-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 20px;
+}
+
+.t1-help-card {
+  background: rgba(42, 20, 70, 0.7);
+  border: 1px solid rgba(228, 0, 124, 0.2);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.t1-help-card-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.t1-help-card h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.t1-help-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.t1-help-card p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.t1-help-btn {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.t1-help-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.t1-help-contact-hint {
+  color: var(--gray) !important;
+  font-size: 12px !important;
+}
+
+.t1-help-faq {
+  margin: 0;
+}
+
+.t1-help-faq dt {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 14px;
+}
+
+.t1-help-faq dt:first-child {
+  margin-top: 0;
+}
+
+.t1-help-faq dd {
+  margin: 4px 0 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.t1-help-faq code {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #e8dff0;
+}
+
 .t1-login-page {
   --deep: var(--t1-deep);
   --navy: var(--t1-navy);
@@ -2041,16 +2157,9 @@
   width: 120px;
   height: 120px;
   margin: 0 auto -40px;
-  /* border-radius: 16px; */
-  /* background: linear-gradient(135deg, #e4007c, #8c892b); */
-  /* color: #ffffff; */
-  /* font-family: Helvetica, Arial, sans-serif; */
-  /* font-weight: 700; */
-  /* font-size: 26px; */
   display: flex;
   align-items: center;
   justify-content: center;
-  /* box-shadow: 0 8px 24px rgba(228, 0, 124, 0.35); */
 }
 
 .t1-login-card h1 {

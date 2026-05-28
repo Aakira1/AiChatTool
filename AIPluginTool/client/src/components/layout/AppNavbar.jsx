@@ -129,7 +129,7 @@ export function AppNavbar({ activeView, onNavigate }) {
                 </div>
 
                 <button type="button" role="menuitem" onClick={() => openPanel("profile")}>
-                  My profile
+                  My Profile
                 </button>
                 <button type="button" role="menuitem" onClick={() => openPanel("preferences")}>
                   Preferences
@@ -145,10 +145,10 @@ export function AppNavbar({ activeView, onNavigate }) {
                     setMenuOpen(false);
                   }}
                 >
-                  Data & imports
+                  Data & Imports
                 </button>
-                <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
-                  Help & support
+                <button type="button" role="menuitem" onClick={() => { onNavigate("help"); setMenuOpen(false); }}>
+                  Help & Support
                 </button>
                 <hr />
                 {!authDisabled ? (

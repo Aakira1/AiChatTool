@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/ui/ToastProvider.jsx";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ChatPage } from "./pages/ChatPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { HelpPage } from "./pages/HelpPage";
 import { LoginPage } from "./pages/LoginPage";
 import "./styles/cia-assistant.css";
 
@@ -23,7 +24,7 @@ function AppShell() {
     <div className="cia-app">
       <AppNavbar activeView={view} onNavigate={setView} />
       <main key={view} className="t1-main t1-view-enter">
-        {view === "dashboard" ? <DashboardPage /> : <ChatPage />}
+        {view === "dashboard" ? <DashboardPage /> : view === "help" ? <HelpPage /> : <ChatPage />}
       </main>
     </div>
   );
