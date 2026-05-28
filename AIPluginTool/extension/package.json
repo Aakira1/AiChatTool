@@ -19,7 +19,7 @@
     "react-markdown": "^10.1.0"
   },
   "devDependencies": {
-    "@crxjs/vite-plugin": "^2.4.0",
+    "@crxjs/vite-plugin": "^2.0.0",
     "@types/chrome": "^0.0.287",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
