@@ -7,6 +7,7 @@ const PROFILE_KEYS = new Set([
   "profile_role",
   "profile_team",
   "profile_environment",
+  "profile_picture",
   "notifications_enabled",
   "response_style",
   "tone",

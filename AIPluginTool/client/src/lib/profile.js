@@ -4,6 +4,7 @@ const DEFAULT_PROFILE = {
   profile_role: "Transition Analyst",
   profile_team: "Ci → CiA Transition Program",
   profile_environment: "demo",
+  profile_picture: "",
   notifications_enabled: "true",
   response_style: "concise and practical",
   tone: "friendly and direct",

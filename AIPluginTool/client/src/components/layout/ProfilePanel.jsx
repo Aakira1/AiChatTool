@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profile.js";
 import { getProfile, updateProfile } from "../../lib/api.js";
+import { useToast } from "../ui/ToastProvider.jsx";
 import {
   AI_PROVIDERS,
   DENSITIES,
@@ -24,6 +25,8 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
   const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (!open) {
@@ -48,6 +51,29 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
     applySettings(next);
   };
 
+  const handleAvatarChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      const msg = "File size too large — image must be smaller than 2 MB";
+      console.error("[ProfilePanel] Avatar upload rejected:", msg, { fileName: file.name, size: file.size });
+      toast.error(msg);
+      setError(msg);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      updateField("profile_picture", e.target.result);
+      toast.success("Profile picture updated");
+    };
+    reader.onerror = (e) => {
+      console.error("[ProfilePanel] FileReader error:", e);
+      setError("Failed to read image file");
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
   const updateAiSetting = (updates) => {
     const next = saveSettings({ ai: { ...settings.ai, ...updates } });
     setSettings(next);
@@ -67,6 +93,7 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
       onSaved?.(normalized);
       onClose();
     } catch (saveError) {
+      console.error("[ProfilePanel] Save failed:", saveError);
       setError(saveError.message ?? "Failed to save profile");
     } finally {
       setSaving(false);
@@ -89,7 +116,11 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
       >
         <header className="t1-profile-panel-header">
           <div className="t1-profile-panel-user">
-            <span className="t1-profile-avatar large">{initials}</span>
+            {form.profile_picture ? (
+              <img src={form.profile_picture} className="t1-profile-avatar large t1-profile-avatar-img" alt={form.profile_name} />
+            ) : (
+              <span className="t1-profile-avatar large">{initials}</span>
+            )}
             <div>
               <h2 id="profile-panel-title">{form.profile_name}</h2>
               <p>{form.profile_role}</p>
@@ -130,6 +161,37 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
         <div className="t1-profile-panel-body">
           {tab === "profile" ? (
             <div className="t1-profile-form">
+              <div className="t1-avatar-upload">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="t1-avatar-file-input"
+                  onChange={handleAvatarChange}
+                />
+                <button
+                  type="button"
+                  className="t1-avatar-upload-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload profile picture"
+                >
+                  {form.profile_picture ? (
+                    <img src={form.profile_picture} className="t1-avatar-preview" alt="Profile" />
+                  ) : (
+                    <span className="t1-profile-avatar large">{initials}</span>
+                  )}
+                  <span className="t1-avatar-upload-overlay">Change photo</span>
+                </button>
+                {form.profile_picture ? (
+                  <button
+                    type="button"
+                    className="t1-avatar-remove"
+                    onClick={() => updateField("profile_picture", "")}
+                  >
+                    Remove photo
+                  </button>
+                ) : null}
+              </div>
               <label>
                 Full name
                 <input
