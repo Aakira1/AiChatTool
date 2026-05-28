@@ -653,6 +653,10 @@ button:disabled {
 }
 
 /* Options page */
+body.cia-ext-options-page {
+  overflow-y: auto;
+}
+
 .cia-ext-options {
   max-width: 560px;
   margin: 40px auto;
