@@ -15,6 +15,7 @@ import { messagesRouter } from "./routes/messages.js";
 import { profileRouter } from "./routes/profile.js";
 import { terminologyRouter } from "./routes/terminology.js";
 import { knowledgeRouter } from "./routes/knowledge.js";
+import { connectorsRouter } from "./routes/connectors.js";
 
 export function createApp() {
   const app = express();
@@ -81,6 +82,7 @@ export function createApp() {
   app.use("/api/profile", profileRouter);
   app.use("/api/terminology", terminologyRouter);
   app.use("/api/knowledge", knowledgeRouter);
+  app.use("/api/connectors", connectorsRouter);
 
   if (env.serveClient) {
     attachClientApp(app);

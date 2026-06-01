@@ -13,14 +13,15 @@ import {
 import { openWebApp } from "../lib/storage.js";
 import { pickPageContextForApi } from "../lib/pageContextPayload.js";
 import { capturePageView, getPageContext } from "../lib/pageContext.js";
+import { getSettings, saveSettings } from "../lib/settings.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ConversationPicker } from "./components/ConversationPicker.jsx";
 import { MessageList } from "./components/MessageList.jsx";
 import { Composer } from "./components/Composer.jsx";
-import { QuickPrompts } from "./components/QuickPrompts.jsx";
-import { PageContextChip } from "./components/PageContextChip.jsx";
+import { ComposerToolbar } from "./components/ComposerToolbar.jsx";
 import { TopBar } from "./components/TopBar.jsx";
 import { Banner } from "./components/Banner.jsx";
+import { SettingsPanel } from "./components/SettingsPanel.jsx";
 
 const WELCOME_MESSAGE = {
   id: "welcome",
@@ -58,8 +59,18 @@ export function SidePanelApp() {
   const [includeContext, setIncludeContext] = useState(true);
   const [capturingPage, setCapturingPage] = useState(false);
   const [fallbackHint, setFallbackHint] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
+  const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
+  const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
+  const [connectorSources, setConnectorSources] = useState(() => getSettings().connectorSources ?? []);
   const messagesRef = useRef(null);
   const abortRef = useRef(null);
+
+  const handleProviderChange = (value) => { setProvider(value); saveSettings({ provider: value }); };
+  const handleReasoningChange = (value) => { setReasoning(value); saveSettings({ reasoning: value }); };
+  const handleSourcesChange = (value) => { setSources(value); saveSettings({ sources: value }); };
+  const handleConnectorSourcesChange = (value) => { setConnectorSources(value); saveSettings({ connectorSources: value }); };
 
   const refreshPageContext = useCallback(async () => {
     const ctx = await getPageContext({ includeExcerpt: includeContext });
@@ -322,6 +333,10 @@ export function SidePanelApp() {
         message: content,
         attachments: [],
         pageContext: ctx,
+        provider,
+        reasoning,
+        sources,
+        connectorSources,
         signal: controller.signal,
         onToken: (token) => {
           streamed += token;
@@ -393,8 +408,15 @@ export function SidePanelApp() {
         healthState={healthState}
         user={user}
         onLogout={handleLogout}
-        onOpenOptions={() => chrome.runtime.openOptionsPage?.()}
+        onOpenOptions={() => setShowSettings(true)}
       />
+
+      {showSettings ? (
+        <SettingsPanel
+          onClose={() => setShowSettings(false)}
+          onOpenFullOptions={() => chrome.runtime.openOptionsPage?.()}
+        />
+      ) : null}
 
       <ConversationPicker
         threads={threads}
@@ -411,22 +433,27 @@ export function SidePanelApp() {
 
       <MessageList ref={messagesRef} messages={messages} pending={pending} />
 
-      <PageContextChip
-        context={pageContext}
-        included={includeContext}
-        capturing={capturingPage}
-        onToggle={() => setIncludeContext((value) => !value)}
-        onRefresh={refreshPageContext}
-        onCapture={() => void handleCapturePage()}
-        onClearScreenshot={handleClearScreenshot}
-      />
-
-      <QuickPrompts
-        disabled={pending}
-        onSelect={(text) => {
+      <ComposerToolbar
+        sources={sources}
+        onSourcesChange={handleSourcesChange}
+        connectorSources={connectorSources}
+        onConnectorSourcesChange={handleConnectorSourcesChange}
+        reasoning={reasoning}
+        onReasoningChange={handleReasoningChange}
+        provider={provider}
+        onProviderChange={handleProviderChange}
+        onTopicSelect={(text) => {
           const prefix = includeContext && pageContext?.selection ? `${text} ${pageContext.selection}` : text;
           setInput(prefix);
         }}
+        pageContext={pageContext}
+        includeContext={includeContext}
+        capturingPage={capturingPage}
+        onToggleContext={() => setIncludeContext((value) => !value)}
+        onRefreshContext={refreshPageContext}
+        onCapturePage={() => void handleCapturePage()}
+        onClearScreenshot={handleClearScreenshot}
+        disabled={pending}
       />
 
       <Composer

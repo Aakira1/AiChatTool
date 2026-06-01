@@ -27,7 +27,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your CiA Transition Assistant. I review stored CI/CIA case data, attached documents, and can show comparisons, metrics, and likely resolutions in this chat.",
+    "Hi! I'm your CiA Transition Assistant.",
   metadata: {},
 };
 
@@ -48,6 +48,9 @@ export function ChatPage() {
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState([]);
+  const [connectorSources, setConnectorSources] = useState([]);
+  const [threadsCollapsed, setThreadsCollapsed] = useState(false);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [hotTopicPrompts, setHotTopicPrompts] = useState(DEFAULT_HOT_TOPIC_PROMPTS);
   const messagesRef = useRef(null);
@@ -318,6 +321,7 @@ export function ChatPage() {
           message: content || "Please analyze the attached document(s).",
           attachments: filesToSend,
           pageContext: getPageContext(),
+          connectorSources,
           ...callbacks,
         }),
     });
@@ -408,8 +412,14 @@ export function ChatPage() {
     archivedThreads.find((thread) => thread.id === conversationId);
 
   return (
-    <div className="cia-layout">
+    <div
+      className={`cia-layout${threadsCollapsed ? " threads-collapsed" : ""}${
+        insightsCollapsed ? " insights-collapsed" : ""
+      }`}
+    >
       <CiaThreadList
+        collapsed={threadsCollapsed}
+        onToggleCollapsed={() => setThreadsCollapsed((value) => !value)}
         threads={threads}
         archivedThreads={archivedThreads}
         showArchived={showArchived}
@@ -484,7 +494,7 @@ export function ChatPage() {
                   <span />
                   <span />
                 </span>
-                <span className="cia-typing-label">Reviewing stored CI/CIA data…</span>
+                <span className="cia-typing-label">Thinking</span>
               </div>
             </article>
           ) : null}
@@ -519,6 +529,8 @@ export function ChatPage() {
           onAttachmentsChange={setAttachments}
           onSubmit={() => void handleSend(input)}
           pending={pending}
+          connectorSources={connectorSources}
+          onConnectorSourcesChange={setConnectorSources}
           onError={(message) => {
             setError(message);
             toast.error(message);
@@ -526,7 +538,12 @@ export function ChatPage() {
         />
       </section>
 
-      <CiaSidePanel insights={insights} onAskTerm={(text) => void handleSend(text)} />
+      <CiaSidePanel
+        insights={insights}
+        onAskTerm={(text) => void handleSend(text)}
+        collapsed={insightsCollapsed}
+        onToggleCollapsed={() => setInsightsCollapsed((value) => !value)}
+      />
     </div>
   );
 }

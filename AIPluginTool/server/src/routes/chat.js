@@ -82,8 +82,21 @@ function pageContextForStorage(pageContext) {
 const attachmentSchema = z.object({
   name: z.string().min(1).max(200),
   type: z.string().max(100).optional(),
-  content: z.string().min(1).max(50_000),
+  // base64 encoding is used for binary docs (.pdf/.docx) — a 250KB file is
+  // ~340K base64 chars, so allow generous headroom. Plain text stays small.
+  encoding: z.enum(["base64"]).optional(),
+  content: z.string().min(1).max(400_000),
+  size: z.number().int().nonnegative().optional(),
 });
+
+const connectorIdSchema = z.enum([
+  "google-drive",
+  "onedrive",
+  "sharepoint",
+  "teams",
+  "jira",
+  "confluence",
+]);
 
 const chatSchema = z
   .object({
@@ -92,6 +105,7 @@ const chatSchema = z
     pageContext: pageContextSchema,
     attachments: z.array(attachmentSchema).max(3).optional(),
     aiProvider: z.enum(["default", "copilot-studio"]).optional(),
+    connectorSources: z.array(connectorIdSchema).max(6).optional(),
   })
   .refine(
     (data) =>
@@ -125,6 +139,7 @@ async function runAssistantStream({
   pageContext,
   request,
   aiProvider: requestedAiProvider = "default",
+  connectorSources = [],
 }) {
   let assistantContent = "";
   const abortController = new AbortController();
@@ -138,6 +153,9 @@ async function runAssistantStream({
       attachments,
       pageContext,
       conversationId,
+      connectorSources,
+      userEmail: request.user?.email || env.authEmail || "local-user",
+      signal: abortController.signal,
     });
 
     response.setHeader("Content-Type", "text/event-stream");
@@ -319,6 +337,7 @@ chatRouter.post("/", async (request, response, next) => {
       pageContext: pageContextForStorage(parsed.data.pageContext),
       searchPhrase,
       attachments: attachments.map(({ name, type, size }) => ({ name, type, size })),
+      connectorSources: parsed.data.connectorSources ?? [],
     },
   });
 
@@ -346,5 +365,6 @@ chatRouter.post("/", async (request, response, next) => {
     pageContext: parsed.data.pageContext ?? null,
     request,
     aiProvider: parsed.data.aiProvider ?? "default",
+    connectorSources: parsed.data.connectorSources ?? [],
   });
 });

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { readDocumentFiles } from "../../lib/documents.js";
+import { ConnectorSourcesPicker } from "./ConnectorSourcesPicker.jsx";
 
 export function ChatComposer({
   input,
@@ -9,6 +10,8 @@ export function ChatComposer({
   onSubmit,
   pending,
   onError,
+  connectorSources = [],
+  onConnectorSourcesChange,
 }) {
   const fileInputRef = useRef(null);
 
@@ -83,6 +86,13 @@ export function ChatComposer({
           placeholder="Ask about CiA terminology, processes, cases, or attach a document..."
           disabled={pending}
         />
+        {onConnectorSourcesChange ? (
+          <ConnectorSourcesPicker
+            selected={connectorSources}
+            onChange={onConnectorSourcesChange}
+            disabled={pending}
+          />
+        ) : null}
         <button type="submit" className="cia-send-btn" disabled={pending}>
           Send →
         </button>

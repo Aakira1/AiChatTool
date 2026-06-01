@@ -180,6 +180,10 @@ export async function streamChat({
   message,
   attachments = [],
   pageContext,
+  provider,
+  reasoning,
+  sources,
+  connectorSources = [],
   signal,
   onToken,
   onComplete,
@@ -196,6 +200,10 @@ export async function streamChat({
       message,
       attachments,
       ...(pageContext != null ? { pageContext } : {}),
+      ...(provider && provider !== "server" ? { provider } : {}),
+      ...(reasoning && reasoning !== "auto" ? { reasoning } : {}),
+      ...(sources ? { sources } : {}),
+      ...(connectorSources.length > 0 ? { connectorSources } : {}),
     }),
     signal,
   });
@@ -209,6 +217,59 @@ export async function streamChat({
     onInsights,
     onArtifacts,
   });
+}
+
+export async function listConnectors() {
+  const response = await apiFetch("/api/connectors");
+  if (!response.ok) {
+    throw new Error("Failed to load connectors");
+  }
+  return response.json();
+}
+
+export async function getConnectorConnectUrl(connectorId) {
+  const base = await getApiBaseUrl();
+  return `${base}/api/connectors/${connectorId}/connect`;
+}
+
+export async function disconnectConnector(provider) {
+  const response = await apiFetch(`/api/connectors/${provider}/disconnect`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to disconnect");
+  }
+  return response.json();
+}
+
+export async function listConnectorProviders() {
+  const response = await apiFetch("/api/connectors/providers");
+  if (!response.ok) {
+    throw new Error("Failed to load connector providers");
+  }
+  return response.json();
+}
+
+export async function saveConnectorProvider(provider, config) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}`, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to save credentials");
+  }
+  return response.json();
+}
+
+export async function clearConnectorProvider(provider) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to clear credentials");
+  }
+  return response.json();
 }
 
 export async function pingHealth() {
