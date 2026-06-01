@@ -4,6 +4,10 @@ const EVENT_NAME = "cia:settings:changed";
 const DEFAULTS = {
   showInsights: true,
   showArtifactsByDefault: false,
+  provider: "server",
+  reasoning: "auto",
+  sources: { webSearch: false, companyKnowledge: true },
+  connectorSources: [],
 };
 
 function safeParse(raw) {

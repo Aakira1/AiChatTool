@@ -195,6 +195,59 @@ export async function importCases(source, rows) {
   return response.json();
 }
 
+export async function listConnectors() {
+  const response = await apiFetch("/api/connectors");
+  if (!response.ok) {
+    throw new Error("Failed to load connectors");
+  }
+  return response.json();
+}
+
+export function connectConnectorUrl(connectorId, returnTo = window.location.href) {
+  const query = `?returnTo=${encodeURIComponent(returnTo)}`;
+  return `${API_BASE_URL}/api/connectors/${connectorId}/connect${query}`;
+}
+
+export async function disconnectConnector(provider) {
+  const response = await apiFetch(`/api/connectors/${provider}/disconnect`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to disconnect");
+  }
+  return response.json();
+}
+
+export async function listConnectorProviders() {
+  const response = await apiFetch("/api/connectors/providers");
+  if (!response.ok) {
+    throw new Error("Failed to load connector providers");
+  }
+  return response.json();
+}
+
+export async function saveConnectorProvider(provider, config) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}`, {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to save credentials");
+  }
+  return response.json();
+}
+
+export async function clearConnectorProvider(provider) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to clear credentials");
+  }
+  return response.json();
+}
+
 async function consumeChatStream(response, callbacks) {
   const { signal, onToken, onComplete, onInsights, onArtifacts } = callbacks;
 
@@ -259,6 +312,7 @@ export async function streamChat({
   message,
   attachments = [],
   pageContext,
+  connectorSources = [],
   signal,
   onToken,
   onComplete,
@@ -274,6 +328,7 @@ export async function streamChat({
       message,
       pageContext,
       attachments,
+      ...(connectorSources.length > 0 ? { connectorSources } : {}),
       ...getChatAiProvider(),
     }),
     signal,

@@ -2283,3 +2283,129 @@
   width: 18px;
   height: 18px;
 }
+
+/* --- App connectors --- */
+.cia-sources-picker {
+  position: relative;
+  display: inline-flex;
+}
+.cia-sources-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--t1-border, #d4d8e0);
+  background: var(--t1-surface, #fff);
+  color: var(--t1-text, #1d2533);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cia-sources-btn.active {
+  border-color: var(--t1-accent, #2f6fed);
+  color: var(--t1-accent, #2f6fed);
+}
+.cia-sources-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cia-sources-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: var(--t1-surface, #fff);
+  border: 1px solid var(--t1-border, #d4d8e0);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  z-index: 40;
+}
+.cia-sources-empty {
+  font-size: 12px;
+  color: var(--t1-muted, #6b7280);
+  margin: 0;
+  padding: 8px;
+}
+.cia-sources-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cia-sources-option:hover {
+  background: var(--t1-surface-2, #f3f5f9);
+}
+.cia-sources-option-icon {
+  font-size: 15px;
+}
+.t1-connector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.t1-connector-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--t1-border, #d4d8e0);
+  border-radius: 10px;
+}
+.t1-connector-icon {
+  font-size: 20px;
+}
+.t1-connector-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.t1-connector-meta small {
+  color: var(--t1-muted, #6b7280);
+  font-size: 12px;
+}
+.t1-connector-badge.muted {
+  font-size: 12px;
+  color: var(--t1-muted, #6b7280);
+}
+
+/* --- Connector provider credential setup --- */
+.t1-provider-setup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+.t1-provider-setup {
+  border: 1px solid var(--t1-border, #d4d8e0);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.t1-provider-setup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.t1-provider-setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.t1-connector-badge.ok {
+  font-size: 12px;
+  color: #15803d;
+}
+.t1-profile-saved {
+  font-size: 12px;
+  color: #15803d;
+}

@@ -59,6 +59,33 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_cases_search_term ON cases(search_term);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS oauth_tokens (
+    id TEXT PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_at TEXT,
+    scope TEXT,
+    metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_email, provider)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS oauth_provider_config (
+    provider TEXT PRIMARY KEY,
+    client_id TEXT,
+    client_secret TEXT,
+    tenant TEXT,
+    redirect_uri TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`);
 } catch {

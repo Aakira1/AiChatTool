@@ -27,7 +27,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your CiA Transition Assistant. I review stored CI/CIA case data, attached documents, and can show comparisons, metrics, and likely resolutions in this chat.",
+    "Hi! I'm your CiA Transition Assistant.",
   metadata: {},
 };
 
@@ -48,6 +48,7 @@ export function ChatPage() {
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState([]);
+  const [connectorSources, setConnectorSources] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [hotTopicPrompts, setHotTopicPrompts] = useState(DEFAULT_HOT_TOPIC_PROMPTS);
   const messagesRef = useRef(null);
@@ -318,6 +319,7 @@ export function ChatPage() {
           message: content || "Please analyze the attached document(s).",
           attachments: filesToSend,
           pageContext: getPageContext(),
+          connectorSources,
           ...callbacks,
         }),
     });
@@ -519,6 +521,8 @@ export function ChatPage() {
           onAttachmentsChange={setAttachments}
           onSubmit={() => void handleSend(input)}
           pending={pending}
+          connectorSources={connectorSources}
+          onConnectorSourcesChange={setConnectorSources}
           onError={(message) => {
             setError(message);
             toast.error(message);

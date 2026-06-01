@@ -10,6 +10,7 @@ import {
 } from "../lib/storage.js";
 import { getSettings, saveSettings } from "../lib/settings.js";
 import { pingHealth } from "../lib/api.js";
+import { ConnectorsSection } from "./ConnectorsSection.jsx";
 
 export function OptionsApp() {
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_BASE_URL);
@@ -113,6 +114,8 @@ export function OptionsApp() {
           Always expand insights under replies
         </label>
       </section>
+
+      <ConnectorsSection />
 
       <form onSubmit={handleSave}>
         <label>

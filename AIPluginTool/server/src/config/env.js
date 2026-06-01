@@ -53,6 +53,32 @@ const vectorizeIndexName = process.env.VECTORIZE_INDEX_NAME?.trim() ?? "";
 const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
 const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN ?? "";
 
+const publicServerUrl = process.env.PUBLIC_SERVER_URL ?? `http://localhost:${Number(process.env.PORT ?? 3001)}`;
+
+// OAuth connector providers. One OAuth app per provider; a provider can back
+// several connectors (e.g. Microsoft Graph powers OneDrive, SharePoint, Teams).
+const oauthProviders = {
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    redirectUri:
+      process.env.GOOGLE_REDIRECT_URI ?? `${publicServerUrl}/api/connectors/callback/google`,
+  },
+  microsoft: {
+    clientId: process.env.MICROSOFT_CLIENT_ID ?? "",
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
+    tenant: process.env.MICROSOFT_TENANT ?? "common",
+    redirectUri:
+      process.env.MICROSOFT_REDIRECT_URI ?? `${publicServerUrl}/api/connectors/callback/microsoft`,
+  },
+  atlassian: {
+    clientId: process.env.ATLASSIAN_CLIENT_ID ?? "",
+    clientSecret: process.env.ATLASSIAN_CLIENT_SECRET ?? "",
+    redirectUri:
+      process.env.ATLASSIAN_REDIRECT_URI ?? `${publicServerUrl}/api/connectors/callback/atlassian`,
+  },
+};
+
 export const env = {
   nodeEnv,
   isProduction,
@@ -88,6 +114,8 @@ export const env = {
   copilotStudioEnabled: process.env.COPILOT_STUDIO_ENABLED === "true",
   copilotStudioDirectLineSecret: process.env.COPILOT_STUDIO_DIRECT_LINE_SECRET ?? "",
   copilotStudioAgentName: process.env.COPILOT_STUDIO_AGENT_NAME ?? "",
+  publicServerUrl,
+  oauthProviders,
 };
 
 export function getEmbeddingConfig() {

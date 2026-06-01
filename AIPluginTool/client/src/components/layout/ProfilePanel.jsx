@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profile.js";
+import { ConnectorsManager } from "./ConnectorsManager.jsx";
 import { getProfile, updateProfile } from "../../lib/api.js";
 import {
   AI_PROVIDERS,
@@ -255,6 +256,8 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
 
   return (
     <div className="t1-profile-form">
+      <ConnectorsManager />
+
       <div className="t1-settings-section">
         <h3>Theme</h3>
         <p>Pick a colour scheme for the assistant.</p>

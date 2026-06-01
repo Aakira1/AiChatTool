@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check src/services/chatService.js)",
+      "Bash(node --check src/routes/chat.js)",
+      "Bash(node --check src/routes/connectors.js)",
+      "Bash(node --check src/services/connectorService.js)",
+      "Bash(node --check src/services/oauthService.js)",
+      "Bash(npm run *)",
+      "Bash(node --check src/db/client.js)",
+      "Bash(node --check src/db/repositories/oauthProviderConfigRepo.js)",
+      "Bash(node --check src/config/env.js)"
+    ]
+  }
+}

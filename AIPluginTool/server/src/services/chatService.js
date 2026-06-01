@@ -8,6 +8,7 @@ import { OpenAiCompatibleAdapter } from "./llm/openAiCompatibleAdapter.js";
 import { buildAttachmentContext } from "../utils/documentText.js";
 import { retrieveKnowledge } from "./ragService.js";
 import { describePageScreenshot } from "./visionService.js";
+import { searchConnectors, buildConnectorContext } from "./connectorService.js";
 
 const adapter = new OpenAiCompatibleAdapter(getLlmConfig());
 
@@ -17,6 +18,9 @@ export async function prepareAssistantMessages({
   attachments = [],
   pageContext,
   conversationId,
+  connectorSources = [],
+  userEmail,
+  signal,
 }) {
   const memories = retrieveRelevantMemories(latestUserMessage, conversationId);
   const cases = findSimilarCases(latestUserMessage, { limit: 5 });
@@ -24,6 +28,12 @@ export async function prepareAssistantMessages({
   const { artifacts } = buildResponseArtifacts(latestUserMessage, { knowledgeChunks });
   const preferences = getPreferences();
   const attachmentContext = buildAttachmentContext(attachments);
+
+  const connectorGroups =
+    connectorSources.length > 0 && userEmail
+      ? await searchConnectors(connectorSources, userEmail, latestUserMessage, { signal })
+      : [];
+  const connectorContext = buildConnectorContext(connectorGroups);
 
   let enrichedPageContext = pageContext;
   if (pageContext?.screenshot) {
@@ -52,7 +62,7 @@ export async function prepareAssistantMessages({
     cases,
     attachments,
     knowledgeChunks,
-  })}
+  })}${connectorContext ? `\n\n${connectorContext}` : ""}
 
 Structured review hints for this answer (expand in the response when relevant):
 ${JSON.stringify(artifactSummary)}`;

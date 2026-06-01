@@ -85,6 +85,15 @@ const attachmentSchema = z.object({
   content: z.string().min(1).max(50_000),
 });
 
+const connectorIdSchema = z.enum([
+  "google-drive",
+  "onedrive",
+  "sharepoint",
+  "teams",
+  "jira",
+  "confluence",
+]);
+
 const chatSchema = z
   .object({
     conversationId: z.string().min(1),
@@ -92,6 +101,7 @@ const chatSchema = z
     pageContext: pageContextSchema,
     attachments: z.array(attachmentSchema).max(3).optional(),
     aiProvider: z.enum(["default", "copilot-studio"]).optional(),
+    connectorSources: z.array(connectorIdSchema).max(6).optional(),
   })
   .refine(
     (data) =>
@@ -125,6 +135,7 @@ async function runAssistantStream({
   pageContext,
   request,
   aiProvider: requestedAiProvider = "default",
+  connectorSources = [],
 }) {
   let assistantContent = "";
   const abortController = new AbortController();
@@ -138,6 +149,9 @@ async function runAssistantStream({
       attachments,
       pageContext,
       conversationId,
+      connectorSources,
+      userEmail: request.user?.email || env.authEmail || "local-user",
+      signal: abortController.signal,
     });
 
     response.setHeader("Content-Type", "text/event-stream");
@@ -319,6 +333,7 @@ chatRouter.post("/", async (request, response, next) => {
       pageContext: pageContextForStorage(parsed.data.pageContext),
       searchPhrase,
       attachments: attachments.map(({ name, type, size }) => ({ name, type, size })),
+      connectorSources: parsed.data.connectorSources ?? [],
     },
   });
 
@@ -346,5 +361,6 @@ chatRouter.post("/", async (request, response, next) => {
     pageContext: parsed.data.pageContext ?? null,
     request,
     aiProvider: parsed.data.aiProvider ?? "default",
+    connectorSources: parsed.data.connectorSources ?? [],
   });
 });
