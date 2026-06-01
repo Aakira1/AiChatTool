@@ -11,7 +11,25 @@ export function CiaThreadList({
   onRename,
   onPin,
   onArchive,
+  collapsed = false,
+  onToggleCollapsed,
 }) {
+  if (collapsed) {
+    return (
+      <aside className="cia-threads cia-threads-collapsed">
+        <button
+          type="button"
+          className="cia-collapse-rail-btn"
+          onClick={onToggleCollapsed}
+          title="Expand chats"
+          aria-label="Expand chats"
+        >
+          <span className="cia-collapse-rail-label">Chats</span>
+          <span aria-hidden="true">»</span>
+        </button>
+      </aside>
+    );
+  }
   const renderThread = (thread) => (
     <div
       key={thread.id}
@@ -86,9 +104,20 @@ export function CiaThreadList({
     <aside className="cia-threads">
       <div className="cia-threads-header">
         <h2>Chats</h2>
-        <button type="button" className="cia-threads-new" onClick={onCreate}>
-          + New
-        </button>
+        <div className="cia-threads-header-actions">
+          <button type="button" className="cia-threads-new" onClick={onCreate}>
+            + New
+          </button>
+          <button
+            type="button"
+            className="cia-collapse-btn"
+            onClick={onToggleCollapsed}
+            title="Collapse chats"
+            aria-label="Collapse chats"
+          >
+            «
+          </button>
+        </div>
       </div>
 
       <div className="cia-threads-list">
