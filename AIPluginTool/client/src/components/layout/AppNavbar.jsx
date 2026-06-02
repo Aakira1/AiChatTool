@@ -38,19 +38,20 @@ export function AppNavbar({ activeView, onNavigate }) {
   };
 
   const initials = getInitials(profile.profile_name);
+  const profilePicture = profile.profile_picture;
 
   return (
     <>
       <header className="t1-navbar">
         <div className="t1-navbar-brand">
-          <div>
-            <div className="t1-navbar-title-row">
-              <div className="cia-logo">
-                <img src={tneIcon} alt="TechnologyOne" />
-              </div>
-              <p className="t1-navbar-title">OneChat AI Assistant</p>
+          <div className="t1-navbar-title-row">
+            <div className="cia-logo">
+              <img src={tneIcon} alt="TechnologyOne" />
             </div>
-            <p className="t1-navbar-subtitle">Transitions</p>
+            <div>
+              <p className="t1-navbar-title"><span style={{ color: "#f9bd1c" }}>One</span>Chat AI Assistant</p>
+              <p className="t1-navbar-subtitle">Property & Rating Transitions</p>
+            </div>
           </div>
         </div>
 
@@ -97,7 +98,11 @@ export function AppNavbar({ activeView, onNavigate }) {
               aria-expanded={menuOpen}
               aria-haspopup="menu"
             >
-              <span className="t1-profile-avatar">{initials}</span>
+              {profilePicture ? (
+                <img src={profilePicture} className="t1-profile-avatar t1-profile-avatar-img" alt={profile.profile_name} />
+              ) : (
+                <span className="t1-profile-avatar">{initials}</span>
+              )}
               <span className="t1-profile-text">
                 <span className="t1-profile-name">{profile.profile_name}</span>
                 <span className="t1-profile-role">{profile.profile_role}</span>
@@ -108,7 +113,11 @@ export function AppNavbar({ activeView, onNavigate }) {
             {menuOpen ? (
               <div className="t1-profile-menu" role="menu">
                 <div className="t1-profile-menu-header">
-                  <span className="t1-profile-avatar">{initials}</span>
+                  {profilePicture ? (
+                    <img src={profilePicture} className="t1-profile-avatar t1-profile-avatar-img" alt={profile.profile_name} />
+                  ) : (
+                    <span className="t1-profile-avatar">{initials}</span>
+                  )}
                   <div>
                     <p className="t1-profile-menu-name">{profile.profile_name}</p>
                     <p className="t1-profile-menu-email">{profile.profile_email}</p>
@@ -120,7 +129,7 @@ export function AppNavbar({ activeView, onNavigate }) {
                 </div>
 
                 <button type="button" role="menuitem" onClick={() => openPanel("profile")}>
-                  My profile
+                  My Profile
                 </button>
                 <button type="button" role="menuitem" onClick={() => openPanel("preferences")}>
                   Preferences
@@ -136,10 +145,10 @@ export function AppNavbar({ activeView, onNavigate }) {
                     setMenuOpen(false);
                   }}
                 >
-                  Data & imports
+                  Data & Imports
                 </button>
-                <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
-                  Help & support
+                <button type="button" role="menuitem" onClick={() => { onNavigate("help"); setMenuOpen(false); }}>
+                  Help & Support
                 </button>
                 <hr />
                 {!authDisabled ? (

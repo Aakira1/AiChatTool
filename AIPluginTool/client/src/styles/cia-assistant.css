@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap");
 @import "./technolog1-theme.css";
 
 @keyframes t1-fade-in-up {
@@ -174,7 +173,7 @@
   --online: #22c55e;
   --online-soft: #86efac;
 
-  font-family: "Manrope", sans-serif;
+  font-family: Helvetica, Arial, sans-serif;
   color: var(--body);
   background: linear-gradient(135deg, var(--deep) 0%, var(--navy) 55%, #3a1a5d 100%);
   background-size: 200% 200%;
@@ -267,7 +266,7 @@
 
 .t1-navbar-title {
   margin: 0;
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.2;
   color: #fff;
@@ -452,6 +451,80 @@
   width: 48px;
   height: 48px;
   font-size: 16px;
+}
+
+.t1-profile-avatar-img {
+  object-fit: cover;
+  display: block;
+}
+
+.t1-avatar-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.t1-avatar-file-input {
+  display: none;
+}
+
+.t1-avatar-upload-btn {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  display: block;
+}
+
+.t1-avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.t1-avatar-upload-btn .t1-profile-avatar.large {
+  width: 72px;
+  height: 72px;
+  font-size: 22px;
+}
+
+.t1-avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.t1-avatar-upload-btn:hover .t1-avatar-upload-overlay {
+  opacity: 1;
+}
+
+.t1-avatar-remove {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.t1-avatar-remove:hover {
+  color: #fff;
 }
 
 .t1-profile-overlay {
@@ -858,18 +931,26 @@
   margin: 6px 0;
 }
 
+.t1-navbar-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cia-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .cia-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--purple));
-  color: white;
-  font-family: "Fraunces", serif;
-  font-weight: 700;
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   animation: t1-logo-glow 3s ease-in-out infinite;
 }
 
@@ -1024,7 +1105,7 @@
 }
 
 .cia-threads-header h2 {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 16px;
   color: var(--navy);
   font-weight: 600;
@@ -1162,7 +1243,7 @@
 }
 
 .cia-chat-title {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 17px;
   color: var(--navy);
   font-weight: 600;
@@ -1472,7 +1553,7 @@
 }
 
 .cia-term-value {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 16px;
   color: var(--navy);
   font-weight: 600;
@@ -1534,7 +1615,7 @@
 }
 
 .cia-case-id {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   color: var(--primary);
   font-weight: 600;
   font-size: 13px;
@@ -2000,6 +2081,122 @@
   opacity: 0.6;
 }
 
+.t1-help-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.t1-help-header {
+  margin-bottom: 32px;
+}
+
+.t1-help-header h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.t1-help-header p {
+  margin: 0;
+  color: var(--gray);
+  font-size: 14px;
+}
+
+.t1-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 20px;
+}
+
+.t1-help-card {
+  background: rgba(42, 20, 70, 0.7);
+  border: 1px solid rgba(228, 0, 124, 0.2);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.t1-help-card-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.t1-help-card h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.t1-help-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.t1-help-card p {
+  margin: 0 0 10px;
+  color: var(--gray);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.t1-help-btn {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--primary), var(--purple));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.t1-help-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.t1-help-contact-hint {
+  color: var(--gray) !important;
+  font-size: 12px !important;
+}
+
+.t1-help-faq {
+  margin: 0;
+}
+
+.t1-help-faq dt {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 14px;
+}
+
+.t1-help-faq dt:first-child {
+  margin-top: 0;
+}
+
+.t1-help-faq dd {
+  margin: 4px 0 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.t1-help-faq code {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #e8dff0;
+}
+
 .t1-login-page {
   --deep: var(--t1-deep);
   --navy: var(--t1-navy);
@@ -2021,7 +2218,7 @@
   background: #ffffff;
   border: 1px solid #e8dff0;
   border-radius: 20px;
-  padding: 32px 28px 28px;
+  padding: 12px 28px 28px;
   box-shadow: 0 20px 50px rgba(26, 11, 46, 0.35);
   display: flex;
   flex-direction: column;
@@ -2029,25 +2226,18 @@
 }
 
 .t1-login-logo {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 4px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #e4007c, #6b2b8c);
-  color: #ffffff;
-  font-family: "Fraunces", serif;
-  font-weight: 700;
-  font-size: 26px;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto -40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(228, 0, 124, 0.35);
 }
 
 .t1-login-card h1 {
   margin: 0;
   text-align: center;
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 22px;
   color: #2a1446;
 }
@@ -2150,13 +2340,13 @@
 }
 
 .cia-insights h2 {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 17px;
   color: var(--navy);
 }
 
 .cia-confidence {
-  font-family: "Fraunces", serif;
+  font-family: Helvetica, Arial, sans-serif;
   font-size: 24px;
   color: var(--primary);
   font-weight: 700;
