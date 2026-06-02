@@ -7,6 +7,6 @@ export function retrieveRelevantMemories(query, excludeConversationId) {
   });
 }
 
-export function getPreferences() {
-  return getUserPreferences();
+export function getPreferences(email) {
+  return getUserPreferences(email);
 }

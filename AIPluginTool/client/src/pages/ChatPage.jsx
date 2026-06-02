@@ -4,6 +4,7 @@ import { ChatComposer } from "../components/chat/ChatComposer";
 import { CiaSidePanel } from "../components/chat/CiaSidePanel";
 import { CiaThreadList } from "../components/chat/CiaThreadList";
 import { MessageActions } from "../components/chat/MessageActions";
+import { PostToForumModal } from "../components/chat/PostToForumModal";
 import { UserMessageContent } from "../components/chat/UserMessageContent";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 import {
@@ -385,6 +386,8 @@ export function ChatPage() {
     });
   };
 
+  const [forumPostContent, setForumPostContent] = useState(null);
+
   const handleCopy = async (content) => {
     try {
       await navigator.clipboard.writeText(content ?? "");
@@ -486,6 +489,11 @@ export function ChatPage() {
                   onRegenerate={() => void handleRegenerate()}
                   onEdit={handleEditUserMessage}
                   onRate={handleRate}
+                  onPostToForum={
+                    message.role === "assistant"
+                      ? (msg) => setForumPostContent(msg.content ?? "")
+                      : undefined
+                  }
                 />
               </div>
             </article>
@@ -564,6 +572,12 @@ export function ChatPage() {
         onAskTerm={(text) => void handleSend(text)}
         collapsed={insightsCollapsed}
         onToggleCollapsed={() => setInsightsCollapsed((value) => !value)}
+      />
+
+      <PostToForumModal
+        open={forumPostContent !== null}
+        content={forumPostContent ?? ""}
+        onClose={() => setForumPostContent(null)}
       />
     </div>
   );

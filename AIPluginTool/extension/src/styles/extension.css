@@ -227,6 +227,21 @@ button:disabled {
   border-color: #fecaca;
 }
 
+.cia-ext-banner-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.cia-ext-account-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.cia-ext-account-row input {
+  flex: 1;
+}
+
 .cia-ext-banner-warn {
   background: #fffbeb;
   color: #92400e;
@@ -1441,6 +1456,32 @@ body.cia-ext-options-page {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.cia-ext-login-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--cia-soft);
+  border: 1px solid var(--cia-border);
+  margin-bottom: 4px;
+}
+.cia-ext-login-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cia-muted);
+  cursor: pointer;
+}
+.cia-ext-login-tab.active {
+  background: #fff;
+  color: var(--cia-magenta);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ---- Forums ----------------------------------------------------------- */

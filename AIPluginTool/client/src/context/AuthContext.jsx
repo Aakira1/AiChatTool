@@ -1,5 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getAuthMe, login as apiLogin, logout as apiLogout } from "../lib/api.js";
+import {
+  getAuthMe,
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+} from "../lib/api.js";
 import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD } from "../lib/authDefaults.js";
 
 const AuthContext = createContext(null);
@@ -14,7 +19,7 @@ export function AuthProvider({ children }) {
     try {
       const session = await getAuthMe();
       if (session.authenticated) {
-        setUser({ email: session.email });
+        setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
         setAuthDisabled(Boolean(session.authDisabled));
       } else {
         setUser(null);
@@ -39,13 +44,16 @@ export function AuthProvider({ children }) {
     if (sessionStorage.getItem(MANUAL_LOGOUT_KEY)) {
       return;
     }
-    if (!import.meta.env.DEV || import.meta.env.VITE_AUTO_LOGIN === "false") {
+    // Auto-login as the demo admin is now opt-in (set VITE_AUTO_LOGIN=true).
+    // With real user accounts available, defaulting to demo admin would
+    // override a freshly registered/signed-in account.
+    if (import.meta.env.VITE_AUTO_LOGIN !== "true") {
       return;
     }
     void (async () => {
       try {
         const session = await apiLogin(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD);
-        setUser({ email: session.email });
+        setUser({ email: session.email, role: session.role ?? "user" });
       } catch {
         // User can sign in manually with pre-filled demo credentials.
       }
@@ -56,12 +64,24 @@ export function AuthProvider({ children }) {
     async (email, password) => {
       sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
       const session = await apiLogin(email, password);
-      setUser({ email: session.email });
+      setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
       setAuthDisabled(false);
       return session;
     },
     [],
   );
+
+  const register = useCallback(async ({ email, password, displayName }) => {
+    sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
+    const session = await apiRegister({ email, password, displayName });
+    setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
+    setAuthDisabled(false);
+    return session;
+  }, []);
+
+  const updateUserDisplayName = useCallback((displayName) => {
+    setUser((current) => (current ? { ...current, displayName } : current));
+  }, []);
 
   const logout = useCallback(async () => {
     sessionStorage.setItem(MANUAL_LOGOUT_KEY, "1");
@@ -77,10 +97,12 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: Boolean(user) || authDisabled,
       login,
+      register,
       logout,
       refresh,
+      updateUserDisplayName,
     }),
-    [user, authDisabled, loading, login, logout, refresh],
+    [user, authDisabled, loading, login, register, logout, refresh, updateUserDisplayName],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -12,6 +12,28 @@ import { searchConnectors, buildConnectorContext } from "./connectorService.js";
 
 const adapter = new OpenAiCompatibleAdapter(getLlmConfig());
 
+/**
+ * Maps the UI "reasoning" control to an explicit instruction appended to the
+ * system prompt. Without this the selector has no effect on the model.
+ */
+const REASONING_DIRECTIVES = {
+  auto: "",
+  quick:
+    "Response mode: QUICK. Answer concisely and directly. Lead with the answer, keep it short, " +
+    "and skip extended step-by-step reasoning unless it is essential to be correct.",
+  deep:
+    "Response mode: THINK DEEPER. Reason carefully before answering. Work through the problem " +
+    "methodically, consider edge cases and trade-offs, and give a well-structured, thorough response.",
+  research:
+    "Response mode: DEEP RESEARCH. Produce a comprehensive, report-style answer. Synthesise the " +
+    "provided context, organise findings under clear headings, note which sources or cases support " +
+    "each point, and finish with concrete, actionable recommendations.",
+};
+
+function reasoningDirective(reasoning) {
+  return REASONING_DIRECTIVES[reasoning] ?? "";
+}
+
 export async function prepareAssistantMessages({
   history,
   latestUserMessage,
@@ -20,13 +42,14 @@ export async function prepareAssistantMessages({
   conversationId,
   connectorSources = [],
   userEmail,
+  reasoning = "auto",
   signal,
 }) {
   const memories = retrieveRelevantMemories(latestUserMessage, conversationId);
   const cases = findSimilarCases(latestUserMessage, { limit: 5 });
   const knowledgeChunks = await retrieveKnowledge(latestUserMessage);
   const { artifacts } = buildResponseArtifacts(latestUserMessage, { knowledgeChunks });
-  const preferences = getPreferences();
+  const preferences = getPreferences(userEmail);
   // The full extracted text (up to 200K chars/file) is ingested into the vector
   // store for RAG, but the model context window is small (~8K tokens for Workers
   // AI Llama). Cap what we inline into the prompt so large docs don't overflow it
@@ -71,7 +94,9 @@ export async function prepareAssistantMessages({
     cases,
     attachments,
     knowledgeChunks,
-  })}${connectorContext ? `\n\n${connectorContext}` : ""}
+  })}${connectorContext ? `\n\n${connectorContext}` : ""}${
+    reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
+  }
 
 Structured review hints for this answer (expand in the response when relevant):
 ${JSON.stringify(artifactSummary)}`;

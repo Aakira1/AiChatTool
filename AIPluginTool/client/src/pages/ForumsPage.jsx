@@ -8,9 +8,23 @@ import {
   deletePost,
   listComments,
   createComment,
+  deleteComment,
+  acceptAnswer,
   votePost,
+  summarizePost,
+  searchForumPosts,
 } from "../lib/api.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+
+/** Whether the current user may modify content owned by `ownerEmail`. */
+function useCanModify() {
+  const { user } = useAuth();
+  const me = user?.email?.toLowerCase() ?? null;
+  const isAdmin = user?.role === "admin";
+  return (ownerEmail) =>
+    isAdmin || (Boolean(me) && Boolean(ownerEmail) && me === ownerEmail.toLowerCase());
+}
 
 function formatDate(value) {
   if (!value) return "";
@@ -19,12 +33,33 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
-function CommentsSection({ postId }) {
+function CommentsSection({ postId, canModifyPost, acceptedCommentId, onAccept }) {
   const toast = useToast();
+  const canModify = useCanModify();
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const removeComment = async (comment) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await deleteComment(comment.id);
+      setComments((prev) => prev.filter((c) => c.id !== comment.id));
+      if (acceptedCommentId === comment.id) onAccept(null);
+    } catch (error) {
+      toast.error(error.message || "Failed to delete comment");
+    }
+  };
+
+  const toggleAccept = async (comment) => {
+    const next = acceptedCommentId === comment.id ? null : comment.id;
+    try {
+      await onAccept(next);
+    } catch (error) {
+      toast.error(error.message || "Failed to update accepted answer");
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -65,15 +100,46 @@ function CommentsSection({ postId }) {
         <p className="cia-forum-muted">No comments yet. Be the first to reply.</p>
       ) : (
         <ul className="cia-forum-comment-list">
-          {comments.map((comment) => (
-            <li key={comment.id} className="cia-forum-comment">
-              <div className="cia-forum-comment-meta">
-                <span className="cia-forum-comment-author">{comment.author || "Anonymous"}</span>
-                <span className="cia-forum-comment-date">{formatDate(comment.created_at)}</span>
-              </div>
-              <p className="cia-forum-comment-body">{comment.body}</p>
-            </li>
-          ))}
+          {comments.map((comment) => {
+            const accepted = acceptedCommentId === comment.id;
+            return (
+              <li
+                key={comment.id}
+                className={`cia-forum-comment ${accepted ? "accepted" : ""}`}
+              >
+                <div className="cia-forum-comment-meta">
+                  <span className="cia-forum-comment-author">
+                    {comment.author_name || comment.author || "Anonymous"}
+                  </span>
+                  {accepted ? (
+                    <span className="cia-forum-accepted-badge">✓ Accepted answer</span>
+                  ) : null}
+                  <span className="cia-forum-comment-date">{formatDate(comment.created_at)}</span>
+                  <span className="cia-forum-comment-actions">
+                    {canModifyPost ? (
+                      <button
+                        type="button"
+                        className="cia-forum-link-btn"
+                        onClick={() => toggleAccept(comment)}
+                      >
+                        {accepted ? "Unaccept" : "Mark as answer"}
+                      </button>
+                    ) : null}
+                    {canModify(comment.author) ? (
+                      <button
+                        type="button"
+                        className="cia-forum-link-btn danger"
+                        onClick={() => removeComment(comment)}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </span>
+                </div>
+                <p className="cia-forum-comment-body">{comment.body}</p>
+              </li>
+            );
+          })}
         </ul>
       )}
       <form className="cia-forum-comment-form" onSubmit={submit}>
@@ -92,7 +158,31 @@ function CommentsSection({ postId }) {
 }
 
 function PostCard({ post, onVote, onDelete }) {
+  const toast = useToast();
+  const canModify = useCanModify();
   const [expanded, setExpanded] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [acceptedCommentId, setAcceptedCommentId] = useState(post.accepted_comment_id ?? null);
+
+  const canModifyPost = canModify(post.author);
+
+  const handleAccept = async (commentId) => {
+    const result = await acceptAnswer(post.id, commentId);
+    setAcceptedCommentId(result.accepted_comment_id ?? null);
+  };
+
+  const handleSummarize = async () => {
+    setSummarizing(true);
+    try {
+      const result = await summarizePost(post.id);
+      setSummary(result.summary);
+    } catch (error) {
+      toast.error(error.message || "Failed to summarize thread");
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   return (
     <article className="cia-forum-post">
@@ -119,7 +209,7 @@ function PostCard({ post, onVote, onDelete }) {
         <h3 className="cia-forum-post-title">{post.title}</h3>
         {post.body ? <p className="cia-forum-post-body">{post.body}</p> : null}
         <div className="cia-forum-post-meta">
-          <span>{post.author || "Anonymous"}</span>
+          <span>{post.author_name || post.author || "Anonymous"}</span>
           <span>·</span>
           <span>{formatDate(post.created_at)}</span>
           <button
@@ -131,13 +221,44 @@ function PostCard({ post, onVote, onDelete }) {
           </button>
           <button
             type="button"
-            className="cia-forum-link-btn danger"
-            onClick={() => onDelete(post)}
+            className="cia-forum-link-btn"
+            onClick={handleSummarize}
+            disabled={summarizing}
           >
-            Delete
+            {summarizing ? "Summarizing…" : "Ask AI"}
           </button>
+          {acceptedCommentId ? (
+            <span className="cia-forum-answered-tag">✓ Answered</span>
+          ) : null}
+          {canModifyPost ? (
+            <button
+              type="button"
+              className="cia-forum-link-btn danger"
+              onClick={() => onDelete(post)}
+            >
+              Delete
+            </button>
+          ) : null}
         </div>
-        {expanded ? <CommentsSection postId={post.id} /> : null}
+        {summary ? (
+          <div className="cia-forum-summary">
+            <div className="cia-forum-summary-head">
+              <span>AI summary</span>
+              <button type="button" className="cia-forum-link-btn" onClick={() => setSummary(null)}>
+                Dismiss
+              </button>
+            </div>
+            <p>{summary}</p>
+          </div>
+        ) : null}
+        {expanded ? (
+          <CommentsSection
+            postId={post.id}
+            canModifyPost={canModifyPost}
+            acceptedCommentId={acceptedCommentId}
+            onAccept={handleAccept}
+          />
+        ) : null}
       </div>
     </article>
   );
@@ -145,6 +266,7 @@ function PostCard({ post, onVote, onDelete }) {
 
 export function ForumsPage() {
   const toast = useToast();
+  const canModify = useCanModify();
   const [forums, setForums] = useState([]);
   const [activeForum, setActiveForum] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -156,6 +278,7 @@ export function ForumsPage() {
 
   const [postForm, setPostForm] = useState({ title: "", body: "" });
   const [showPostForm, setShowPostForm] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   const loadForums = async (selectId) => {
     setLoadingForums(true);
@@ -198,6 +321,33 @@ export function ForumsPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeForum?.id]);
+
+  // Debounced search for related existing threads as the user types a new post title.
+  useEffect(() => {
+    if (!showPostForm) {
+      setSuggestions([]);
+      return;
+    }
+    const query = postForm.title.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    let active = true;
+    const handle = setTimeout(() => {
+      searchForumPosts(query)
+        .then((data) => {
+          if (active) setSuggestions(data);
+        })
+        .catch(() => {
+          if (active) setSuggestions([]);
+        });
+    }, 350);
+    return () => {
+      active = false;
+      clearTimeout(handle);
+    };
+  }, [postForm.title, showPostForm]);
 
   const submitForum = async (event) => {
     event.preventDefault();
@@ -348,13 +498,15 @@ export function ForumsPage() {
                 >
                   {showPostForm ? "Cancel" : "+ New post"}
                 </button>
-                <button
-                  type="button"
-                  className="cia-forum-link-btn danger"
-                  onClick={() => removeForum(activeForum)}
-                >
-                  Delete forum
-                </button>
+                {canModify(activeForum.created_by) ? (
+                  <button
+                    type="button"
+                    className="cia-forum-link-btn danger"
+                    onClick={() => removeForum(activeForum)}
+                  >
+                    Delete forum
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -377,6 +529,24 @@ export function ForumsPage() {
                     setPostForm((form) => ({ ...form, body: event.target.value }))
                   }
                 />
+                {suggestions.length > 0 ? (
+                  <div className="cia-forum-suggestions">
+                    <p className="cia-forum-suggestions-head">
+                      Related threads already exist — maybe join one instead?
+                    </p>
+                    <ul>
+                      {suggestions.map((item) => (
+                        <li key={item.id}>
+                          <span className="cia-forum-suggestion-title">{item.title}</span>
+                          <span className="cia-forum-suggestion-meta">
+                            {item.forum_name} · {item.score} pts · {item.comment_count} comment
+                            {item.comment_count === 1 ? "" : "s"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <button type="submit" disabled={!postForm.title.trim()}>
                   Post
                 </button>

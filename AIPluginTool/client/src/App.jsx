@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ChatPage } from "./pages/ChatPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForumsPage } from "./pages/ForumsPage";
+import { AdminPage } from "./pages/AdminPage";
 import { HelpPage } from "./pages/HelpPage";
 import { LoginPage } from "./pages/LoginPage";
 import "./styles/cia-assistant.css";
@@ -29,6 +30,8 @@ function AppShell() {
           <DashboardPage />
         ) : view === "forums" ? (
           <ForumsPage />
+        ) : view === "admin" ? (
+          <AdminPage />
         ) : view === "help" ? (
           <HelpPage />
         ) : (

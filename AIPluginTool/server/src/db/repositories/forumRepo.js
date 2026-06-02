@@ -46,7 +46,8 @@ const insertPostStmt = db.prepare(`
 
 const listPostsStmt = db.prepare(`
   SELECT
-    p.id, p.forum_id, p.title, p.body, p.author, p.created_at,
+    p.id, p.forum_id, p.title, p.body, p.author, p.created_at, p.accepted_comment_id,
+    (SELECT u.display_name FROM users u WHERE u.email = p.author) AS author_name,
     COALESCE((SELECT SUM(value) FROM forum_votes v WHERE v.post_id = p.id), 0) AS score,
     (SELECT COUNT(*) FROM forum_comments c WHERE c.post_id = p.id) AS comment_count,
     COALESCE((SELECT value FROM forum_votes v WHERE v.post_id = p.id AND v.user_email = ?), 0) AS my_vote
@@ -56,6 +57,7 @@ const listPostsStmt = db.prepare(`
 `);
 
 const getPostStmt = db.prepare(`SELECT * FROM forum_posts WHERE id = ?`);
+const getAuthorNameStmt = db.prepare(`SELECT display_name FROM users WHERE email = ?`);
 const deletePostStmt = db.prepare(`DELETE FROM forum_posts WHERE id = ?`);
 const deleteCommentsByPostStmt = db.prepare(`DELETE FROM forum_comments WHERE post_id = ?`);
 const deleteVotesByPostStmt = db.prepare(`DELETE FROM forum_votes WHERE post_id = ?`);
@@ -63,7 +65,43 @@ const deleteVotesByPostStmt = db.prepare(`DELETE FROM forum_votes WHERE post_id 
 export function createPost({ forumId, title, body = "", author = null }) {
   const id = randomUUID();
   insertPostStmt.run(id, forumId, title, body, author);
-  return getPostStmt.get(id);
+  const post = getPostStmt.get(id);
+  return {
+    ...post,
+    author_name: author ? (getAuthorNameStmt.get(author)?.display_name ?? null) : null,
+    score: 0,
+    comment_count: 0,
+    my_vote: 0,
+    accepted_comment_id: null,
+  };
+}
+
+const setAcceptedStmt = db.prepare(`
+  UPDATE forum_posts SET accepted_comment_id = ? WHERE id = ?
+`);
+
+/** Set (or clear, with null) the accepted answer for a post. Returns the new value. */
+export function setAcceptedComment(postId, commentId) {
+  setAcceptedStmt.run(commentId, postId);
+  return commentId;
+}
+
+const searchPostsStmt = db.prepare(`
+  SELECT
+    p.id, p.forum_id, p.title, p.created_at,
+    f.name AS forum_name,
+    COALESCE((SELECT SUM(value) FROM forum_votes v WHERE v.post_id = p.id), 0) AS score,
+    (SELECT COUNT(*) FROM forum_comments c WHERE c.post_id = p.id) AS comment_count
+  FROM forum_posts p
+  JOIN forums f ON f.id = p.forum_id
+  WHERE p.title LIKE ? OR p.body LIKE ?
+  ORDER BY score DESC, p.created_at DESC
+  LIMIT ?
+`);
+
+export function searchPosts(query, limit = 6) {
+  const like = `%${query}%`;
+  return searchPostsStmt.all(like, like, limit);
 }
 
 export function listPosts(forumId, userEmail = "") {
@@ -87,10 +125,18 @@ const insertCommentStmt = db.prepare(`
 `);
 
 const listCommentsStmt = db.prepare(`
-  SELECT id, post_id, body, author, created_at
-  FROM forum_comments
-  WHERE post_id = ?
-  ORDER BY created_at ASC
+  SELECT
+    c.id, c.post_id, c.body, c.author, c.created_at,
+    (SELECT u.display_name FROM users u WHERE u.email = c.author) AS author_name
+  FROM forum_comments c
+  WHERE c.post_id = ?
+  ORDER BY c.created_at ASC
+`);
+
+const getCommentStmt = db.prepare(`SELECT * FROM forum_comments WHERE id = ?`);
+const deleteCommentStmt = db.prepare(`DELETE FROM forum_comments WHERE id = ?`);
+const clearAcceptedForCommentStmt = db.prepare(`
+  UPDATE forum_posts SET accepted_comment_id = NULL WHERE accepted_comment_id = ?
 `);
 
 export function createComment({ postId, body, author = null }) {
@@ -101,6 +147,15 @@ export function createComment({ postId, body, author = null }) {
 
 export function listComments(postId) {
   return listCommentsStmt.all(postId);
+}
+
+export function getComment(id) {
+  return getCommentStmt.get(id) ?? null;
+}
+
+export function deleteComment(id) {
+  clearAcceptedForCommentStmt.run(id);
+  return deleteCommentStmt.run(id).changes > 0;
 }
 
 // ---- Votes --------------------------------------------------------------

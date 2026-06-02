@@ -15,18 +15,63 @@ function loginErrorMessage(status, payloadError) {
   return `Login failed (${status})`;
 }
 
+/** Thrown when the server rejects a request because the session is no longer valid. */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("Your session expired. Please sign in again.");
+    this.name = "SessionExpiredError";
+    this.code = "SESSION_EXPIRED";
+  }
+}
+
+/**
+ * Build a clear, human-readable error from a failed response. Prefers the
+ * server's own message, then Zod field errors, then a status-specific fallback,
+ * so toasts say what actually went wrong instead of a generic "Failed to…".
+ */
+async function readError(response, fallback) {
+  let serverMessage = "";
+  try {
+    const payload = await response.json();
+    serverMessage = payload?.error || payload?.message || "";
+    if (!serverMessage && payload?.details && typeof payload.details === "object") {
+      const firstField = Object.values(payload.details).flat().find(Boolean);
+      if (firstField) serverMessage = String(firstField);
+    }
+  } catch {
+    // Response body was empty or not JSON — fall back to status-based wording.
+  }
+  if (serverMessage) return serverMessage;
+  if (response.status === 404) return `${fallback} — not found.`;
+  if (response.status === 403) return `${fallback} — you don't have permission to do that.`;
+  if (response.status === 429) return "Too many requests — please wait a moment and try again.";
+  if (response.status >= 500) {
+    return `${fallback} — the server had a problem (error ${response.status}). Check the server logs.`;
+  }
+  return `${fallback} (error ${response.status}).`;
+}
+
 async function apiFetch(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers ?? {}),
+      },
+    });
+  } catch {
+    // Network-level failure (server down, offline, CORS) — fetch rejects with a
+    // vague "Failed to fetch", so give the user something actionable instead.
+    throw new Error(
+      "Can't reach the server. Make sure it's running and/or check your connection.",
+    );
+  }
 
   if (response.status === 401 && !path.startsWith("/api/auth/")) {
-    throw new Error("SESSION_EXPIRED");
+    throw new SessionExpiredError();
   }
 
   return response;
@@ -48,6 +93,18 @@ export async function login(email, password) {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(loginErrorMessage(response.status, payload.error));
+  }
+  return response.json();
+}
+
+export async function register({ email, password, displayName }) {
+  const response = await apiFetch("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, displayName }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? `Registration failed (${response.status})`);
   }
   return response.json();
 }
@@ -108,7 +165,7 @@ export async function deleteTerminology(id) {
 export async function listForums() {
   const response = await apiFetch("/api/forums");
   if (!response.ok) {
-    throw new Error("Failed to load forums");
+    throw new Error(await readError(response, "Couldn't load forums"));
   }
   return response.json();
 }
@@ -119,7 +176,7 @@ export async function createForum({ name, description = "" }) {
     body: JSON.stringify({ name, description }),
   });
   if (!response.ok) {
-    throw new Error("Failed to create forum");
+    throw new Error(await readError(response, "Couldn't create the forum"));
   }
   return response.json();
 }
@@ -127,14 +184,14 @@ export async function createForum({ name, description = "" }) {
 export async function deleteForum(id) {
   const response = await apiFetch(`/api/forums/${id}`, { method: "DELETE" });
   if (!response.ok) {
-    throw new Error("Failed to delete forum");
+    throw new Error(await readError(response, "Couldn't delete the forum"));
   }
 }
 
 export async function listPosts(forumId) {
   const response = await apiFetch(`/api/forums/${forumId}/posts`);
   if (!response.ok) {
-    throw new Error("Failed to load posts");
+    throw new Error(await readError(response, "Couldn't load posts"));
   }
   return response.json();
 }
@@ -145,7 +202,7 @@ export async function createPost({ forumId, title, body = "" }) {
     body: JSON.stringify({ title, body }),
   });
   if (!response.ok) {
-    throw new Error("Failed to create post");
+    throw new Error(await readError(response, "Couldn't create the post"));
   }
   return response.json();
 }
@@ -153,14 +210,14 @@ export async function createPost({ forumId, title, body = "" }) {
 export async function deletePost(postId) {
   const response = await apiFetch(`/api/forums/posts/${postId}`, { method: "DELETE" });
   if (!response.ok) {
-    throw new Error("Failed to delete post");
+    throw new Error(await readError(response, "Couldn't delete the post"));
   }
 }
 
 export async function listComments(postId) {
   const response = await apiFetch(`/api/forums/posts/${postId}/comments`);
   if (!response.ok) {
-    throw new Error("Failed to load comments");
+    throw new Error(await readError(response, "Couldn't load comments"));
   }
   return response.json();
 }
@@ -171,7 +228,25 @@ export async function createComment({ postId, body }) {
     body: JSON.stringify({ body }),
   });
   if (!response.ok) {
-    throw new Error("Failed to add comment");
+    throw new Error(await readError(response, "Couldn't add your comment"));
+  }
+  return response.json();
+}
+
+export async function deleteComment(commentId) {
+  const response = await apiFetch(`/api/forums/comments/${commentId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't delete the comment"));
+  }
+}
+
+export async function acceptAnswer(postId, commentId) {
+  const response = await apiFetch(`/api/forums/posts/${postId}/accept`, {
+    method: "POST",
+    body: JSON.stringify({ commentId }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't update the accepted answer"));
   }
   return response.json();
 }
@@ -182,7 +257,112 @@ export async function votePost({ postId, value }) {
     body: JSON.stringify({ value }),
   });
   if (!response.ok) {
-    throw new Error("Failed to vote");
+    throw new Error(await readError(response, "Couldn't record your vote"));
+  }
+  return response.json();
+}
+
+export async function searchForumPosts(query) {
+  const response = await apiFetch(`/api/forums/search/posts?q=${encodeURIComponent(query)}`);
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't search posts"));
+  }
+  return response.json();
+}
+
+export async function summarizePost(postId) {
+  const response = await apiFetch(`/api/forums/posts/${postId}/summarize`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't summarize this thread"));
+  }
+  return response.json();
+}
+
+// ---- Notifications ------------------------------------------------------
+
+export async function listNotifications() {
+  const response = await apiFetch("/api/notifications");
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't load notifications"));
+  }
+  return response.json();
+}
+
+export async function getUnreadCount() {
+  const response = await apiFetch("/api/notifications/unread-count");
+  if (!response.ok) {
+    return { unread: 0 };
+  }
+  return response.json();
+}
+
+export async function markAllNotificationsRead() {
+  const response = await apiFetch("/api/notifications/read-all", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't mark notifications as read"));
+  }
+  return response.json();
+}
+
+export async function markNotificationRead(id) {
+  const response = await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't update the notification"));
+  }
+  return response.json();
+}
+
+export async function clearAllNotifications() {
+  const response = await apiFetch("/api/notifications", { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't clear notifications"));
+  }
+  return response.json();
+}
+
+// ---- Admin --------------------------------------------------------------
+
+export async function listAdminUsers() {
+  const response = await apiFetch("/api/admin/users");
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't load users"));
+  }
+  return response.json();
+}
+
+export async function setUserRole(email, role) {
+  const response = await apiFetch(`/api/admin/users/${encodeURIComponent(email)}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't update the user's role"));
+  }
+  return response.json();
+}
+
+// ---- Account ------------------------------------------------------------
+
+export async function updateDisplayName(displayName) {
+  const response = await apiFetch("/api/auth/display-name", {
+    method: "PATCH",
+    body: JSON.stringify({ displayName }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't update your display name"));
+  }
+  return response.json();
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  const response = await apiFetch("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't change your password"));
   }
   return response.json();
 }
@@ -440,7 +620,7 @@ export async function streamChat({
     signal,
   });
   if (response.status === 401) {
-    throw new Error("SESSION_EXPIRED");
+    throw new SessionExpiredError();
   }
   await consumeChatStream(response, { signal, onToken, onComplete, onInsights, onArtifacts });
 }
@@ -454,7 +634,7 @@ export async function regenerateChat({ conversationId, signal, ...callbacks }) {
     signal,
   });
   if (response.status === 401) {
-    throw new Error("SESSION_EXPIRED");
+    throw new SessionExpiredError();
   }
   await consumeChatStream(response, { signal, ...callbacks });
 }
@@ -468,7 +648,7 @@ export async function editChatMessage({ conversationId, messageId, content, sign
     signal,
   });
   if (response.status === 401) {
-    throw new Error("SESSION_EXPIRED");
+    throw new SessionExpiredError();
   }
   await consumeChatStream(response, { signal, ...callbacks });
 }

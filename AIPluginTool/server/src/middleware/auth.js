@@ -1,5 +1,7 @@
 import { env } from "../config/env.js";
 import { verifySessionToken } from "../utils/session.js";
+import { getUserByEmail } from "../db/repositories/userRepo.js";
+import { roleFor, isAdmin } from "../utils/permissions.js";
 
 const SESSION_COOKIE = "t1_session";
 
@@ -24,6 +26,8 @@ export function readSessionFromRequest(request) {
 
 export function requireAuth(request, response, next) {
   if (!env.authEnabled) {
+    // Auth disabled: act as the configured admin so moderation works locally.
+    request.user = { email: env.authEmail, role: "admin" };
     next();
     return;
   }
@@ -34,6 +38,16 @@ export function requireAuth(request, response, next) {
     return;
   }
 
-  request.user = { email: session.email };
+  const dbRole = getUserByEmail(session.email)?.role ?? "user";
+  request.user = { email: session.email, role: roleFor(session.email, dbRole) };
+  next();
+}
+
+/** Guard that requires the authenticated user to be an admin. Run after requireAuth. */
+export function requireAdmin(request, response, next) {
+  if (!isAdmin(request.user)) {
+    response.status(403).json({ error: "Admin access required" });
+    return;
+  }
   next();
 }

@@ -106,6 +106,7 @@ const chatSchema = z
     attachments: z.array(attachmentSchema).max(3).optional(),
     aiProvider: z.enum(["default", "copilot-studio"]).optional(),
     connectorSources: z.array(connectorIdSchema).max(6).optional(),
+    reasoning: z.enum(["auto", "quick", "deep", "research"]).optional(),
   })
   .refine(
     (data) =>
@@ -140,6 +141,7 @@ async function runAssistantStream({
   request,
   aiProvider: requestedAiProvider = "default",
   connectorSources = [],
+  reasoning = "auto",
 }) {
   let assistantContent = "";
   const abortController = new AbortController();
@@ -155,6 +157,7 @@ async function runAssistantStream({
       conversationId,
       connectorSources,
       userEmail: request.user?.email || env.authEmail || "local-user",
+      reasoning,
       signal: abortController.signal,
     });
 
@@ -366,5 +369,6 @@ chatRouter.post("/", async (request, response, next) => {
     request,
     aiProvider: parsed.data.aiProvider ?? "default",
     connectorSources: parsed.data.connectorSources ?? [],
+    reasoning: parsed.data.reasoning ?? "auto",
   });
 });

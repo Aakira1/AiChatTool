@@ -3,10 +3,12 @@ import {
   disconnectConnector,
   getConnectorConnectUrl,
   listConnectors,
+  updateDisplayName,
+  changePassword,
 } from "../../lib/api.js";
 import { getSettings, saveSettings } from "../../lib/settings.js";
 
-export function SettingsPanel({ onClose, onOpenFullOptions }) {
+export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdated }) {
   const [connectors, setConnectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,6 +66,8 @@ export function SettingsPanel({ onClose, onOpenFullOptions }) {
       </div>
 
       <div className="cia-ext-settings-body">
+        <AccountSection user={user} onProfileUpdated={onProfileUpdated} />
+
         <section>
           <h4>App connectors</h4>
           <p className="cia-ext-options-help">
@@ -124,5 +128,127 @@ export function SettingsPanel({ onClose, onOpenFullOptions }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function AccountSection({ user, onProfileUpdated }) {
+  const email = user?.email ?? "signed-in";
+  const isRegistered = Boolean(user?.email) && email !== "signed-in";
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    setDisplayName(user?.displayName ?? "");
+  }, [user?.displayName]);
+
+  const handleSaveName = async () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      setStatus({ tone: "error", text: "Display name cannot be empty" });
+      return;
+    }
+    setSavingName(true);
+    setStatus(null);
+    try {
+      const result = await updateDisplayName(trimmed);
+      onProfileUpdated?.({ displayName: result.displayName ?? trimmed });
+      setStatus({ tone: "ok", text: "Display name updated" });
+    } catch (error) {
+      setStatus({ tone: "error", text: error.message ?? "Failed to update name" });
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      setStatus({ tone: "error", text: "New password must be at least 8 characters" });
+      return;
+    }
+    setSavingPassword(true);
+    setStatus(null);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setStatus({ tone: "ok", text: "Password changed" });
+    } catch (error) {
+      setStatus({ tone: "error", text: error.message ?? "Failed to change password" });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  return (
+    <section className="cia-ext-account">
+      <h4>Account</h4>
+      <p className="cia-ext-options-help">Signed in as {email}</p>
+
+      {status ? (
+        <p className={`cia-ext-banner cia-ext-banner-${status.tone === "ok" ? "success" : "error"}`}>
+          {status.text}
+        </p>
+      ) : null}
+
+      {isRegistered ? (
+        <>
+          <label className="cia-ext-field">
+            <span>Display name</span>
+            <div className="cia-ext-account-row">
+              <input
+                type="text"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Your name"
+              />
+              <button
+                type="button"
+                className="cia-ext-secondary-btn"
+                onClick={() => void handleSaveName()}
+                disabled={savingName}
+              >
+                {savingName ? "…" : "Save"}
+              </button>
+            </div>
+          </label>
+
+          <label className="cia-ext-field">
+            <span>Current password</span>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="cia-ext-field">
+            <span>New password</span>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          <button
+            type="button"
+            className="cia-ext-secondary-btn"
+            onClick={() => void handleChangePassword()}
+            disabled={savingPassword || !currentPassword || !newPassword}
+          >
+            {savingPassword ? "Updating…" : "Change password"}
+          </button>
+        </>
+      ) : (
+        <p className="cia-ext-options-help">
+          You&apos;re using the shared demo account — register a personal account in the web app to
+          manage your own profile.
+        </p>
+      )}
+    </section>
   );
 }

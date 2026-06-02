@@ -289,24 +289,79 @@ const upsertPreference = db.prepare(`
   ON CONFLICT(key) DO UPDATE SET value = excluded.value
 `);
 
-export function getUserPreferences() {
+const selectUserProfilePrefs = db.prepare(`
+  SELECT key, value FROM user_profile_preferences WHERE user_email = ?
+`);
+
+const upsertUserProfilePref = db.prepare(`
+  INSERT INTO user_profile_preferences (user_email, key, value) VALUES (?, ?, ?)
+  ON CONFLICT(user_email, key) DO UPDATE SET value = excluded.value
+`);
+
+const selectUserAccount = db.prepare(`
+  SELECT email, display_name FROM users WHERE email = ?
+`);
+
+/** Global defaults shared by everyone (response style, generic role/team, etc.). */
+function getGlobalPreferences() {
   return Object.fromEntries(
     selectPreferences.all().map(({ key, value }) => [key, value]),
   );
 }
 
-export function updateUserPreferences(updates) {
+/**
+ * Per-user preferences. Starts from the global defaults, anchors identity
+ * (name/email) to the authenticated account, then overlays anything this user
+ * has personally saved. Without an email (auth disabled) it returns the global
+ * profile unchanged for backwards compatibility.
+ */
+export function getUserPreferences(email) {
+  const base = getGlobalPreferences();
+  if (!email) {
+    return base;
+  }
+
+  // Identity comes from the user's own account, not the shared global profile.
+  const account = selectUserAccount.get(email);
+  if (account) {
+    base.profile_name = account.display_name || base.profile_name;
+    base.profile_email = account.email;
+  }
+
+  // Overlay this user's saved profile edits.
+  for (const { key, value } of selectUserProfilePrefs.all(email)) {
+    base[key] = value;
+  }
+  return base;
+}
+
+export function updateUserPreferences(updates, email) {
+  // Legacy / auth-disabled path: write to the shared global profile.
+  if (!email) {
+    db.exec("BEGIN");
+    try {
+      for (const [key, value] of Object.entries(updates)) {
+        upsertPreference.run(key, value);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    return getUserPreferences();
+  }
+
   db.exec("BEGIN");
   try {
     for (const [key, value] of Object.entries(updates)) {
-      upsertPreference.run(key, value);
+      upsertUserProfilePref.run(email, key, value);
     }
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
   }
-  return getUserPreferences();
+  return getUserPreferences(email);
 }
 
 export function listRecentUserMessages() {

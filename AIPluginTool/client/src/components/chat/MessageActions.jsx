@@ -7,6 +7,7 @@ export function MessageActions({
   onRegenerate,
   onEdit,
   onRate,
+  onPostToForum,
 }) {
   if (message.id === "welcome" || message.id?.startsWith("local-")) {
     return null;
@@ -40,6 +41,11 @@ export function MessageActions({
           >
             👎
           </button>
+          {onPostToForum ? (
+            <button type="button" onClick={() => onPostToForum(message)} disabled={pending}>
+              Post to forum
+            </button>
+          ) : null}
         </>
       ) : null}
       {message.role === "user" && isLastUser ? (

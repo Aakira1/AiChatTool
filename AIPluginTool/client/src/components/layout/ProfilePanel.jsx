@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profile.js";
 import { ConnectorsManager } from "./ConnectorsManager.jsx";
-import { getProfile, updateProfile } from "../../lib/api.js";
+import {
+  getProfile,
+  updateProfile,
+  updateDisplayName as apiUpdateDisplayName,
+  changePassword as apiChangePassword,
+} from "../../lib/api.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../ui/ToastProvider.jsx";
 import {
   AI_PROVIDERS,
@@ -28,6 +34,7 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
   const toast = useToast();
+  const { user, authDisabled, updateUserDisplayName } = useAuth();
 
   useEffect(() => {
     if (!open) {
@@ -235,6 +242,14 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
                   ))}
                 </select>
               </label>
+
+              {!authDisabled ? (
+                <AccountSection
+                  user={user}
+                  toast={toast}
+                  onDisplayNameChanged={updateUserDisplayName}
+                />
+              ) : null}
             </div>
           ) : tab === "preferences" ? (
             <div className="t1-profile-form">
@@ -293,6 +308,123 @@ export function ProfilePanel({ open, initialTab = "profile", onClose, onSaved })
           )}
         </footer>
       </div>
+    </div>
+  );
+}
+
+function AccountSection({ user, toast, onDisplayNameChanged }) {
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => {
+    setDisplayName(user?.displayName ?? "");
+  }, [user?.displayName]);
+
+  const handleSaveName = async () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      toast.error("Display name cannot be empty");
+      return;
+    }
+    setSavingName(true);
+    try {
+      const result = await apiUpdateDisplayName(trimmed);
+      onDisplayNameChanged?.(result.displayName ?? trimmed);
+      toast.success("Display name updated");
+    } catch (error) {
+      toast.error(error.message ?? "Failed to update display name");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await apiChangePassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Password changed");
+    } catch (error) {
+      toast.error(error.message ?? "Failed to change password");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  return (
+    <div className="t1-settings-section t1-account-section">
+      <h3>Account</h3>
+      <p>Change how your name appears across the app and forums, or update your password.</p>
+
+      <label>
+        Display name
+        <div className="t1-account-row">
+          <input
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="Your name"
+          />
+          <button
+            type="button"
+            className="t1-btn-secondary"
+            onClick={handleSaveName}
+            disabled={savingName}
+          >
+            {savingName ? "Saving…" : "Update"}
+          </button>
+        </div>
+      </label>
+
+      <h4 className="t1-account-subhead">Change password</h4>
+      <label>
+        Current password
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(event) => setCurrentPassword(event.target.value)}
+          autoComplete="current-password"
+        />
+      </label>
+      <label>
+        New password
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+          autoComplete="new-password"
+        />
+      </label>
+      <label>
+        Confirm new password
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          autoComplete="new-password"
+        />
+      </label>
+      <button
+        type="button"
+        className="t1-btn-secondary"
+        onClick={handleChangePassword}
+        disabled={savingPassword || !currentPassword || !newPassword}
+      >
+        {savingPassword ? "Updating…" : "Change password"}
+      </button>
     </div>
   );
 }

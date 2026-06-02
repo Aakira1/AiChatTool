@@ -58,8 +58,44 @@ export async function login(email, password) {
   return response.json();
 }
 
+export async function register({ email, password, displayName }) {
+  const response = await apiFetch("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, displayName }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? `Registration failed (${response.status})`);
+  }
+  return response.json();
+}
+
 export async function logout() {
   await apiFetch("/api/auth/logout", { method: "POST" });
+}
+
+export async function updateDisplayName(displayName) {
+  const response = await apiFetch("/api/auth/display-name", {
+    method: "PATCH",
+    body: JSON.stringify({ displayName }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to update display name");
+  }
+  return response.json();
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  const response = await apiFetch("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to change password");
+  }
+  return response.json();
 }
 
 export async function listConversations({ archived = false } = {}) {

@@ -103,6 +103,44 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    type TEXT NOT NULL,
+    actor_email TEXT,
+    actor_name TEXT,
+    post_id TEXT,
+    comment_id TEXT,
+    message TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_email, read);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_profile_preferences (
+    user_email TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (user_email, key)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    display_name TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS forums (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -151,6 +189,18 @@ db.exec(`
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_forum_comments_post ON forum_comments(post_id);
 `);
+
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
+} catch {
+  /* column exists */
+}
+
+try {
+  db.exec(`ALTER TABLE forum_posts ADD COLUMN accepted_comment_id TEXT`);
+} catch {
+  /* column exists */
+}
 
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`);

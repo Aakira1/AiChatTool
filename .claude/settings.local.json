@@ -10,7 +10,17 @@
       "Bash(node --check src/db/client.js)",
       "Bash(node --check src/db/repositories/oauthProviderConfigRepo.js)",
       "Bash(node --check src/config/env.js)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(node --check src/routes/auth.js)",
+      "Bash(node --check src/db/repositories/userRepo.js)",
+      "Bash(node --check src/db/repositories/forumRepo.js)",
+      "Bash(node --check src/services/forumAiService.js)",
+      "Bash(node --check src/app.js)",
+      "Bash(node --check src/routes/notifications.js)",
+      "Bash(node --check src/routes/forums.js)",
+      "Bash(node --check server/src/routes/notifications.js)",
+      "Bash(node --check server/src/db/repositories/notificationRepo.js)",
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('client/src/context/AuthContext.jsx','utf8'\\); console.log\\(s.match\\(/setUser\\\\\\(\\\\{[^}]*\\\\}\\\\\\)/g\\)\\)\")"
     ]
   }
 }

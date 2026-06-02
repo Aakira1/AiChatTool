@@ -56,7 +56,9 @@ function Comments({ postId }) {
       ) : (
         comments.map((comment) => (
           <div key={comment.id} className="cia-ext-forum-comment">
-            <span className="cia-ext-forum-comment-author">{comment.author || "Anonymous"}</span>
+            <span className="cia-ext-forum-comment-author">
+              {comment.author_name || comment.author || "Anonymous"}
+            </span>
             <p>{comment.body}</p>
           </div>
         ))
@@ -318,7 +320,7 @@ export function ForumsPanel({ onClose }) {
                       <strong>{post.title}</strong>
                       {post.body ? <p>{post.body}</p> : null}
                       <div className="cia-ext-forum-post-meta">
-                        <span>{post.author || "Anonymous"}</span>
+                        <span>{post.author_name || post.author || "Anonymous"}</span>
                         <span>{formatDate(post.created_at)}</span>
                         <button
                           type="button"

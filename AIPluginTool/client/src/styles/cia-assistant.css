@@ -2563,6 +2563,34 @@
   color: #6f5f82;
 }
 
+.t1-login-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f4eefb;
+  border: 1px solid var(--border);
+}
+
+.t1-login-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6f5f82;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.t1-login-tab.active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(26, 15, 61, 0.08);
+}
+
 .t1-login-demo {
   padding: 10px 12px;
   border-radius: 10px;
@@ -2858,6 +2886,151 @@
 .t1-navbar-cog svg {
   width: 18px;
   height: 18px;
+}
+
+/* --- Notification bell --- */
+.t1-notif {
+  position: relative;
+  display: inline-flex;
+}
+.t1-notif-trigger {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.t1-notif-trigger:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(228, 0, 124, 0.55);
+}
+.t1-notif-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+.t1-notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--primary, #e4007c);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--navy, #1b1b3a);
+}
+.t1-notif-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 340px;
+  max-width: 90vw;
+  background: #fff;
+  border: 1px solid var(--border, #e3e3ef);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(20, 20, 50, 0.22);
+  z-index: 60;
+  overflow: hidden;
+}
+.t1-notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #e3e3ef);
+  font-weight: 700;
+  color: var(--navy, #1b1b3a);
+}
+.t1-notif-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.t1-notif-markall,
+.t1-notif-clear {
+  border: none;
+  background: none;
+  color: var(--primary, #e4007c);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.t1-notif-clear {
+  color: var(--muted, #6b6b80);
+}
+.t1-notif-clear:hover {
+  color: #d11;
+}
+.t1-notif-list {
+  max-height: 380px;
+  overflow-y: auto;
+}
+.t1-notif-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted, #6b6b80);
+  font-size: 13px;
+  margin: 0;
+}
+.t1-notif-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--soft, #f1f1f7);
+  background: #fff;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.t1-notif-item:hover {
+  background: var(--soft, #f6f6fb);
+}
+.t1-notif-item.unread {
+  background: rgba(228, 0, 124, 0.06);
+}
+.t1-notif-item.unread .t1-notif-message {
+  font-weight: 600;
+}
+.t1-notif-message {
+  font-size: 13px;
+  color: var(--navy, #1b1b3a);
+  line-height: 1.4;
+}
+.t1-notif-time {
+  font-size: 11px;
+  color: var(--muted, #6b6b80);
+}
+
+/* --- Account section --- */
+.t1-account-section .t1-account-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.t1-account-section .t1-account-row input {
+  flex: 1;
+}
+.t1-account-subhead {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  color: var(--navy, #1b1b3a);
 }
 
 /* --- App connectors --- */
@@ -3263,6 +3436,65 @@
   padding: 0;
 }
 
+.cia-forum-summary {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(228, 0, 124, 0.25);
+  border-radius: 10px;
+  background: rgba(228, 0, 124, 0.05);
+}
+.cia-forum-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+.cia-forum-summary p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--navy, #1b1b3a);
+  white-space: pre-wrap;
+}
+
+.cia-forum-suggestions {
+  padding: 10px 12px;
+  border: 1px dashed var(--border, #e3e3ef);
+  border-radius: 10px;
+  background: var(--soft, #f6f6fb);
+}
+.cia-forum-suggestions-head {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #6b6b80);
+}
+.cia-forum-suggestions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cia-forum-suggestions li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cia-forum-suggestion-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy, #1b1b3a);
+}
+.cia-forum-suggestion-meta {
+  font-size: 11px;
+  color: var(--muted, #6b6b80);
+}
+
 .cia-forum-link-btn.danger {
   color: #dc2626;
 }
@@ -3299,10 +3531,166 @@
 
 .cia-forum-comment-meta {
   display: flex;
+  align-items: center;
   gap: 8px;
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 3px;
+}
+
+.cia-forum-comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.cia-forum-comment.accepted {
+  border: 1px solid #1f9d55;
+  box-shadow: inset 3px 0 0 #1f9d55;
+}
+
+.cia-forum-accepted-badge {
+  color: #1f9d55;
+  font-weight: 700;
+}
+
+.cia-forum-answered-tag {
+  color: #1f9d55;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* ---- Admin panel ---- */
+.cia-admin-page {
+  padding: 24px 28px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.cia-admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cia-admin-header h1 {
+  margin: 0 0 4px;
+  color: #ffffff;
+}
+
+.cia-admin-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cia-admin-stats {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.cia-admin-table {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.cia-admin-row {
+  display: grid;
+  grid-template-columns: 1.4fr 2fr 1fr 0.8fr 1.2fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.cia-admin-row:first-child {
+  border-top: none;
+}
+
+.cia-admin-row-head {
+  background: var(--soft);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cia-admin-name {
+  font-weight: 600;
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cia-admin-you {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--primary, #e4007c);
+  background: rgba(228, 0, 124, 0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.cia-admin-email,
+.cia-admin-joined {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.cia-admin-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.cia-admin-badge.admin {
+  background: rgba(31, 157, 85, 0.12);
+  color: #1f9d55;
+}
+
+.cia-admin-actions {
+  text-align: right;
+}
+
+.cia-admin-toggle {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.cia-admin-toggle:hover {
+  border-color: var(--primary, #e4007c);
+  color: var(--primary, #e4007c);
+}
+
+.cia-admin-toggle.danger:hover {
+  border-color: #d11;
+  color: #d11;
+}
+
+.cia-admin-toggle:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .cia-forum-comment-author {

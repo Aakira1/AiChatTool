@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { getProfile } from "../../lib/api.js";
 import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profile.js";
 import { ProfilePanel } from "./ProfilePanel.jsx";
+import { NotificationBell } from "./NotificationBell.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../ui/ToastProvider.jsx";
 import tneIcon from "../../assets/TNE_icon.svg";
 
 export function AppNavbar({ activeView, onNavigate }) {
   const toast = useToast();
-  const { logout, authDisabled } = useAuth();
+  const { logout, authDisabled, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState("profile");
-  const [profile, setProfile] = useState(normalizeProfile());
+  const [baseProfile, setProfile] = useState(normalizeProfile());
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -35,6 +36,15 @@ export function AppNavbar({ activeView, onNavigate }) {
     setPanelTab(tab);
     setPanelOpen(true);
     setMenuOpen(false);
+  };
+
+  // The per-user profile (from /api/profile) is authoritative once loaded; fall
+  // back to the authenticated session identity for the initial render before the
+  // profile fetch resolves, so the navbar never shows another user's identity.
+  const profile = {
+    ...baseProfile,
+    profile_name: baseProfile.profile_name || user?.displayName || "",
+    profile_email: baseProfile.profile_email || user?.email || "",
   };
 
   const initials = getInitials(profile.profile_name);
@@ -77,12 +87,23 @@ export function AppNavbar({ activeView, onNavigate }) {
           >
             Forums
           </button>
+          {user?.role === "admin" ? (
+            <button
+              type="button"
+              className={`t1-nav-link ${activeView === "admin" ? "active" : ""}`}
+              onClick={() => onNavigate("admin")}
+            >
+              Admin
+            </button>
+          ) : null}
         </nav>
 
         <div className="t1-navbar-actions">
           <div className="cia-status cia-status-online" title="Assistant is connected">
             AI online
           </div>
+
+          {!authDisabled ? <NotificationBell onNavigate={onNavigate} /> : null}
 
           <button
             type="button"

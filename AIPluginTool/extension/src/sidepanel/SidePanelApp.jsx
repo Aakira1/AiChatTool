@@ -7,6 +7,7 @@ import {
   listConversations,
   login,
   logout,
+  register,
   pingHealth,
   streamChat,
 } from "../lib/api.js";
@@ -151,7 +152,9 @@ export function SidePanelApp() {
         setUser(null);
         return;
       }
-      setUser(me.user ?? { email: me.email ?? "signed-in" });
+      setUser(
+        me.user ?? { email: me.email ?? "signed-in", displayName: me.displayName ?? null },
+      );
 
       const list = await loadThreads();
       const active = await ensureConversation(list);
@@ -245,6 +248,11 @@ export function SidePanelApp() {
 
   const handleLogin = async (email, password) => {
     await login(email, password);
+    await bootstrap();
+  };
+
+  const handleRegister = async ({ email, password, displayName }) => {
+    await register({ email, password, displayName });
     await bootstrap();
   };
 
@@ -399,7 +407,7 @@ export function SidePanelApp() {
     return (
       <div className="cia-ext-shell">
         <TopBar healthState={healthState} compact />
-        <LoginScreen onLogin={handleLogin} healthState={healthState} />
+        <LoginScreen onLogin={handleLogin} onRegister={handleRegister} healthState={healthState} />
       </div>
     );
   }
@@ -418,6 +426,10 @@ export function SidePanelApp() {
         <SettingsPanel
           onClose={() => setShowSettings(false)}
           onOpenFullOptions={() => chrome.runtime.openOptionsPage?.()}
+          user={user}
+          onProfileUpdated={(updates) =>
+            setUser((current) => (current ? { ...current, ...updates } : current))
+          }
         />
       ) : null}
 

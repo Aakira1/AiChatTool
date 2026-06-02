@@ -16,8 +16,8 @@ const PROFILE_KEYS = new Set([
 
 export const profileRouter = Router();
 
-profileRouter.get("/", (_request, response) => {
-  response.json(getUserPreferences());
+profileRouter.get("/", (request, response) => {
+  response.json(getUserPreferences(request.user?.email));
 });
 
 profileRouter.put("/", (request, response) => {
@@ -33,5 +33,5 @@ profileRouter.put("/", (request, response) => {
     return;
   }
 
-  response.json(updateUserPreferences(updates));
+  response.json(updateUserPreferences(updates, request.user?.email));
 });
