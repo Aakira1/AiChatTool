@@ -7,6 +7,8 @@ import {
   getUserByEmail,
   setUserRole,
 } from "../db/repositories/userRepo.js";
+import { listForums, listPosts } from "../db/repositories/forumRepo.js";
+import { recordAudit, listAudit } from "../db/repositories/auditRepo.js";
 import { roleFor } from "../utils/permissions.js";
 
 export const adminRouter = Router();
@@ -78,5 +80,42 @@ adminRouter.patch("/users/:email/role", (request, response) => {
   }
 
   setUserRole(targetEmail, parsed.data.role);
+  recordAudit({
+    actorEmail: request.user?.email ?? null,
+    action: "set_role",
+    targetType: "user",
+    targetId: targetEmail,
+    summary: `Set ${targetEmail} role to ${parsed.data.role}`,
+  });
   response.json({ email: targetEmail, role: parsed.data.role });
+});
+
+// ---- Moderation ---------------------------------------------------------
+
+// All forums with their posts, for the admin moderation view. Comments are
+// loaded on demand by the client via the normal forum endpoints.
+adminRouter.get("/content", (request, response) => {
+  const forums = listForums().map((forum) => ({
+    id: forum.id,
+    name: forum.name,
+    created_by: forum.created_by,
+    post_count: forum.post_count,
+    posts: listPosts(forum.id, request.user?.email ?? "").map((post) => ({
+      id: post.id,
+      title: post.title,
+      author: post.author,
+      author_name: post.author_name,
+      score: post.score,
+      comment_count: post.comment_count,
+      created_at: post.created_at,
+    })),
+  }));
+  response.json({ forums });
+});
+
+// ---- Audit log ----------------------------------------------------------
+
+adminRouter.get("/audit", (request, response) => {
+  const limit = Math.min(Math.max(Number(request.query.limit ?? 100), 1), 500);
+  response.json({ entries: listAudit(limit) });
 });

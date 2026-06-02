@@ -21,6 +21,7 @@ import { createNotification } from "../db/repositories/notificationRepo.js";
 import { getUserByEmail, listMentionableUsers } from "../db/repositories/userRepo.js";
 import { summarizeThread } from "../services/forumAiService.js";
 import { canModify } from "../utils/permissions.js";
+import { recordAudit } from "../db/repositories/auditRepo.js";
 
 /**
  * Find users mentioned in a body via @token. Matches a token against the start
@@ -95,6 +96,13 @@ forumsRouter.delete("/:forumId", (request, response) => {
     return;
   }
   deleteForum(request.params.forumId);
+  recordAudit({
+    actorEmail: request.user?.email ?? null,
+    action: "delete_forum",
+    targetType: "forum",
+    targetId: forum.id,
+    summary: `Deleted forum "${forum.name}"`,
+  });
   response.status(204).end();
 });
 
@@ -140,6 +148,13 @@ forumsRouter.delete("/posts/:postId", (request, response) => {
     return;
   }
   deletePost(request.params.postId);
+  recordAudit({
+    actorEmail: request.user?.email ?? null,
+    action: "delete_post",
+    targetType: "post",
+    targetId: post.id,
+    summary: `Deleted post "${post.title}"${post.author ? ` by ${post.author}` : ""}`,
+  });
   response.status(204).end();
 });
 
@@ -217,6 +232,13 @@ forumsRouter.delete("/comments/:commentId", (request, response) => {
     return;
   }
   deleteComment(request.params.commentId);
+  recordAudit({
+    actorEmail: request.user?.email ?? null,
+    action: "delete_comment",
+    targetType: "comment",
+    targetId: comment.id,
+    summary: `Deleted a comment${comment.author ? ` by ${comment.author}` : ""}`,
+  });
   response.status(204).end();
 });
 

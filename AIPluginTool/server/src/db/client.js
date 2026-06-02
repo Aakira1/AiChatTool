@@ -190,6 +190,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_forum_comments_post ON forum_comments(post_id);
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id TEXT PRIMARY KEY,
+    actor_email TEXT,
+    action TEXT NOT NULL,
+    target_type TEXT,
+    target_id TEXT,
+    summary TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+`);
+
 try {
   db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
 } catch {

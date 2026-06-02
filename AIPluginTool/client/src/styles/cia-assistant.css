@@ -3603,12 +3603,148 @@
 
 .cia-admin-row {
   display: grid;
-  grid-template-columns: 1.4fr 2fr 1fr 0.8fr 1.2fr;
   align-items: center;
   gap: 12px;
   padding: 11px 16px;
   border-top: 1px solid var(--border);
   font-size: 13px;
+}
+
+.cia-admin-row-users {
+  grid-template-columns: 1.4fr 2fr 1.2fr 0.8fr 1.2fr;
+}
+
+.cia-admin-row-audit {
+  grid-template-columns: 1.5fr 1.6fr 1fr 2.4fr;
+}
+
+.cia-admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cia-admin-tab {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.cia-admin-tab:hover {
+  color: #fff;
+}
+
+.cia-admin-tab.active {
+  color: #fff;
+  border-bottom-color: var(--primary, #e4007c);
+}
+
+/* Moderation */
+.cia-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cia-mod-forum {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.cia-mod-forum-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.cia-mod-forum-head h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.cia-mod-forum-head .cia-admin-toggle {
+  margin-left: auto;
+}
+
+.cia-mod-posts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cia-mod-post {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.cia-mod-post-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cia-mod-expand {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0;
+  width: 14px;
+}
+
+.cia-mod-post-title {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.cia-mod-post-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+.cia-mod-comments {
+  list-style: none;
+  margin: 8px 0 2px;
+  padding: 0 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cia-mod-comment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.cia-mod-comment-body {
+  color: var(--navy);
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.cia-mod-comment-meta {
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .cia-admin-row:first-child {

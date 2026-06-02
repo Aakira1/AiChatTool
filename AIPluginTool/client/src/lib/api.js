@@ -343,6 +343,22 @@ export async function setUserRole(email, role) {
   return response.json();
 }
 
+export async function listAdminContent() {
+  const response = await apiFetch("/api/admin/content");
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't load forum content"));
+  }
+  return response.json();
+}
+
+export async function listAuditLog(limit = 100) {
+  const response = await apiFetch(`/api/admin/audit?limit=${limit}`);
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't load the audit log"));
+  }
+  return response.json();
+}
+
 // ---- Account ------------------------------------------------------------
 
 export async function updateDisplayName(displayName) {
