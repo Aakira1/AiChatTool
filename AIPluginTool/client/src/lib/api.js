@@ -84,6 +84,109 @@ export async function getTerminology() {
   return response.json();
 }
 
+export async function addTerminology({ ciTerm, ciaTerm, notes = [] }) {
+  const response = await apiFetch("/api/terminology", {
+    method: "POST",
+    body: JSON.stringify({ ciTerm, ciaTerm, notes }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to add term");
+  }
+  return response.json();
+}
+
+export async function deleteTerminology(id) {
+  const response = await apiFetch(`/api/terminology/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error("Failed to delete term");
+  }
+  return response.json();
+}
+
+// ---- Forums -------------------------------------------------------------
+
+export async function listForums() {
+  const response = await apiFetch("/api/forums");
+  if (!response.ok) {
+    throw new Error("Failed to load forums");
+  }
+  return response.json();
+}
+
+export async function createForum({ name, description = "" }) {
+  const response = await apiFetch("/api/forums", {
+    method: "POST",
+    body: JSON.stringify({ name, description }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create forum");
+  }
+  return response.json();
+}
+
+export async function deleteForum(id) {
+  const response = await apiFetch(`/api/forums/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error("Failed to delete forum");
+  }
+}
+
+export async function listPosts(forumId) {
+  const response = await apiFetch(`/api/forums/${forumId}/posts`);
+  if (!response.ok) {
+    throw new Error("Failed to load posts");
+  }
+  return response.json();
+}
+
+export async function createPost({ forumId, title, body = "" }) {
+  const response = await apiFetch(`/api/forums/${forumId}/posts`, {
+    method: "POST",
+    body: JSON.stringify({ title, body }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create post");
+  }
+  return response.json();
+}
+
+export async function deletePost(postId) {
+  const response = await apiFetch(`/api/forums/posts/${postId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error("Failed to delete post");
+  }
+}
+
+export async function listComments(postId) {
+  const response = await apiFetch(`/api/forums/posts/${postId}/comments`);
+  if (!response.ok) {
+    throw new Error("Failed to load comments");
+  }
+  return response.json();
+}
+
+export async function createComment({ postId, body }) {
+  const response = await apiFetch(`/api/forums/posts/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to add comment");
+  }
+  return response.json();
+}
+
+export async function votePost({ postId, value }) {
+  const response = await apiFetch(`/api/forums/posts/${postId}/vote`, {
+    method: "POST",
+    body: JSON.stringify({ value }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to vote");
+  }
+  return response.json();
+}
+
 export async function createConversation(title = "New chat") {
   const response = await apiFetch("/api/conversations", {
     method: "POST",
@@ -313,6 +416,8 @@ export async function streamChat({
   attachments = [],
   pageContext,
   connectorSources = [],
+  aiProvider,
+  reasoning,
   signal,
   onToken,
   onComplete,
@@ -329,7 +434,8 @@ export async function streamChat({
       pageContext,
       attachments,
       ...(connectorSources.length > 0 ? { connectorSources } : {}),
-      ...getChatAiProvider(),
+      ...(reasoning ? { reasoning } : {}),
+      ...(aiProvider ? { aiProvider } : getChatAiProvider()),
     }),
     signal,
   });

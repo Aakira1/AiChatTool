@@ -82,10 +82,10 @@ function pageContextForStorage(pageContext) {
 const attachmentSchema = z.object({
   name: z.string().min(1).max(200),
   type: z.string().max(100).optional(),
-  // base64 encoding is used for binary docs (.pdf/.docx) — a 250KB file is
-  // ~340K base64 chars, so allow generous headroom. Plain text stays small.
+  // base64 encoding is used for binary docs (.pdf/.docx) — a 10MB file is
+  // ~14M base64 chars, so allow generous headroom. Plain text stays small.
   encoding: z.enum(["base64"]).optional(),
-  content: z.string().min(1).max(400_000),
+  content: z.string().min(1).max(14_000_000),
   size: z.number().int().nonnegative().optional(),
 });
 

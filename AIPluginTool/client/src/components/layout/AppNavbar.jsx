@@ -70,6 +70,13 @@ export function AppNavbar({ activeView, onNavigate }) {
           >
             Dashboard
           </button>
+          <button
+            type="button"
+            className={`t1-nav-link ${activeView === "forums" ? "active" : ""}`}
+            onClick={() => onNavigate("forums")}
+          >
+            Forums
+          </button>
         </nav>
 
         <div className="t1-navbar-actions">

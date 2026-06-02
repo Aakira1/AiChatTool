@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export function CiaThreadList({
   threads,
   archivedThreads = [],
@@ -14,6 +16,23 @@ export function CiaThreadList({
   collapsed = false,
   onToggleCollapsed,
 }) {
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const startRename = (thread) => {
+    setRenamingId(thread.id);
+    setRenameValue(thread.title);
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameValue("");
+  };
+
+  const commitRename = (thread) => {
+    onRename?.(thread, renameValue);
+    cancelRename();
+  };
   if (collapsed) {
     return (
       <aside className="cia-threads cia-threads-collapsed">
@@ -35,20 +54,39 @@ export function CiaThreadList({
       key={thread.id}
       className={`cia-thread-item ${thread.id === activeId ? "active" : ""} ${thread.archived ? "archived" : ""}`}
     >
-      <button
-        type="button"
-        className="cia-thread-select"
-        onClick={() => onSelect(thread.id)}
-        title={thread.title}
-      >
-        <span className="cia-thread-title">
-          {thread.pinned ? "📌 " : ""}
-          {thread.title}
-        </span>
-        <span className="cia-thread-date">
-          {thread.createdAt ? new Date(thread.createdAt).toLocaleDateString() : ""}
-        </span>
-      </button>
+      {renamingId === thread.id ? (
+        <input
+          type="text"
+          className="cia-thread-rename-input"
+          value={renameValue}
+          autoFocus
+          onChange={(event) => setRenameValue(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              commitRename(thread);
+            } else if (event.key === "Escape") {
+              cancelRename();
+            }
+          }}
+          onBlur={() => commitRename(thread)}
+        />
+      ) : (
+        <button
+          type="button"
+          className="cia-thread-select"
+          onClick={() => onSelect(thread.id)}
+          title={thread.title}
+        >
+          <span className="cia-thread-title">
+            {thread.pinned ? "📌 " : ""}
+            {thread.title}
+          </span>
+          <span className="cia-thread-date">
+            {thread.createdAt ? new Date(thread.createdAt).toLocaleDateString() : ""}
+          </span>
+        </button>
+      )}
       <div className="cia-thread-actions">
         <button
           type="button"
@@ -66,7 +104,7 @@ export function CiaThreadList({
           className="cia-thread-action"
           onClick={(event) => {
             event.stopPropagation();
-            onRename?.(thread);
+            startRename(thread);
           }}
           title="Rename"
         >

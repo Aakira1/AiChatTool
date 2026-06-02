@@ -16,6 +16,7 @@ import { profileRouter } from "./routes/profile.js";
 import { terminologyRouter } from "./routes/terminology.js";
 import { knowledgeRouter } from "./routes/knowledge.js";
 import { connectorsRouter } from "./routes/connectors.js";
+import { forumsRouter } from "./routes/forums.js";
 
 export function createApp() {
   const app = express();
@@ -41,7 +42,7 @@ export function createApp() {
     }),
   );
   app.use(cookieParser());
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "40mb" }));
   app.use((request, response, next) => {
     const startedAt = Date.now();
     response.on("finish", () => {
@@ -83,6 +84,7 @@ export function createApp() {
   app.use("/api/terminology", terminologyRouter);
   app.use("/api/knowledge", knowledgeRouter);
   app.use("/api/connectors", connectorsRouter);
+  app.use("/api/forums", forumsRouter);
 
   if (env.serveClient) {
     attachClientApp(app);

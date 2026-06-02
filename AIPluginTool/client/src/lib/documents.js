@@ -1,8 +1,8 @@
 const TEXT_EXTENSIONS = ["txt", "csv", "md", "json", "html", "htm", "log", "xml"];
 const BINARY_EXTENSIONS = ["pdf", "docx"];
 const MAX_FILES = 3;
-const MAX_FILE_BYTES = 250_000;
-const MAX_TEXT_CHARS = 50_000;
+const MAX_FILE_BYTES = 10_000_000;
+const MAX_TEXT_CHARS = 200_000;
 
 export function isAllowedDocument(file) {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -44,7 +44,7 @@ export async function readDocumentFiles(fileList) {
       );
     }
     if (file.size > MAX_FILE_BYTES) {
-      throw new Error(`"${file.name}" exceeds the 250KB size limit`);
+      throw new Error(`"${file.name}" exceeds the 10MB size limit`);
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";

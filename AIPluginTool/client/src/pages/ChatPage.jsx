@@ -49,8 +49,11 @@ export function ChatPage() {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [connectorSources, setConnectorSources] = useState([]);
+  const [reasoning, setReasoning] = useState("auto");
+  const [provider, setProvider] = useState("server");
   const [threadsCollapsed, setThreadsCollapsed] = useState(false);
-  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(true);
+  const [promptsCollapsed, setPromptsCollapsed] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [hotTopicPrompts, setHotTopicPrompts] = useState(DEFAULT_HOT_TOPIC_PROMPTS);
   const messagesRef = useRef(null);
@@ -244,13 +247,13 @@ export function ChatPage() {
     }
   };
 
-  const handleRenameThread = async (thread) => {
-    const nextTitle = window.prompt("Rename chat", thread.title);
-    if (!nextTitle?.trim()) {
+  const handleRenameThread = async (thread, nextTitle) => {
+    const trimmed = nextTitle?.trim();
+    if (!trimmed || trimmed === thread.title) {
       return;
     }
     try {
-      await updateConversation(thread.id, { title: nextTitle.trim() });
+      await updateConversation(thread.id, { title: trimmed });
       await loadThreads();
       toast.success("Chat renamed");
     } catch (renameError) {
@@ -322,6 +325,8 @@ export function ChatPage() {
           attachments: filesToSend,
           pageContext: getPageContext(),
           connectorSources,
+          reasoning,
+          aiProvider: provider === "copilot-studio" ? "copilot-studio" : "default",
           ...callbacks,
         }),
     });
@@ -502,11 +507,22 @@ export function ChatPage() {
 
         {error ? <p className="px-6 pb-2 text-sm text-red-500">{error}</p> : null}
 
-        <div className="cia-quick-prompts-wrap">
-          <p className="cia-quick-prompts-label">
-            Popular searches <span className="cia-quick-prompts-hint">📊 imports · 💬 chat</span>
-          </p>
-          <div className="cia-quick-prompts">
+        <div className={`cia-quick-prompts-wrap${promptsCollapsed ? " is-collapsed" : ""}`}>
+          <button
+            type="button"
+            className="cia-quick-prompts-label cia-quick-prompts-toggle"
+            onClick={() => setPromptsCollapsed((value) => !value)}
+            aria-expanded={!promptsCollapsed}
+          >
+            <span>
+              Popular searches{" "}
+              <span className="cia-quick-prompts-hint">📊 imports · 💬 chat</span>
+            </span>
+            <span className="cia-quick-prompts-caret" aria-hidden="true">
+              {promptsCollapsed ? "▸" : "▾"}
+            </span>
+          </button>
+          <div className="cia-quick-prompts" hidden={promptsCollapsed}>
             {hotTopicPrompts.map((prompt) => (
               <button
                 key={`${prompt.term}-${prompt.sources?.join("-") ?? "default"}`}
@@ -531,6 +547,11 @@ export function ChatPage() {
           pending={pending}
           connectorSources={connectorSources}
           onConnectorSourcesChange={setConnectorSources}
+          reasoning={reasoning}
+          onReasoningChange={setReasoning}
+          provider={provider}
+          onProviderChange={setProvider}
+          onTopicSelect={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
           onError={(message) => {
             setError(message);
             toast.error(message);

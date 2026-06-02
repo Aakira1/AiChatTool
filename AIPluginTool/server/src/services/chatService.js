@@ -27,7 +27,16 @@ export async function prepareAssistantMessages({
   const knowledgeChunks = await retrieveKnowledge(latestUserMessage);
   const { artifacts } = buildResponseArtifacts(latestUserMessage, { knowledgeChunks });
   const preferences = getPreferences();
-  const attachmentContext = buildAttachmentContext(attachments);
+  // The full extracted text (up to 200K chars/file) is ingested into the vector
+  // store for RAG, but the model context window is small (~8K tokens for Workers
+  // AI Llama). Cap what we inline into the prompt so large docs don't overflow it
+  // and trigger an upstream 500. Retrieval (knowledgeChunks) surfaces the rest.
+  const MAX_INLINE_ATTACHMENT_CHARS = 16_000;
+  const fullAttachmentContext = buildAttachmentContext(attachments);
+  const attachmentContext =
+    fullAttachmentContext.length > MAX_INLINE_ATTACHMENT_CHARS
+      ? `${fullAttachmentContext.slice(0, MAX_INLINE_ATTACHMENT_CHARS)}\n\n[Document(s) truncated for length — full content is searchable via retrieval. Ask about specific sections for more detail.]`
+      : fullAttachmentContext;
 
   const connectorGroups =
     connectorSources.length > 0 && userEmail

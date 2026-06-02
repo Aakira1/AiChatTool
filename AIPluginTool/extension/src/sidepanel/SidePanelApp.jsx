@@ -22,6 +22,7 @@ import { ComposerToolbar } from "./components/ComposerToolbar.jsx";
 import { TopBar } from "./components/TopBar.jsx";
 import { Banner } from "./components/Banner.jsx";
 import { SettingsPanel } from "./components/SettingsPanel.jsx";
+import { ForumsPanel } from "./components/ForumsPanel.jsx";
 
 const WELCOME_MESSAGE = {
   id: "welcome",
@@ -60,6 +61,7 @@ export function SidePanelApp() {
   const [capturingPage, setCapturingPage] = useState(false);
   const [fallbackHint, setFallbackHint] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showForums, setShowForums] = useState(false);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
   const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
@@ -409,6 +411,7 @@ export function SidePanelApp() {
         user={user}
         onLogout={handleLogout}
         onOpenOptions={() => setShowSettings(true)}
+        onOpenForums={() => setShowForums(true)}
       />
 
       {showSettings ? (
@@ -417,6 +420,8 @@ export function SidePanelApp() {
           onOpenFullOptions={() => chrome.runtime.openOptionsPage?.()}
         />
       ) : null}
+
+      {showForums ? <ForumsPanel onClose={() => setShowForums(false)} /> : null}
 
       <ConversationPicker
         threads={threads}

@@ -1,6 +1,6 @@
 import { openWebApp } from "../../lib/storage.js";
 
-export function TopBar({ healthState, user, onLogout, onOpenOptions, compact = false }) {
+export function TopBar({ healthState, user, onLogout, onOpenOptions, onOpenForums, compact = false }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
     status === "online" ? "Connected" : status === "offline" ? "Offline" : "Checking…";
@@ -35,6 +35,11 @@ export function TopBar({ healthState, user, onLogout, onOpenOptions, compact = f
           >
             ↗
           </button>
+          {onOpenForums ? (
+            <button type="button" className="cia-ext-icon-btn" onClick={onOpenForums} title="Forums">
+              💬
+            </button>
+          ) : null}
           <button type="button" className="cia-ext-icon-btn" onClick={onOpenOptions} title="Settings">
             ⚙
           </button>

@@ -5,9 +5,9 @@ import {
 } from "./binaryDocument.js";
 
 const MAX_ATTACHMENTS = 3;
-const MAX_FILE_CHARS = 50_000;
-const MAX_TOTAL_CHARS = 80_000;
-const MAX_BASE64_BYTES = 250_000;
+const MAX_FILE_CHARS = 200_000;
+const MAX_TOTAL_CHARS = 500_000;
+const MAX_BASE64_BYTES = 10_000_000;
 
 export async function sanitizeAttachments(rawAttachments = []) {
   if (!Array.isArray(rawAttachments) || rawAttachments.length === 0) {
@@ -32,7 +32,7 @@ export async function sanitizeAttachments(rawAttachments = []) {
       const base64 = String(item?.content ?? "");
       const buffer = Buffer.from(base64, "base64");
       if (buffer.length > MAX_BASE64_BYTES) {
-        throw new Error(`"${name}" exceeds the 250KB binary size limit`);
+        throw new Error(`"${name}" exceeds the 10MB binary size limit`);
       }
       content = (await extractTextFromBuffer(name, buffer)).slice(0, MAX_FILE_CHARS);
     } else {
@@ -44,7 +44,7 @@ export async function sanitizeAttachments(rawAttachments = []) {
     }
 
     if (totalChars + content.length > MAX_TOTAL_CHARS) {
-      throw new Error("Total attachment text exceeds the 80KB limit");
+      throw new Error("Total attachment text exceeds the 500K character limit");
     }
 
     totalChars += content.length;

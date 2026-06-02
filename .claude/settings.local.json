@@ -9,7 +9,8 @@
       "Bash(npm run *)",
       "Bash(node --check src/db/client.js)",
       "Bash(node --check src/db/repositories/oauthProviderConfigRepo.js)",
-      "Bash(node --check src/config/env.js)"
+      "Bash(node --check src/config/env.js)",
+      "Bash(npx vite *)"
     ]
   }
 }

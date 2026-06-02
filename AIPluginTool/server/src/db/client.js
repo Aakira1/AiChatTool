@@ -86,6 +86,72 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS terminology_mappings (
+    id TEXT PRIMARY KEY,
+    ci_term TEXT NOT NULL,
+    cia_term TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS terminology_hidden (
+    ci_term TEXT PRIMARY KEY
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS forums (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS forum_posts (
+    id TEXT PRIMARY KEY,
+    forum_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    author TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(forum_id) REFERENCES forums(id)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS forum_comments (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    author TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(post_id) REFERENCES forum_posts(id)
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS forum_votes (
+    user_email TEXT NOT NULL,
+    post_id TEXT NOT NULL,
+    value INTEGER NOT NULL,
+    PRIMARY KEY (user_email, post_id)
+  );
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_forum_posts_forum ON forum_posts(forum_id);
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_forum_comments_post ON forum_comments(post_id);
+`);
+
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`);
 } catch {

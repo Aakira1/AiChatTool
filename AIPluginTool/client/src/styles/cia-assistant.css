@@ -1172,6 +1172,24 @@
   cursor: pointer;
 }
 
+.cia-thread-rename-input {
+  flex: 1;
+  min-width: 0;
+  margin: 6px 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--navy);
+  background: #fff;
+}
+
+.cia-thread-rename-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(228, 0, 124, 0.18);
+}
+
 .cia-thread-title {
   display: block;
   font-size: 13px;
@@ -1637,6 +1655,31 @@
   color: var(--muted);
 }
 
+.cia-quick-prompts-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+}
+
+.cia-quick-prompts-toggle:hover {
+  color: var(--primary);
+}
+
+.cia-quick-prompts-caret {
+  font-size: 10px;
+}
+
+.cia-quick-prompts-wrap.is-collapsed .cia-quick-prompts-toggle {
+  margin: 0;
+}
+
 .cia-quick-prompts {
   display: flex;
   gap: 8px;
@@ -1692,6 +1735,146 @@
 
 .cia-composer {
   border-top: 1px solid var(--border);
+}
+
+/* Extension-style chip toolbar above the chat box */
+.cia-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+.cia-toolbar-wrap {
+  position: relative;
+}
+
+.cia-toolbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(228, 0, 124, 0.35);
+  background: #fff;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(228, 0, 124, 0.06);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.cia-toolbar-pill:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--light);
+  box-shadow: 0 2px 6px rgba(228, 0, 124, 0.16);
+}
+
+.cia-toolbar-pill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cia-toolbar-pill.is-active {
+  border-color: var(--primary);
+  background: var(--light);
+  color: var(--primary);
+}
+
+.cia-toolbar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cia-toolbar-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 44px rgba(26, 11, 46, 0.22);
+  padding: 6px;
+}
+
+.cia-toolbar-picker-header {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.cia-toolbar-picker-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cia-toolbar-picker-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cia-toolbar-picker-row:hover {
+  background: var(--soft);
+}
+
+.cia-toolbar-picker-row.is-selected {
+  background: var(--light);
+}
+
+.cia-toolbar-picker-icon {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.cia-toolbar-picker-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.cia-toolbar-picker-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.cia-toolbar-picker-desc {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cia-toolbar-picker-check {
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .cia-attachment-list {
@@ -1849,11 +2032,16 @@
 
 .cia-side-tabs {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin: 0 0 12px;
 }
 
-.cia-side-tabs button {
+.cia-side-tabs .cia-collapse-btn {
+  flex: 0 0 auto;
+}
+
+.cia-side-tabs button:not(.cia-collapse-btn) {
   flex: 1;
   border: 1px solid var(--border);
   background: var(--soft);
@@ -1877,21 +2065,124 @@
   gap: 16px;
 }
 
+.cia-glossary-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .cia-glossary-search {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 13px;
+}
+
+.cia-glossary-search:focus,
+.cia-glossary-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(228, 0, 124, 0.18);
+}
+
+.cia-glossary-add-btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--primary);
+  background: var(--light);
+  color: var(--primary);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cia-glossary-add-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.cia-glossary-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.cia-glossary-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.cia-glossary-textarea {
+  resize: vertical;
+}
+
+.cia-glossary-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cia-glossary-cancel,
+.cia-glossary-save {
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cia-glossary-cancel {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+}
+
+.cia-glossary-save {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+}
+
+.cia-glossary-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cia-glossary-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cia-glossary-delete {
+  border: none;
+  background: transparent;
+  color: #c2004d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
 }
 
 .cia-glossary-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: calc(100vh - 260px);
-  overflow-y: auto;
 }
 
 .cia-glossary-card {
@@ -1902,7 +2193,30 @@
 }
 
 .cia-term-card.compact {
+  margin-top: 0;
   margin-bottom: 8px;
+  gap: 8px;
+  padding: 10px;
+}
+
+.cia-term-card.compact > div {
+  min-width: 0;
+}
+
+.cia-term-card.compact .cia-term-value {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cia-term-card.compact .cia-term-label {
+  font-size: 9px;
+}
+
+.cia-term-card.compact .cia-term-arrow {
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
 }
 
 .cia-glossary-notes {
@@ -2670,4 +2984,385 @@
 .t1-profile-saved {
   font-size: 12px;
   color: #15803d;
+}
+
+/* ---- Forums ----------------------------------------------------------- */
+.cia-forums-page {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  align-items: start;
+}
+
+.cia-forums-sidebar {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.cia-forums-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cia-forums-sidebar-header h2 {
+  font-size: 16px;
+  margin: 0;
+  color: var(--navy);
+}
+
+.cia-forums-new-btn {
+  border: 1.5px solid rgba(228, 0, 124, 0.35);
+  background: #fff;
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cia-forums-new-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.cia-forums-create,
+.cia-forums-post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cia-forums-create input,
+.cia-forums-create textarea,
+.cia-forums-post-form input,
+.cia-forums-post-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.cia-forums-create input:focus,
+.cia-forums-create textarea:focus,
+.cia-forums-post-form input:focus,
+.cia-forums-post-form textarea:focus,
+.cia-forum-comment-form input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(228, 0, 124, 0.12);
+}
+
+.cia-forums-create button[type="submit"],
+.cia-forums-post-form button[type="submit"] {
+  align-self: flex-start;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cia-forums-create button:disabled,
+.cia-forums-post-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cia-forums-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cia-forums-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 14px;
+  color: var(--navy);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cia-forums-list-item:hover {
+  background: var(--soft);
+}
+
+.cia-forums-list-item.active {
+  background: var(--light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.cia-forums-list-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cia-forums-list-count {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--muted);
+  background: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+}
+
+.cia-forums-main {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  min-height: 60vh;
+}
+
+.cia-forums-main-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.cia-forums-main-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: var(--navy);
+}
+
+.cia-forums-main-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.cia-forums-main-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.cia-forum-post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cia-forum-post {
+  display: flex;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.cia-forum-vote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.cia-forum-vote-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.cia-forum-vote-btn:hover {
+  background: var(--soft);
+}
+
+.cia-forum-vote-btn.active.up {
+  color: var(--primary);
+}
+
+.cia-forum-vote-btn.active.down {
+  color: #2563eb;
+}
+
+.cia-forum-score {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--navy);
+}
+
+.cia-forum-post-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cia-forum-post-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--navy);
+}
+
+.cia-forum-post-body {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--navy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cia-forum-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.cia-forum-link-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.cia-forum-link-btn.danger {
+  color: #dc2626;
+}
+
+.cia-forum-link-btn:hover {
+  text-decoration: underline;
+}
+
+.cia-forum-muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.cia-forum-comments {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.cia-forum-comment-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cia-forum-comment {
+  background: var(--soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.cia-forum-comment-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.cia-forum-comment-author {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.cia-forum-comment-body {
+  margin: 0;
+  font-size: 13px;
+  color: var(--navy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cia-forum-comment-form {
+  display: flex;
+  gap: 8px;
+}
+
+.cia-forum-comment-form input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.cia-forum-comment-form button {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cia-forum-comment-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cia-forums-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 60px 20px;
+}
+
+.cia-forums-empty h1 {
+  color: var(--navy);
+}
+
+@media (max-width: 860px) {
+  .cia-forums-page {
+    grid-template-columns: 1fr;
+  }
+  .cia-forums-sidebar {
+    position: static;
+  }
 }
