@@ -1,8 +1,11 @@
 import {
   AlignmentType,
-  BorderStyle,
   Document,
+  Footer,
+  Header,
   HeadingLevel,
+  PageBreak,
+  PageNumber,
   Packer,
   Paragraph,
   Table,
@@ -135,13 +138,30 @@ const HEADING_LEVELS = {
 /** Build a .docx buffer from markdown content. */
 export async function buildDocxBuffer({ title = "Document", content }) {
   const blocks = parseMarkdownBlocks(content);
+  const generatedOn = new Date().toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   const children = [];
 
+  // Cover page: spacer, title, accent rule, date — then a page break.
   children.push(
+    new Paragraph({ text: "", spacing: { before: 2800 } }),
     new Paragraph({
-      heading: HeadingLevel.TITLE,
-      children: [new TextRun({ text: title, bold: true })],
+      alignment: AlignmentType.LEFT,
+      children: [new TextRun({ text: title, bold: true, size: 56, color: "1A1F36" })],
     }),
+    new Paragraph({
+      border: { bottom: { color: PINK, size: 18, space: 6, style: "single" } },
+      spacing: { after: 200 },
+      children: [],
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: generatedOn, color: "6B7280", size: 22 })],
+    }),
+    new Paragraph({ children: [new PageBreak()] }),
   );
 
   for (const block of blocks) {
@@ -210,7 +230,32 @@ export async function buildDocxBuffer({ title = "Document", content }) {
     }
   }
 
-  const doc = new Document({ sections: [{ children }] });
+  const header = new Header({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [new TextRun({ text: title, color: "9AA3B2", size: 16 })],
+      }),
+    ],
+  });
+
+  const footer = new Footer({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: "Page ", color: "9AA3B2", size: 16 }),
+          new TextRun({ children: [PageNumber.CURRENT], color: "9AA3B2", size: 16 }),
+          new TextRun({ text: " of ", color: "9AA3B2", size: 16 }),
+          new TextRun({ children: [PageNumber.TOTAL_PAGES], color: "9AA3B2", size: 16 }),
+        ],
+      }),
+    ],
+  });
+
+  const doc = new Document({
+    sections: [{ headers: { default: header }, footers: { default: footer }, children }],
+  });
   return Packer.toBuffer(doc);
 }
 
@@ -219,7 +264,7 @@ export function buildPdfBuffer({ title = "Document", content }) {
   return new Promise((resolve, reject) => {
     try {
       const blocks = parseMarkdownBlocks(content);
-      const doc = new PDFDocument({ size: "A4", margin: 56 });
+      const doc = new PDFDocument({ size: "A4", margin: 56, bufferPages: true });
       const chunks = [];
       doc.on("data", (chunk) => chunks.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -227,9 +272,28 @@ export function buildPdfBuffer({ title = "Document", content }) {
 
       const pink = `#${PINK}`;
       const headingSizes = { 1: 20, 2: 16, 3: 14, 4: 12, 5: 11, 6: 11 };
+      const generatedOn = new Date().toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      const left = doc.page.margins.left;
+      const right = doc.page.width - doc.page.margins.right;
 
-      doc.font("Helvetica-Bold").fontSize(24).fillColor("#1a1f36").text(title);
-      doc.moveDown(0.6);
+      // Cover page.
+      doc.rect(0, 0, doc.page.width, 10).fill(pink);
+      doc.fillColor("#1a1f36").font("Helvetica-Bold").fontSize(34).text(title, left, 260);
+      doc
+        .moveTo(left, doc.y + 8)
+        .lineTo(left + 120, doc.y + 8)
+        .lineWidth(3)
+        .strokeColor(pink)
+        .stroke();
+      doc.moveDown(0.8);
+      doc.font("Helvetica").fontSize(12).fillColor("#6b7280").text(generatedOn, left);
+
+      // Body starts on a fresh page.
+      doc.addPage();
 
       for (const block of blocks) {
         if (block.type === "heading") {
@@ -258,6 +322,22 @@ export function buildPdfBuffer({ title = "Document", content }) {
         }
       }
 
+      // Footers: page X of N on every page except the cover (drawn after layout).
+      const range = doc.bufferedPageRange();
+      const footerY = doc.page.height - doc.page.margins.bottom + 18;
+      for (let p = range.start; p < range.start + range.count; p += 1) {
+        if (p === range.start) continue; // skip cover
+        doc.switchToPage(p);
+        doc.font("Helvetica").fontSize(8).fillColor("#9aa3b2");
+        doc.text(title, left, footerY, { width: (right - left) / 2, lineBreak: false });
+        doc.text(`Page ${p} of ${range.count - 1}`, left, footerY, {
+          width: right - left,
+          align: "right",
+          lineBreak: false,
+        });
+      }
+
+      doc.flushPages();
       doc.end();
     } catch (error) {
       reject(error);
