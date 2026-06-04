@@ -463,12 +463,19 @@ button:disabled {
   grid-column: 2;
   margin-top: 6px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  align-items: flex-start;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+}
+
+/* Let the action buttons flow into the same row as the Download trigger so the
+   whole bar reads as one group, exactly like the web app. */
+.cia-ext-msg-actions {
+  display: contents;
 }
 
 /* Reveal the action row only when the message is hovered or focused. */
@@ -486,35 +493,36 @@ button:disabled {
   }
 }
 
-.cia-ext-msg-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.cia-ext-msg-actions button {
+/* Unified action-bar button styling for every control in the row (Copy,
+   Regenerate, feedback, Post to forum, and the Download trigger) — matches the
+   web app's message actions. */
+.cia-ext-msg-actions button,
+.cia-ext-dl-menu > button {
   border: 1px solid var(--cia-border);
   background: #ffffff;
   color: var(--cia-muted);
-  border-radius: 7px;
-  padding: 3px 9px;
+  border-radius: 6px;
+  padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
 
-.cia-ext-msg-actions button:hover:not(:disabled) {
-  background: var(--cia-soft);
-  color: var(--cia-body);
-}
-
-.cia-ext-msg-actions button.is-active {
+.cia-ext-msg-actions button:hover:not(:disabled),
+.cia-ext-dl-menu > button:hover:not(:disabled) {
   border-color: var(--cia-magenta);
   color: var(--cia-magenta);
 }
 
-.cia-ext-msg-actions button:disabled {
+.cia-ext-msg-actions button.is-active {
+  border-color: var(--cia-magenta);
+  background: var(--cia-light);
+  color: var(--cia-magenta);
+}
+
+.cia-ext-msg-actions button:disabled,
+.cia-ext-dl-menu > button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -522,17 +530,6 @@ button:disabled {
 .cia-ext-dl-menu {
   position: relative;
   display: inline-block;
-}
-
-.cia-ext-dl-menu > button {
-  border: 1px solid var(--cia-border);
-  background: #ffffff;
-  color: var(--cia-body);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .cia-ext-dl-menu-pop {
