@@ -2338,6 +2338,12 @@
   transition: filter 0.15s ease;
 }
 
+.cia-file-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
 .cia-file-download:hover:not(:disabled) {
   filter: brightness(1.08);
 }

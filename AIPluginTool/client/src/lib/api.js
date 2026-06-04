@@ -354,16 +354,41 @@ export async function downloadXlsxSpec({ title = "Export", sheets }) {
   if (!response.ok) {
     throw new Error(await readError(response, "Couldn't build the spreadsheet"));
   }
+  await triggerBlobDownload(response, title, "xlsx");
+}
+
+// Shared helper: turn a file Response into a browser download.
+async function triggerBlobDownload(response, title, ext) {
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   const stem = (title || "export").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
-  link.download = `${stem}.xlsx`;
+  link.download = `${stem}.${ext}`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+// Build + download a Word (.docx) document from markdown content.
+export async function downloadDocx({ content, title = "Document" }) {
+  const response = await apiFetch("/api/export/docx", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't build the document"));
+  await triggerBlobDownload(response, title, "docx");
+}
+
+// Build + download a PDF document from markdown content.
+export async function downloadPdf({ content, title = "Document" }) {
+  const response = await apiFetch("/api/export/pdf", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't build the document"));
+  await triggerBlobDownload(response, title, "pdf");
 }
 
 // ---- Admin --------------------------------------------------------------

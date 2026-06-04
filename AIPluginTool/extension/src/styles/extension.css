@@ -419,6 +419,12 @@ button:disabled {
   cursor: pointer;
 }
 
+.cia-ext-file-actions {
+  display: flex;
+  gap: 5px;
+  flex: none;
+}
+
 .cia-ext-file-download:hover:not(:disabled) {
   background: var(--cia-magenta-dark);
 }

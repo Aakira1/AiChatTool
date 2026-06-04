@@ -6,6 +6,11 @@ import {
   safeFileName,
   sanitizeSheets,
 } from "../services/documentService.js";
+import {
+  buildDocxBuffer,
+  buildPdfBuffer,
+  safeDocName,
+} from "../services/documentExportService.js";
 
 export const exportRouter = Router();
 
@@ -23,6 +28,11 @@ const sheetSpecSchema = z.object({
 const xlsxSpecSchema = z.object({
   title: z.string().trim().max(120).optional(),
   sheets: z.array(sheetSpecSchema).min(1).max(8),
+});
+
+const docSchema = z.object({
+  content: z.string().trim().min(1).max(200_000),
+  title: z.string().trim().max(120).optional(),
 });
 
 // Convert chat/forum content into a downloadable .xlsx workbook.
@@ -48,6 +58,47 @@ exportRouter.post("/xlsx", async (request, response) => {
     response.send(buffer);
   } catch (error) {
     response.status(502).json({ error: error.message ?? "Failed to build the spreadsheet" });
+  }
+});
+
+// Convert markdown content into a downloadable Word (.docx) document.
+exportRouter.post("/docx", async (request, response) => {
+  const parsed = docSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide non-empty content to export" });
+    return;
+  }
+
+  const title = parsed.data.title || "Document";
+  try {
+    const buffer = await buildDocxBuffer({ title, content: parsed.data.content });
+    response.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    response.setHeader("Content-Disposition", `attachment; filename="${safeDocName(title)}.docx"`);
+    response.send(buffer);
+  } catch (error) {
+    response.status(502).json({ error: error.message ?? "Failed to build the document" });
+  }
+});
+
+// Convert markdown content into a downloadable PDF document.
+exportRouter.post("/pdf", async (request, response) => {
+  const parsed = docSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide non-empty content to export" });
+    return;
+  }
+
+  const title = parsed.data.title || "Document";
+  try {
+    const buffer = await buildPdfBuffer({ title, content: parsed.data.content });
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Disposition", `attachment; filename="${safeDocName(title)}.pdf"`);
+    response.send(buffer);
+  } catch (error) {
+    response.status(502).json({ error: error.message ?? "Failed to build the document" });
   }
 });
 

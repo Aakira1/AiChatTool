@@ -408,9 +408,9 @@ export async function pingHealth() {
 const fileStem = (title) =>
   (title || "export").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
 
-async function downloadBlob(response, title) {
+async function downloadBlob(response, title, ext = "xlsx") {
   if (!response.ok) {
-    let message = "Couldn't build the spreadsheet";
+    let message = "Couldn't build the file";
     try {
       const payload = await response.json();
       if (payload?.error) message = payload.error;
@@ -423,7 +423,7 @@ async function downloadBlob(response, title) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${fileStem(title)}.xlsx`;
+  link.download = `${fileStem(title)}.${ext}`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -445,5 +445,23 @@ export async function downloadXlsxSpec({ title = "Export", sheets }) {
     method: "POST",
     body: JSON.stringify({ title, sheets }),
   });
-  await downloadBlob(response, title);
+  await downloadBlob(response, title, "xlsx");
+}
+
+// Build + download a Word (.docx) document from markdown content.
+export async function downloadDocx({ content, title = "Document" }) {
+  const response = await apiFetch("/api/export/docx", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title, "docx");
+}
+
+// Build + download a PDF document from markdown content.
+export async function downloadPdf({ content, title = "Document" }) {
+  const response = await apiFetch("/api/export/pdf", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title, "pdf");
 }

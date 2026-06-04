@@ -7,6 +7,21 @@
 const FENCE_RE = /```(?:spreadsheet|xlsx)\s*\n([\s\S]*?)```/gi;
 // An opening fence with no closing fence yet (still streaming).
 const OPEN_FENCE_RE = /```(?:spreadsheet|xlsx)\s*\n([\s\S]*)$/i;
+// Document fences: ```document [info] \n <markdown> ``` (info may carry format/title).
+const DOC_FENCE_RE = /```document([^\n]*)\n([\s\S]*?)```/gi;
+const DOC_OPEN_RE = /```document([^\n]*)\n([\s\S]*)$/i;
+
+const VALID_FORMATS = ["docx", "pdf"];
+
+function parseDocInfo(info) {
+  const text = String(info ?? "");
+  const formats = VALID_FORMATS.filter((f) => new RegExp(`\\b${f}\\b`, "i").test(text));
+  const titleMatch = text.match(/title\s*[:=]\s*["']?([^"',]+)["']?/i);
+  return {
+    formats: formats.length ? formats : ["docx", "pdf"],
+    title: titleMatch?.[1]?.trim() || "",
+  };
+}
 
 function coerceSpec(raw) {
   let parsed;
@@ -75,7 +90,7 @@ export function parseFileBlocks(content) {
   const source = String(content ?? "");
   const files = [];
 
-  // Replace each complete block with nothing (collapsing surrounding blank space).
+  // Replace each complete spreadsheet block with nothing.
   let text = source.replace(FENCE_RE, (match, body) => {
     const spec = coerceSpec(body);
     if (spec) {
@@ -86,9 +101,23 @@ export function parseFileBlocks(content) {
     return match;
   });
 
+  // Replace each complete document block: keep the markdown body visible (so the
+  // user reads the document) and attach a download card for the requested format(s).
+  text = text.replace(DOC_FENCE_RE, (_match, info, body) => {
+    const { formats, title } = parseDocInfo(info);
+    const docBody = String(body).trim();
+    files.push({
+      kind: "document",
+      title: title || deriveFileTitle(docBody, "Document"),
+      content: docBody,
+      formats,
+    });
+    return `\n\n${docBody}\n\n`;
+  });
+
   // After removing complete blocks, check for a trailing unterminated block.
   let pending = false;
-  const open = text.match(OPEN_FENCE_RE);
+  const open = text.match(OPEN_FENCE_RE) || text.match(DOC_OPEN_RE);
   if (open) {
     pending = true;
     text = text.slice(0, open.index);

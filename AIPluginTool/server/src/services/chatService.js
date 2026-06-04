@@ -50,7 +50,16 @@ const FILE_GENERATION_DIRECTIVE = [
   "structure — the heading + table IS the structure. Keep every table well-formed (each row has",
   "the same number of `|`-separated cells as the header). The app turns these tables into a real,",
   "downloadable .xlsx automatically, so you do not need to mention downloading.",
-  "For all other requests, answer normally with no tables unless they genuinely help.",
+  "",
+  "DOWNLOADABLE DOCUMENTS: when the user asks for a Word document, .docx, PDF, report,",
+  "letter, or memo to download, wrap the document body in a fenced block tagged",
+  "`document` with an info string giving the format and title, then write the document",
+  "as normal markdown (use # / ## headings, paragraphs, - bullet lists, and | tables |).",
+  "Example opening line: ```document format=docx title=Project Brief  (use format=pdf for PDF,",
+  "or list both: format=docx,pdf). The app renders the markdown and attaches a download",
+  "button for each requested format, so do not describe downloading.",
+  "",
+  "For all other requests, answer normally with no tables or document block unless they genuinely help.",
 ].join(" ");
 
 export async function prepareAssistantMessages({
