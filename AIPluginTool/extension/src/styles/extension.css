@@ -426,7 +426,8 @@ button:disabled {
 }
 
 .cia-ext-msg-tools {
-  margin-top: 8px;
+  grid-column: 2;
+  margin-top: 6px;
 }
 
 .cia-ext-dl-menu {

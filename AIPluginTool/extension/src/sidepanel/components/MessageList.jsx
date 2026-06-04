@@ -34,11 +34,6 @@ function AssistantContent({ content }) {
       {allFiles.map((spec, index) => (
         <FileDownloadCard key={`${spec.title}-${index}`} spec={spec} />
       ))}
-      {text ? (
-        <div className="cia-ext-msg-tools">
-          <MessageDownloadMenu content={content} />
-        </div>
-      ) : null}
     </>
   );
 }
@@ -61,6 +56,11 @@ export const MessageList = forwardRef(function MessageList({ messages, pending }
               <p>{message.content}</p>
             )}
           </div>
+          {message.role === "assistant" && message.content && message.id !== "welcome" ? (
+            <div className="cia-ext-msg-tools">
+              <MessageDownloadMenu content={message.content} />
+            </div>
+          ) : null}
         </article>
       ))}
       {pending ? (
