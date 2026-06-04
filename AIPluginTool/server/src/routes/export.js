@@ -9,8 +9,10 @@ import {
 } from "../services/documentService.js";
 import {
   buildDocxBuffer,
+  buildFormPdfBuffer,
   buildPdfBuffer,
   buildPptxBuffer,
+  parseFormFields,
   safeDocName,
 } from "../services/documentExportService.js";
 
@@ -104,6 +106,26 @@ exportRouter.post("/pptx", async (request, response) => {
     response.send(buffer);
   } catch (error) {
     response.status(502).json({ error: error.message ?? "Failed to build the presentation" });
+  }
+});
+
+// Build a fillable PDF form from content (parses labels/checkboxes into fields).
+exportRouter.post("/form", async (request, response) => {
+  const parsed = docSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide non-empty content to export" });
+    return;
+  }
+
+  const title = parsed.data.title || "Form";
+  try {
+    const fields = parseFormFields(parsed.data.content);
+    const buffer = await buildFormPdfBuffer({ title, fields });
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Disposition", `attachment; filename="${safeDocName(title)}-form.pdf"`);
+    response.send(buffer);
+  } catch (error) {
+    response.status(502).json({ error: error.message ?? "Failed to build the form" });
   }
 });
 

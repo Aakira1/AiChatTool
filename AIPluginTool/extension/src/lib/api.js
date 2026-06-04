@@ -483,3 +483,12 @@ export async function downloadCsv({ content, title = "Data" }) {
   });
   await downloadBlob(response, title, "csv");
 }
+
+// Build + download a fillable PDF form from content.
+export async function downloadForm({ content, title = "Form" }) {
+  const response = await apiFetch("/api/export/form", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title, "pdf");
+}

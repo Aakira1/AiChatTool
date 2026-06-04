@@ -59,6 +59,21 @@ export function hasMarkdownTable(text) {
   return false;
 }
 
+// True when the text looks like a fillable form: explicit ```form block, blank
+// "Label:" lines, underscore blanks, or [ ] checkboxes.
+export function hasFormFields(text) {
+  const source = String(text ?? "");
+  if (/```form\s*\n/i.test(source)) return true;
+  return source.split("\n").some((raw) => {
+    const line = raw.trim();
+    return (
+      /^(?:[-*]\s*)?\[\s?\]\s+\S/.test(line) ||
+      /_{3,}\s*$/.test(line) ||
+      /^[A-Za-z][^:]{0,58}:\s*$/.test(line)
+    );
+  });
+}
+
 // Best-effort title for a generated spreadsheet, derived from the assistant's
 // own wording so the file name matches what it called the sheet. Looks for an
 // explicit "Title: X" line, then a leading markdown/bold heading, else falls

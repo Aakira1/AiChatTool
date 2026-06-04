@@ -471,6 +471,162 @@ export async function buildPptxBuffer({ title = "Presentation", content }) {
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
 }
 
+// ---- Fillable forms ------------------------------------------------------
+
+function formFieldType(label) {
+  return /comment|note|address|detail|descrip|message|summary|feedback/i.test(label)
+    ? "multiline"
+    : "text";
+}
+
+/**
+ * Extract form fields from markdown/free text. Recognises:
+ *  - `# Heading` / `## Heading`        → a section divider
+ *  - `- [ ] Option` / `[ ] Option`     → a checkbox
+ *  - `Label: ____` or `Label ______`   → a (multi)line text field
+ *  - `Label:` (colon, nothing after)   → a (multi)line text field
+ * Also accepts an explicit ```form JSON block: {title?, fields:[{label,type}]}.
+ */
+export function parseFormFields(content) {
+  const text = String(content ?? "");
+
+  const jsonBlock = text.match(/```form\s*\n([\s\S]*?)```/i);
+  if (jsonBlock) {
+    try {
+      const parsed = JSON.parse(jsonBlock[1].trim());
+      if (Array.isArray(parsed?.fields) && parsed.fields.length) {
+        return parsed.fields
+          .slice(0, 200)
+          .map((f) => ({
+            label: String(f.label ?? "Field").slice(0, 120),
+            type: ["text", "multiline", "checkbox", "section"].includes(f.type)
+              ? f.type
+              : "text",
+          }));
+      }
+    } catch {
+      /* fall through to heuristic parsing */
+    }
+  }
+
+  const fields = [];
+  for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
+    const line = raw.trim();
+    if (!line || fields.length >= 200) continue;
+
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      fields.push({ label: stripInline(heading[1]).slice(0, 120), type: "section" });
+      continue;
+    }
+
+    const checkbox = line.match(/^(?:[-*]\s*)?\[\s?\]\s*(.+)$/);
+    if (checkbox) {
+      fields.push({ label: stripInline(checkbox[1]).slice(0, 120), type: "checkbox" });
+      continue;
+    }
+
+    const underscored = line.match(/^(.{1,60}?)[:\s-]*_{3,}\s*$/);
+    if (underscored && /[a-z]/i.test(underscored[1])) {
+      const label = stripInline(underscored[1]).replace(/[:\-\s]+$/, "");
+      fields.push({ label: label.slice(0, 120), type: formFieldType(label) });
+      continue;
+    }
+
+    const colon = line.match(/^([A-Za-z][^:]{0,58}):\s*$/);
+    if (colon) {
+      const label = stripInline(colon[1]);
+      fields.push({ label: label.slice(0, 120), type: formFieldType(label) });
+    }
+  }
+  return fields;
+}
+
+/** Build a fillable AcroForm PDF from field definitions (or parsed content). */
+export function buildFormPdfBuffer({ title = "Form", fields }) {
+  return new Promise((resolve, reject) => {
+    try {
+      const list = (fields?.length ? fields : [{ label: "Field 1", type: "text" }]).slice(0, 200);
+      const doc = new PDFDocument({ size: "A4", margin: 56 });
+      const chunks = [];
+      doc.on("data", (c) => chunks.push(c));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      doc.initForm();
+
+      const left = doc.page.margins.left;
+      const right = doc.page.width - doc.page.margins.right;
+      const width = right - left;
+      const bottom = doc.page.height - doc.page.margins.bottom;
+      const pink = `#${PINK}`;
+
+      doc.rect(0, 0, doc.page.width, 10).fill(pink);
+      doc.fillColor("#1a1f36").font("Helvetica-Bold").fontSize(22).text(title, left, 40);
+      doc.moveDown(1);
+
+      const ensureSpace = (needed) => {
+        if (doc.y + needed > bottom) doc.addPage();
+      };
+
+      list.forEach((field, index) => {
+        const name = `f${index}_${(field.label || "field").replace(/[^\w]+/g, "_").slice(0, 30)}`;
+
+        if (field.type === "section") {
+          ensureSpace(40);
+          doc.moveDown(0.5);
+          doc
+            .font("Helvetica-Bold")
+            .fontSize(13)
+            .fillColor("#2d1b69")
+            .text(field.label, left, doc.y);
+          doc
+            .moveTo(left, doc.y + 3)
+            .lineTo(right, doc.y + 3)
+            .lineWidth(0.8)
+            .strokeColor("#e2e2e8")
+            .stroke();
+          doc.moveDown(0.6);
+          return;
+        }
+
+        if (field.type === "checkbox") {
+          ensureSpace(26);
+          const y = doc.y;
+          doc.formCheckbox(name, left, y, 13, 13, { borderColor: "888888", borderWidth: 1 });
+          doc
+            .font("Helvetica")
+            .fontSize(11)
+            .fillColor("#1f2330")
+            .text(field.label, left + 22, y + 1, { width: width - 22 });
+          doc.y = Math.max(doc.y, y + 13) + 10;
+          return;
+        }
+
+        const fieldHeight = field.type === "multiline" ? 54 : 20;
+        ensureSpace(fieldHeight + 26);
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(10)
+          .fillColor("#1f2330")
+          .text(field.label, left, doc.y);
+        const y = doc.y + 2;
+        doc.formText(name, left, y, width, fieldHeight, {
+          borderColor: "888888",
+          borderWidth: 1,
+          multiline: field.type === "multiline",
+          align: "left",
+          fontSize: 11,
+        });
+        doc.y = y + fieldHeight + 14;
+      });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 /** Turn a title into a safe file name stem. */
 export function safeDocName(title) {
   return (

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   downloadCsv,
   downloadDocx,
+  downloadForm,
   downloadPdf,
   downloadPptx,
   exportToExcel,
 } from "../../lib/api.js";
-import { deriveFileTitle, hasMarkdownTable } from "../../lib/fileBlocks.js";
+import { deriveFileTitle, hasFormFields, hasMarkdownTable } from "../../lib/fileBlocks.js";
 
 // Deterministic "Download as…" menu. Always available on assistant messages so a
 // file can be produced even when the model doesn't emit a download marker.
@@ -34,6 +35,7 @@ export function MessageDownloadMenu({ content, fallbackTitle = "Document", disab
       else if (kind === "pptx") await downloadPptx({ content, title });
       else if (kind === "xlsx") await exportToExcel({ content, title });
       else if (kind === "csv") await downloadCsv({ content, title });
+      else if (kind === "form") await downloadForm({ content, title });
       setOpen(false);
     } catch {
       /* surfaced by the caller's toast layer if wired; swallow otherwise */
@@ -50,6 +52,7 @@ export function MessageDownloadMenu({ content, fallbackTitle = "Document", disab
     // Spreadsheet/CSV only make sense if the reply actually has tabular data.
     ...(hasTable ? [{ kind: "xlsx", label: "Excel (.xlsx)" }] : []),
     ...(hasTable ? [{ kind: "csv", label: "CSV (.csv)" }] : []),
+    ...(hasFormFields(content) ? [{ kind: "form", label: "Fillable form (PDF)" }] : []),
   ];
 
   return (

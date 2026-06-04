@@ -411,6 +411,16 @@ export async function downloadCsv({ content, title = "Data" }) {
   await triggerBlobDownload(response, title, "csv");
 }
 
+// Build + download a fillable PDF form from content.
+export async function downloadForm({ content, title = "Form" }) {
+  const response = await apiFetch("/api/export/form", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't build the form"));
+  await triggerBlobDownload(response, title, "pdf");
+}
+
 // ---- Admin --------------------------------------------------------------
 
 export async function listAdminUsers() {
