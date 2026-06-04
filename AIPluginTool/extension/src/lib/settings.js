@@ -1,11 +1,89 @@
 const STORAGE_KEY = "cia.settings.v1";
 const EVENT_NAME = "cia:settings:changed";
 
+// Theme presets mapped onto the side panel's --cia-* CSS variables. "magenta"
+// reproduces the original palette exactly so the default look is unchanged.
+export const THEMES = [
+  {
+    id: "magenta",
+    label: "Magenta",
+    swatch: "linear-gradient(135deg, #e4007c, #f7941d)",
+    vars: {
+      "--cia-deep": "#1a0f3d",
+      "--cia-navy": "#2d1b69",
+      "--cia-magenta": "#e4007c",
+      "--cia-magenta-dark": "#b80064",
+      "--cia-orange": "#f7941d",
+      "--cia-purple": "#7c3aed",
+      "--cia-light": "#faf7ff",
+      "--cia-soft": "#f4eefb",
+      "--cia-border": "rgba(124, 58, 237, 0.15)",
+      "--cia-body": "#1f1235",
+      "--cia-muted": "#6b6285",
+    },
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    swatch: "linear-gradient(135deg, #0ea5e9, #6366f1)",
+    vars: {
+      "--cia-deep": "#0b1e3d",
+      "--cia-navy": "#0f2a52",
+      "--cia-magenta": "#0ea5e9",
+      "--cia-magenta-dark": "#0284c7",
+      "--cia-orange": "#06b6d4",
+      "--cia-purple": "#3b82f6",
+      "--cia-light": "#f0f9ff",
+      "--cia-soft": "#eff6ff",
+      "--cia-border": "rgba(59, 130, 246, 0.18)",
+      "--cia-body": "#1e3a5f",
+      "--cia-muted": "#475569",
+    },
+  },
+  {
+    id: "forest",
+    label: "Forest",
+    swatch: "linear-gradient(135deg, #16a34a, #65a30d)",
+    vars: {
+      "--cia-deep": "#0a2e1a",
+      "--cia-navy": "#14532d",
+      "--cia-magenta": "#16a34a",
+      "--cia-magenta-dark": "#15803d",
+      "--cia-orange": "#84cc16",
+      "--cia-purple": "#15803d",
+      "--cia-light": "#f0fdf4",
+      "--cia-soft": "#ecfdf3",
+      "--cia-border": "rgba(22, 163, 74, 0.18)",
+      "--cia-body": "#14532d",
+      "--cia-muted": "#4d7c0f",
+    },
+  },
+  {
+    id: "graphite",
+    label: "Graphite",
+    swatch: "linear-gradient(135deg, #475569, #64748b)",
+    vars: {
+      "--cia-deep": "#0f172a",
+      "--cia-navy": "#1e293b",
+      "--cia-magenta": "#475569",
+      "--cia-magenta-dark": "#334155",
+      "--cia-orange": "#f59e0b",
+      "--cia-purple": "#475569",
+      "--cia-light": "#f8fafc",
+      "--cia-soft": "#f1f5f9",
+      "--cia-border": "rgba(71, 85, 105, 0.2)",
+      "--cia-body": "#1e293b",
+      "--cia-muted": "#64748b",
+    },
+  },
+];
+
 const DEFAULTS = {
   showInsights: true,
   showArtifactsByDefault: false,
   provider: "server",
   reasoning: "auto",
+  theme: "magenta",
   sources: { webSearch: false, companyKnowledge: true },
   connectorSources: [],
 };
@@ -38,4 +116,18 @@ export function subscribeSettings(handler) {
   const listener = (event) => handler(event.detail);
   window.addEventListener(EVENT_NAME, listener);
   return () => window.removeEventListener(EVENT_NAME, listener);
+}
+
+// Apply a theme's colors to the document root (live, no reload).
+export function applyTheme(themeId) {
+  if (typeof document === "undefined") return;
+  const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
+  Object.entries(theme.vars).forEach(([key, value]) => {
+    document.documentElement.style.setProperty(key, value);
+  });
+  document.documentElement.dataset.theme = theme.id;
+}
+
+export function applySettings(settings = getSettings()) {
+  applyTheme(settings.theme);
 }

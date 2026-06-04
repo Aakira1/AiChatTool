@@ -7,6 +7,8 @@ import {
   listConversations,
   login,
   logout,
+  rateMessage,
+  regenerateChat,
   register,
   pingHealth,
   streamChat,
@@ -14,7 +16,7 @@ import {
 import { openWebApp } from "../lib/storage.js";
 import { pickPageContextForApi } from "../lib/pageContextPayload.js";
 import { capturePageView, getPageContext } from "../lib/pageContext.js";
-import { getSettings, saveSettings } from "../lib/settings.js";
+import { getSettings, saveSettings, applySettings, applyTheme, subscribeSettings } from "../lib/settings.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ConversationPicker } from "./components/ConversationPicker.jsx";
 import { MessageList } from "./components/MessageList.jsx";
@@ -63,6 +65,7 @@ export function SidePanelApp() {
   const [fallbackHint, setFallbackHint] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showForums, setShowForums] = useState(false);
+  const [forumDraft, setForumDraft] = useState(null);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
   const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
@@ -196,6 +199,12 @@ export function SidePanelApp() {
     }
   }, [messages, pending]);
 
+  // Apply theme colors on mount and live-update whenever settings change.
+  useEffect(() => {
+    applySettings();
+    return subscribeSettings((next) => applyTheme(next.theme));
+  }, []);
+
   useEffect(() => {
     if (!user) return undefined;
 
@@ -287,6 +296,107 @@ export function SidePanelApp() {
     abortRef.current?.abort();
     abortRef.current = null;
     setPending(false);
+  };
+
+  const lastAssistantId =
+    [...messages].reverse().find((m) => m.role === "assistant" && m.id !== "welcome")?.id ?? null;
+
+  const handleRate = async (messageId, rating) => {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              metadata: {
+                ...message.metadata,
+                feedback: message.metadata?.feedback === rating ? null : rating,
+              },
+            }
+          : message,
+      ),
+    );
+    // Only server-persisted messages have stable ids; skip optimistic-only locals.
+    if (messageId.startsWith("local-")) return;
+    try {
+      await rateMessage(messageId, rating);
+    } catch {
+      /* keep the optimistic state; feedback is best-effort */
+    }
+  };
+
+  const handlePostToForum = (message) => {
+    const content = message?.content?.trim();
+    if (!content) return;
+    const firstLine = content.split("\n").find((line) => line.trim()) ?? "Shared from chat";
+    setForumDraft({
+      title: firstLine.replace(/[#*`>_]/g, "").trim().slice(0, 80) || "Shared from chat",
+      body: content,
+    });
+    setShowForums(true);
+  };
+
+  const handleRegenerate = async () => {
+    if (!conversationId || pending) return;
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && m.id !== "welcome");
+    if (!lastAssistant) return;
+
+    setError("");
+    setPending(true);
+
+    const assistantId = localId("local-assistant");
+    setMessages((current) => [
+      ...current.filter((m) => m.id !== lastAssistant.id && m.id !== "welcome"),
+      { id: assistantId, role: "assistant", content: "", metadata: {} },
+    ]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let streamed = "";
+    try {
+      await regenerateChat({
+        conversationId,
+        provider,
+        reasoning,
+        signal: controller.signal,
+        onToken: (token) => {
+          streamed += token;
+          setMessages((current) =>
+            current.map((m) => (m.id === assistantId ? { ...m, content: streamed } : m)),
+          );
+        },
+        onArtifacts: (payload) => {
+          setMessages((current) =>
+            current.map((m) =>
+              m.id === assistantId ? { ...m, metadata: { ...m.metadata, artifacts: payload } } : m,
+            ),
+          );
+        },
+        onInsights: (payload) => {
+          setMessages((current) =>
+            current.map((m) =>
+              m.id === assistantId ? { ...m, metadata: { ...m.metadata, insights: payload } } : m,
+            ),
+          );
+        },
+        onComplete: async () => {
+          await loadConversation(conversationId);
+          await loadThreads();
+        },
+      });
+    } catch (regenError) {
+      if (regenError instanceof SessionExpiredError) {
+        setUser(null);
+        setError("Your session expired. Please sign in again.");
+      } else if (regenError.name !== "AbortError") {
+        setError(regenError.message ?? "Failed to regenerate");
+      }
+    } finally {
+      setPending(false);
+      abortRef.current = null;
+    }
   };
 
   const handleSend = async () => {
@@ -433,7 +543,15 @@ export function SidePanelApp() {
         />
       ) : null}
 
-      {showForums ? <ForumsPanel onClose={() => setShowForums(false)} /> : null}
+      {showForums ? (
+        <ForumsPanel
+          initialDraft={forumDraft}
+          onClose={() => {
+            setShowForums(false);
+            setForumDraft(null);
+          }}
+        />
+      ) : null}
 
       <ConversationPicker
         threads={threads}
@@ -448,7 +566,15 @@ export function SidePanelApp() {
 
       {error ? <Banner tone="error" message={error} onDismiss={() => setError("")} /> : null}
 
-      <MessageList ref={messagesRef} messages={messages} pending={pending} />
+      <MessageList
+        ref={messagesRef}
+        messages={messages}
+        pending={pending}
+        lastAssistantId={lastAssistantId}
+        onRegenerate={() => void handleRegenerate()}
+        onRate={handleRate}
+        onPostToForum={handlePostToForum}
+      />
 
       <ComposerToolbar
         sources={sources}

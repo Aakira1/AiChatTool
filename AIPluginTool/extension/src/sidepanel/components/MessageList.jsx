@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { InsightsArtifacts } from "./InsightsArtifacts.jsx";
 import { FileDownloadCard } from "./FileDownloadCard.jsx";
 import { MessageDownloadMenu } from "./MessageDownloadMenu.jsx";
+import { MessageActions } from "./MessageActions.jsx";
 import { parseFileBlocks, hasMarkdownTable, deriveFileTitle } from "../../lib/fileBlocks.js";
 
 function AssistantContent({ content }) {
@@ -38,7 +39,10 @@ function AssistantContent({ content }) {
   );
 }
 
-export const MessageList = forwardRef(function MessageList({ messages, pending }, ref) {
+export const MessageList = forwardRef(function MessageList(
+  { messages, pending, onRegenerate, onRate, onPostToForum, lastAssistantId },
+  ref,
+) {
   return (
     <div className="cia-ext-messages" ref={ref}>
       {messages.map((message) => (
@@ -58,6 +62,14 @@ export const MessageList = forwardRef(function MessageList({ messages, pending }
           </div>
           {message.role === "assistant" && message.content && message.id !== "welcome" ? (
             <div className="cia-ext-msg-tools">
+              <MessageActions
+                message={message}
+                isLastAssistant={message.id === lastAssistantId}
+                pending={pending}
+                onRegenerate={onRegenerate}
+                onRate={onRate}
+                onPostToForum={onPostToForum}
+              />
               <MessageDownloadMenu content={message.content} />
             </div>
           ) : null}

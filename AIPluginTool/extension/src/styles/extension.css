@@ -428,6 +428,43 @@ button:disabled {
 .cia-ext-msg-tools {
   grid-column: 2;
   margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.cia-ext-msg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cia-ext-msg-actions button {
+  border: 1px solid var(--cia-border);
+  background: #ffffff;
+  color: var(--cia-muted);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.cia-ext-msg-actions button:hover:not(:disabled) {
+  background: var(--cia-soft);
+  color: var(--cia-body);
+}
+
+.cia-ext-msg-actions button.is-active {
+  border-color: var(--cia-magenta);
+  color: var(--cia-magenta);
+}
+
+.cia-ext-msg-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .cia-ext-dl-menu {

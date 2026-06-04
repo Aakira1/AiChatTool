@@ -339,6 +339,45 @@ export async function streamChat({
   });
 }
 
+export async function regenerateChat({
+  conversationId,
+  provider,
+  reasoning,
+  signal,
+  onToken,
+  onComplete,
+  onInsights,
+  onArtifacts,
+}) {
+  const base = await getApiBaseUrl();
+  const response = await fetch(`${base}/api/chat/regenerate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      conversationId,
+      ...(provider && provider !== "server" ? { provider } : {}),
+      ...(reasoning && reasoning !== "auto" ? { reasoning } : {}),
+    }),
+    signal,
+  });
+  if (response.status === 401) {
+    throw new SessionExpiredError();
+  }
+  await consumeChatStream(response, { signal, onToken, onComplete, onInsights, onArtifacts });
+}
+
+export async function rateMessage(messageId, rating) {
+  const response = await apiFetch(`/api/messages/${messageId}/feedback`, {
+    method: "PATCH",
+    body: JSON.stringify({ rating }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to save feedback");
+  }
+  return response.json().catch(() => ({}));
+}
+
 export async function listConnectors() {
   const response = await apiFetch("/api/connectors");
   if (!response.ok) {

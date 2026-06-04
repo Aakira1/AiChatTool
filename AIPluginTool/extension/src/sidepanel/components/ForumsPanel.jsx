@@ -78,7 +78,7 @@ function Comments({ postId }) {
   );
 }
 
-export function ForumsPanel({ onClose }) {
+export function ForumsPanel({ onClose, initialDraft = null }) {
   const [forums, setForums] = useState([]);
   const [activeForum, setActiveForum] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -88,8 +88,11 @@ export function ForumsPanel({ onClose }) {
   const [creatingForum, setCreatingForum] = useState(false);
   const [forumName, setForumName] = useState("");
 
-  const [showPostForm, setShowPostForm] = useState(false);
-  const [postForm, setPostForm] = useState({ title: "", body: "" });
+  const [showPostForm, setShowPostForm] = useState(Boolean(initialDraft));
+  const [postForm, setPostForm] = useState({
+    title: initialDraft?.title ?? "",
+    body: initialDraft?.body ?? "",
+  });
   const [openComments, setOpenComments] = useState({});
 
   const loadForums = useCallback(
