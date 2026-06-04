@@ -14,7 +14,8 @@ const DOC_OPEN_RE = /```document([^\n]*)\n([\s\S]*)$/i;
 const VALID_FORMATS = ["docx", "pdf"];
 
 function parseDocInfo(info) {
-  const text = String(info ?? "");
+  // Drop any markdown emphasis the model wrapped the marker in (**, *, _, `, #).
+  const text = String(info ?? "").replace(/[*_`#]/g, "");
   const formats = VALID_FORMATS.filter((f) => new RegExp(`\\b${f}\\b`, "i").test(text));
   const titleMatch = text.match(/title\s*[:=]\s*["']?([^"',]+)["']?/i);
   return {
@@ -134,7 +135,11 @@ export function parseFileBlocks(content) {
   // WITHOUT the surrounding ``` fence. Detect a bare marker line (anywhere) that
   // carries a format/title hint and treat everything after it as the document body.
   if (!files.some((f) => f.kind === "document")) {
-    const loose = text.match(/(^|\n)[ \t]*`{0,3}\s*document\b[ \t]*([^\n]*)\n([\s\S]*)$/i);
+    // Tolerate leading/trailing markdown emphasis or fences around the marker,
+    // e.g. **document format=docx,pdf title=…** or ```document …```.
+    const loose = text.match(
+      /(^|\n)[ \t]*[*_`#>\s]{0,6}document\b[ \t]*([^\n]*)\n([\s\S]*)$/i,
+    );
     if (loose && /\b(format|title)\b/i.test(loose[2])) {
       const { formats, title } = parseDocInfo(loose[2]);
       const body = loose[3].replace(/```+\s*$/, "").trim();

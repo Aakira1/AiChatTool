@@ -27,8 +27,17 @@ const MAX_BLOCKS = 2000;
  *  { type: 'list', ordered, items: [text] }
  *  { type: 'table', columns: [..], rows: [[..]] }
  */
+// Remove a stray "document format=… title=…" marker line (with optional **/`` /#
+// emphasis) the model may have left at the top of the content.
+function stripDocMarker(content) {
+  return String(content ?? "").replace(
+    /^\s*[*_`#>\s]{0,6}document\b[ \t]*(?:format|title)[^\n]*\n/i,
+    "",
+  );
+}
+
 export function parseMarkdownBlocks(content) {
-  const lines = String(content ?? "").replace(/\r\n/g, "\n").split("\n");
+  const lines = stripDocMarker(content).replace(/\r\n/g, "\n").split("\n");
   const blocks = [];
   let i = 0;
 
@@ -169,8 +178,15 @@ export async function buildDocxBuffer({ title = "Document", content }) {
       children.push(
         new Paragraph({
           heading: HEADING_LEVELS[block.level] ?? HeadingLevel.HEADING_6,
+          spacing: { before: block.level <= 2 ? 280 : 180, after: 120 },
           children: inlineSegments(block.text).map(
-            (s) => new TextRun({ text: s.text, bold: s.bold, italics: s.italic }),
+            (s) =>
+              new TextRun({
+                text: s.text,
+                bold: true,
+                italics: s.italic,
+                color: block.level <= 2 ? "2D1B69" : "3B3B57",
+              }),
           ),
         }),
       );
