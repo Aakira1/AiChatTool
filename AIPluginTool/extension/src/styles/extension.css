@@ -466,6 +466,24 @@ button:disabled {
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* Reveal the action row only when the message is hovered or focused. */
+.cia-ext-message:hover .cia-ext-msg-tools,
+.cia-ext-message:focus-within .cia-ext-msg-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  /* Touch devices have no hover — keep the actions reachable. */
+  .cia-ext-msg-tools {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .cia-ext-msg-actions {
