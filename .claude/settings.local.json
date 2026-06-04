@@ -20,7 +20,8 @@
       "Bash(node --check src/routes/forums.js)",
       "Bash(node --check server/src/routes/notifications.js)",
       "Bash(node --check server/src/db/repositories/notificationRepo.js)",
-      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('client/src/context/AuthContext.jsx','utf8'\\); console.log\\(s.match\\(/setUser\\\\\\(\\\\{[^}]*\\\\}\\\\\\)/g\\)\\)\")"
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('client/src/context/AuthContext.jsx','utf8'\\); console.log\\(s.match\\(/setUser\\\\\\(\\\\{[^}]*\\\\}\\\\\\)/g\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./server/package.json'\\); console.log\\('deps:',Object.keys\\(p.dependencies||{}\\).join\\(', '\\)\\)\")"
     ]
   }
 }
