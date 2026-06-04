@@ -1,5 +1,10 @@
 import { openWebApp } from "../../lib/storage.js";
 
+/** Close the side panel. Chrome lets a panel page close itself via window.close(). */
+function closeSidePanel() {
+  window.close();
+}
+
 export function TopBar({ healthState, user, onLogout, onOpenOptions, onOpenForums, compact = false }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
@@ -46,6 +51,15 @@ export function TopBar({ healthState, user, onLogout, onOpenOptions, onOpenForum
           <button type="button" className="cia-ext-icon-btn" onClick={onLogout} title="Sign out">
             ⎋
           </button>
+          <button
+            type="button"
+            className="cia-ext-icon-btn"
+            onClick={closeSidePanel}
+            title="Close panel"
+            aria-label="Close panel"
+          >
+            ✕
+          </button>
         </div>
       ) : (
         <div className="cia-ext-topbar-actions">
@@ -60,6 +74,15 @@ export function TopBar({ healthState, user, onLogout, onOpenOptions, onOpenForum
           </button>
           <button type="button" className="cia-ext-icon-btn" onClick={onOpenOptions} title="Settings">
             ⚙
+          </button>
+          <button
+            type="button"
+            className="cia-ext-icon-btn"
+            onClick={closeSidePanel}
+            title="Close panel"
+            aria-label="Close panel"
+          >
+            ✕
           </button>
         </div>
       )}
