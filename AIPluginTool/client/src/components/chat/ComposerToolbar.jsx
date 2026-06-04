@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listConnectors } from "../../lib/api.js";
+import { TEMPLATES } from "../../lib/templates.js";
 
 export const REASONING_MODES = [
   { id: "auto", label: "Let AI decide", description: "Picks reasoning for the job", icon: "✦" },
@@ -66,6 +67,7 @@ export function ComposerToolbar({
   provider = "server",
   onProviderChange,
   onTopicSelect,
+  onTemplateSelect,
   disabled,
 }) {
   const [open, setOpen] = useState(null); // "sources" | "topics" | "reasoning" | "model"
@@ -160,6 +162,35 @@ export function ComposerToolbar({
                 label={topic.label}
                 onClick={() => {
                   onTopicSelect?.(topic.text);
+                  close();
+                }}
+              />
+            ))}
+          </PickerPanel>
+        ) : null}
+      </div>
+
+      {/* Templates */}
+      <div className="cia-toolbar-wrap">
+        <button
+          type="button"
+          className="cia-toolbar-pill"
+          onClick={() => toggle("templates")}
+          disabled={disabled}
+          title="Document templates"
+        >
+          📄 Templates
+        </button>
+        {open === "templates" ? (
+          <PickerPanel title="Start from a template">
+            {TEMPLATES.map((tpl) => (
+              <PickerRow
+                key={tpl.id}
+                icon={tpl.icon}
+                label={tpl.label}
+                desc={tpl.description}
+                onClick={() => {
+                  onTemplateSelect?.(tpl.prompt);
                   close();
                 }}
               />

@@ -17,6 +17,7 @@ export function ChatComposer({
   provider,
   onProviderChange,
   onTopicSelect,
+  onTemplateSelect,
 }) {
   const fileInputRef = useRef(null);
 
@@ -51,6 +52,7 @@ export function ChatComposer({
         provider={provider}
         onProviderChange={onProviderChange}
         onTopicSelect={onTopicSelect}
+        onTemplateSelect={onTemplateSelect}
         disabled={pending}
       />
 

@@ -117,7 +117,11 @@ export async function prepareAssistantMessages({
     chartCount: artifacts.metricsCharts?.length ?? 0,
   };
 
-  const systemPrompt = `${buildSystemPrompt({
+  // The file-generation directive is placed FIRST so it survives the Copilot
+  // Studio path, which truncates the system prompt to its first 4000 chars.
+  const systemPrompt = `${FILE_GENERATION_DIRECTIVE}
+
+${buildSystemPrompt({
     preferences,
     pageContext: enrichedPageContext,
     memories,
@@ -127,8 +131,6 @@ export async function prepareAssistantMessages({
   })}${connectorContext ? `\n\n${connectorContext}` : ""}${
     reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
   }
-
-${FILE_GENERATION_DIRECTIVE}
 
 Structured review hints for this answer (expand in the response when relevant):
 ${JSON.stringify(artifactSummary)}`;

@@ -560,6 +560,7 @@ export function ChatPage() {
           provider={provider}
           onProviderChange={setProvider}
           onTopicSelect={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
+          onTemplateSelect={(text) => setInput(text)}
           onError={(message) => {
             setError(message);
             toast.error(message);
