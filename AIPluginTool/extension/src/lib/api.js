@@ -402,3 +402,48 @@ export async function pingHealth() {
     return { ok: false, error: error.message };
   }
 }
+
+// ---- Downloadable spreadsheets ------------------------------------------
+
+const fileStem = (title) =>
+  (title || "export").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
+
+async function downloadBlob(response, title) {
+  if (!response.ok) {
+    let message = "Couldn't build the spreadsheet";
+    try {
+      const payload = await response.json();
+      if (payload?.error) message = payload.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileStem(title)}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Build + download an .xlsx from free-form content (server parses markdown tables).
+export async function exportToExcel({ content, title = "AI Export" }) {
+  const response = await apiFetch("/api/export/xlsx", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title);
+}
+
+// Build + download an .xlsx deterministically from a model-provided workbook spec.
+export async function downloadXlsxSpec({ title = "Export", sheets }) {
+  const response = await apiFetch("/api/export/xlsx-spec", {
+    method: "POST",
+    body: JSON.stringify({ title, sheets }),
+  });
+  await downloadBlob(response, title);
+}

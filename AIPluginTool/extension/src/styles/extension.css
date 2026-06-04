@@ -329,6 +329,125 @@ button:disabled {
   font-size: 12px;
 }
 
+.cia-ext-bubble table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 12px;
+  border: 1px solid var(--cia-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cia-ext-bubble thead th {
+  background: var(--cia-magenta);
+  color: #ffffff;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cia-ext-bubble th,
+.cia-ext-bubble td {
+  padding: 6px 9px;
+  border: 1px solid var(--cia-border);
+  vertical-align: top;
+}
+
+.cia-ext-bubble tbody tr:nth-child(even) {
+  background: var(--cia-soft);
+}
+
+.cia-ext-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--cia-border);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.cia-ext-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #1d7044;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+
+.cia-ext-file-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.cia-ext-file-name {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--cia-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cia-ext-file-sub {
+  font-size: 10.5px;
+  color: var(--cia-muted);
+  margin-top: 2px;
+}
+
+.cia-ext-file-error {
+  color: var(--cia-offline);
+}
+
+.cia-ext-file-download {
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: var(--cia-magenta);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cia-ext-file-download:hover:not(:disabled) {
+  background: var(--cia-magenta-dark);
+}
+
+.cia-ext-file-download:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cia-ext-file-card-pending .cia-ext-file-icon {
+  background: #9aa3b2;
+}
+
+.cia-ext-file-spinner {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--cia-border);
+  border-top-color: var(--cia-magenta);
+  border-radius: 50%;
+  animation: cia-ext-file-spin 0.7s linear infinite;
+}
+
+@keyframes cia-ext-file-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .cia-ext-bubble code {
   background: rgba(124, 58, 237, 0.08);
   padding: 1px 4px;
