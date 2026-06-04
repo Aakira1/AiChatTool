@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { InsightsArtifacts } from "./InsightsArtifacts.jsx";
 import { FileDownloadCard } from "./FileDownloadCard.jsx";
+import { MessageDownloadMenu } from "./MessageDownloadMenu.jsx";
 import { parseFileBlocks, hasMarkdownTable, deriveFileTitle } from "../../lib/fileBlocks.js";
 
 function AssistantContent({ content }) {
@@ -33,6 +34,11 @@ function AssistantContent({ content }) {
       {allFiles.map((spec, index) => (
         <FileDownloadCard key={`${spec.title}-${index}`} spec={spec} />
       ))}
+      {text ? (
+        <div className="cia-ext-msg-tools">
+          <MessageDownloadMenu content={content} />
+        </div>
+      ) : null}
     </>
   );
 }

@@ -1,3 +1,5 @@
+import { MessageDownloadMenu } from "./MessageDownloadMenu.jsx";
+
 export function MessageActions({
   message,
   isLastAssistant,
@@ -45,6 +47,9 @@ export function MessageActions({
             <button type="button" onClick={() => onPostToForum(message)} disabled={pending}>
               Post to forum
             </button>
+          ) : null}
+          {message.content?.trim() ? (
+            <MessageDownloadMenu content={message.content} disabled={pending} />
           ) : null}
         </>
       ) : null}

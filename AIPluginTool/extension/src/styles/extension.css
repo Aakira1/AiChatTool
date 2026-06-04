@@ -425,6 +425,56 @@ button:disabled {
   flex: none;
 }
 
+.cia-ext-msg-tools {
+  margin-top: 8px;
+}
+
+.cia-ext-dl-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.cia-ext-dl-menu > button {
+  border: 1px solid var(--cia-border);
+  background: #ffffff;
+  color: var(--cia-body);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cia-ext-dl-menu-pop {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid var(--cia-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+
+.cia-ext-dl-menu-pop button {
+  text-align: left;
+  padding: 6px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--cia-body);
+  cursor: pointer;
+}
+
+.cia-ext-dl-menu-pop button:hover:not(:disabled) {
+  background: var(--cia-soft);
+}
+
 .cia-ext-file-download:hover:not(:disabled) {
   background: var(--cia-magenta-dark);
 }
