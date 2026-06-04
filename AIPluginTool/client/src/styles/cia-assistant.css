@@ -2423,8 +2423,24 @@
 .cia-message-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-top: 6px;
+}
+
+.cia-message-actions .cia-dl-menu > button {
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.cia-message-actions .cia-dl-menu > button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .cia-message-actions button {
@@ -2969,10 +2985,15 @@
     gap: 6px;
   }
 
-  .cia-thread-item .cia-thread-actions,
-  .cia-message .cia-message-actions {
+  .cia-thread-item .cia-thread-actions {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* Keep message actions hover-only even with reduced motion — just drop the
+     fade so the change is instant. */
+  .cia-message .cia-message-actions {
+    transition: none;
   }
 }
 
