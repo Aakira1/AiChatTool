@@ -280,7 +280,22 @@ button:disabled {
   align-items: flex-start;
 }
 
+/* User messages sit on the right: avatar in the right column, bubble pushed to
+   the end so the conversation reads like a typical chat. */
+.cia-ext-message-user {
+  grid-template-columns: 1fr 28px;
+}
+
+.cia-ext-message-user .cia-ext-avatar {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .cia-ext-message-user .cia-ext-bubble {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  max-width: 88%;
   background: linear-gradient(135deg, var(--cia-magenta), var(--cia-purple));
   color: white;
   border-color: transparent;
