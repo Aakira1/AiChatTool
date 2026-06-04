@@ -115,6 +115,27 @@ export function parseFileBlocks(content) {
     return `\n\n${docBody}\n\n`;
   });
 
+  // Fallback: the model often emits the `document format=… title=…` marker line
+  // WITHOUT the surrounding ``` fence. Detect a bare marker line (anywhere) that
+  // carries a format/title hint and treat everything after it as the document body.
+  if (!files.some((f) => f.kind === "document")) {
+    const loose = text.match(/(^|\n)[ \t]*`{0,3}\s*document\b[ \t]*([^\n]*)\n([\s\S]*)$/i);
+    if (loose && /\b(format|title)\b/i.test(loose[2])) {
+      const { formats, title } = parseDocInfo(loose[2]);
+      const body = loose[3].replace(/```+\s*$/, "").trim();
+      if (body) {
+        files.push({
+          kind: "document",
+          title: title || deriveFileTitle(body, "Document"),
+          content: body,
+          formats,
+        });
+        const before = text.slice(0, loose.index).trim();
+        text = `${before ? `${before}\n\n` : ""}${body}`;
+      }
+    }
+  }
+
   // After removing complete blocks, check for a trailing unterminated block.
   let pending = false;
   const open = text.match(OPEN_FENCE_RE) || text.match(DOC_OPEN_RE);
