@@ -34,6 +34,25 @@ function reasoningDirective(reasoning) {
   return REASONING_DIRECTIVES[reasoning] ?? "";
 }
 
+/**
+ * Tells the model how to emit a downloadable spreadsheet artifact. The client
+ * detects the fenced ```spreadsheet block, strips it from the rendered text, and
+ * renders a download card that builds the real .xlsx server-side from this spec.
+ */
+const FILE_GENERATION_DIRECTIVE = [
+  "DOWNLOADABLE SPREADSHEETS: when the user asks for a spreadsheet, Excel file, or a",
+  "downloadable table, reply in this exact structure and nothing else:",
+  "1. One short sentence naming the file, e.g. \"Here's your **Report Management** spreadsheet:\".",
+  "2. For EACH sheet, a level-3 markdown heading with the sheet name (e.g. `### Report List`),",
+  "   immediately followed by a GitHub-flavoured markdown table (a header row, a `|---|` divider",
+  "   row, then one row per record). Leave a blank line between sheets.",
+  "Rules: do NOT print a separate \"Title:\" line, a \"Sheets:\" list, or any prose describing the",
+  "structure — the heading + table IS the structure. Keep every table well-formed (each row has",
+  "the same number of `|`-separated cells as the header). The app turns these tables into a real,",
+  "downloadable .xlsx automatically, so you do not need to mention downloading.",
+  "For all other requests, answer normally with no tables unless they genuinely help.",
+].join(" ");
+
 export async function prepareAssistantMessages({
   history,
   latestUserMessage,
@@ -97,6 +116,8 @@ export async function prepareAssistantMessages({
   })}${connectorContext ? `\n\n${connectorContext}` : ""}${
     reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
   }
+
+${FILE_GENERATION_DIRECTIVE}
 
 Structured review hints for this answer (expand in the response when relevant):
 ${JSON.stringify(artifactSummary)}`;

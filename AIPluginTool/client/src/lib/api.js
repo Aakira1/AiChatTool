@@ -322,6 +322,50 @@ export async function clearAllNotifications() {
   return response.json();
 }
 
+// ---- Export -------------------------------------------------------------
+
+/** Build an .xlsx from content and trigger a browser download. */
+export async function exportToExcel({ content, title = "AI Export" }) {
+  const response = await apiFetch("/api/export/xlsx", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't build the spreadsheet"));
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const stem = (title || "export").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
+  link.download = `${stem}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Build + download an .xlsx from a model-provided workbook spec (no LLM call).
+export async function downloadXlsxSpec({ title = "Export", sheets }) {
+  const response = await apiFetch("/api/export/xlsx-spec", {
+    method: "POST",
+    body: JSON.stringify({ title, sheets }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't build the spreadsheet"));
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const stem = (title || "export").replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "export";
+  link.download = `${stem}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ---- Admin --------------------------------------------------------------
 
 export async function listAdminUsers() {

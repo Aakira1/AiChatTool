@@ -19,6 +19,7 @@ import { connectorsRouter } from "./routes/connectors.js";
 import { forumsRouter } from "./routes/forums.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { adminRouter } from "./routes/admin.js";
+import { exportRouter } from "./routes/export.js";
 
 export function createApp() {
   const app = express();
@@ -89,6 +90,7 @@ export function createApp() {
   app.use("/api/forums", forumsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/admin", adminRouter);
+  app.use("/api/export", exportRouter);
 
   if (env.serveClient) {
     attachClientApp(app);

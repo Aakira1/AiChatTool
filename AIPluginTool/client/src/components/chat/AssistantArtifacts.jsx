@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getSettings, subscribeSettings } from "../../lib/settings.js";
+import { parseFileBlocks, hasMarkdownTable, deriveFileTitle } from "../../lib/fileBlocks.js";
+import { FileDownloadCard } from "./FileDownloadCard.jsx";
 
 function isRich(artifacts) {
   if (!artifacts) return false;
@@ -88,14 +91,44 @@ export function AssistantArtifacts({ content, artifacts }) {
   }, []);
 
   const collapsedHint = summarise(artifacts);
+  const { text, files, pending } = useMemo(() => parseFileBlocks(content), [content]);
+
+  // Fallback: the model often describes a spreadsheet in prose + markdown tables
+  // instead of emitting a clean ```spreadsheet JSON block. If there's no explicit
+  // file spec but the reply contains a markdown table, offer a content-based
+  // download (server parses the tables into a real .xlsx).
+  const fallbackFiles = useMemo(() => {
+    if (pending || files.length) return [];
+    if (!hasMarkdownTable(text)) return [];
+    return [{ title: deriveFileTitle(content), content }];
+  }, [pending, files.length, text, content]);
+
+  const allFiles = files.length ? files : fallbackFiles;
 
   return (
     <div>
-      {content ? (
+      {text ? (
         <div className="prose prose-sm max-w-none text-[var(--t1-navy)]">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         </div>
       ) : null}
+
+      {pending ? (
+        <div className="cia-file-card cia-file-card-pending">
+          <div className="cia-file-icon" aria-hidden="true">
+            XLS
+          </div>
+          <div className="cia-file-meta">
+            <div className="cia-file-name">Generating file…</div>
+            <div className="cia-file-sub">Preparing your spreadsheet</div>
+          </div>
+          <span className="cia-file-spinner" aria-hidden="true" />
+        </div>
+      ) : null}
+
+      {allFiles.map((spec, index) => (
+        <FileDownloadCard key={`${spec.title}-${index}`} spec={spec} />
+      ))}
 
       {showInsights && rich ? (
         <div className={`cia-artifacts ${expanded ? "expanded" : "collapsed"}`}>
