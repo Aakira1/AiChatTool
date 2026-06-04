@@ -1,11 +1,12 @@
 import { BaseLlmAdapter } from "./baseAdapter.js";
 
 export class OpenAiCompatibleAdapter extends BaseLlmAdapter {
-  constructor({ apiKey, baseUrl, model, missingConfigMessage }) {
+  constructor({ apiKey, baseUrl, model, maxTokens, missingConfigMessage }) {
     super();
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.model = model;
+    this.maxTokens = maxTokens;
     this.missingConfigMessage = missingConfigMessage;
   }
 
@@ -28,6 +29,7 @@ export class OpenAiCompatibleAdapter extends BaseLlmAdapter {
         model: this.model,
         stream: true,
         messages,
+        ...(this.maxTokens ? { max_tokens: this.maxTokens } : {}),
       }),
       signal,
     });

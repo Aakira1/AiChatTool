@@ -110,6 +110,7 @@ export const env = {
   openAiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
   openAiBaseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 30000),
+  llmMaxTokens: Number(process.env.LLM_MAX_TOKENS ?? 4096),
   dbPath: process.env.DB_PATH ?? "./data/chat.db",
   copilotStudioEnabled: process.env.COPILOT_STUDIO_ENABLED === "true",
   copilotStudioDirectLineSecret: process.env.COPILOT_STUDIO_DIRECT_LINE_SECRET ?? "",
@@ -144,6 +145,7 @@ export function getLlmConfig() {
         ? `https://api.cloudflare.com/client/v4/accounts/${env.cloudflareAccountId}/ai/v1`
         : "",
       model: env.cloudflareModel,
+      maxTokens: env.llmMaxTokens,
       missingConfigMessage:
         "Cloudflare Workers AI is not configured. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in server/.env.",
     };
@@ -153,6 +155,7 @@ export function getLlmConfig() {
     apiKey: env.openAiApiKey,
     baseUrl: env.openAiBaseUrl,
     model: env.openAiModel,
+    maxTokens: env.llmMaxTokens,
     missingConfigMessage:
       "OpenAI is not configured. Set OPENAI_API_KEY in server/.env to enable real model responses.",
   };
