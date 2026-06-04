@@ -465,3 +465,21 @@ export async function downloadPdf({ content, title = "Document" }) {
   });
   await downloadBlob(response, title, "pdf");
 }
+
+// Build + download a PowerPoint (.pptx) deck from markdown content.
+export async function downloadPptx({ content, title = "Presentation" }) {
+  const response = await apiFetch("/api/export/pptx", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title, "pptx");
+}
+
+// Build + download a CSV file from content (extracts tabular data).
+export async function downloadCsv({ content, title = "Data" }) {
+  const response = await apiFetch("/api/export/csv", {
+    method: "POST",
+    body: JSON.stringify({ content, title }),
+  });
+  await downloadBlob(response, title, "csv");
+}

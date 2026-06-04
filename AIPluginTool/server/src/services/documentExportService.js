@@ -12,6 +12,7 @@ import {
   WidthType,
 } from "docx";
 import PDFDocument from "pdfkit";
+import PptxGenJS from "pptxgenjs";
 
 const PINK = "E4007C";
 const MAX_BLOCKS = 2000;
@@ -301,6 +302,93 @@ function renderPdfTable(doc, block, pink) {
 
   drawRow(block.columns, { header: true });
   block.rows.forEach((row) => drawRow(row));
+}
+
+/**
+ * Build a PowerPoint (.pptx) buffer from markdown content. A title slide, then
+ * one slide per top-level (#/##) heading whose body becomes bullet points; tables
+ * are rendered as slide tables. Content before the first heading starts a slide.
+ */
+export async function buildPptxBuffer({ title = "Presentation", content }) {
+  const blocks = parseMarkdownBlocks(content);
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name: "WIDE", width: 13.333, height: 7.5 });
+  pptx.layout = "WIDE";
+
+  // Title slide
+  const cover = pptx.addSlide();
+  cover.background = { color: "1A1F36" };
+  cover.addText(title, {
+    x: 0.6,
+    y: 2.6,
+    w: 12,
+    h: 1.6,
+    fontSize: 40,
+    bold: true,
+    color: "FFFFFF",
+  });
+  cover.addShape(pptx.ShapeType.rect, { x: 0.6, y: 4.3, w: 3, h: 0.08, fill: { color: PINK } });
+
+  let slide = null;
+  let bullets = [];
+  const flushBullets = () => {
+    if (slide && bullets.length) {
+      slide.addText(
+        bullets.map((b) => ({ text: b.text, options: { bullet: true, indentLevel: b.level } })),
+        { x: 0.7, y: 1.5, w: 12, h: 5.3, fontSize: 18, color: "1F2330", valign: "top" },
+      );
+    }
+    bullets = [];
+  };
+  const newSlide = (heading) => {
+    flushBullets();
+    slide = pptx.addSlide();
+    slide.addText(heading || title, {
+      x: 0.7,
+      y: 0.4,
+      w: 12,
+      h: 0.9,
+      fontSize: 28,
+      bold: true,
+      color: "2D1B69",
+    });
+  };
+
+  for (const block of blocks) {
+    if (block.type === "heading" && block.level <= 2) {
+      newSlide(stripInline(block.text));
+    } else if (block.type === "heading") {
+      if (!slide) newSlide(title);
+      bullets.push({ text: stripInline(block.text), level: 0 });
+    } else if (block.type === "paragraph") {
+      if (!slide) newSlide(title);
+      bullets.push({ text: stripInline(block.text), level: 0 });
+    } else if (block.type === "list") {
+      if (!slide) newSlide(title);
+      block.items.forEach((item) => bullets.push({ text: stripInline(item), level: 1 }));
+    } else if (block.type === "table") {
+      if (!slide) newSlide(title);
+      flushBullets();
+      const headerRow = block.columns.map((c) => ({
+        text: stripInline(c),
+        options: { bold: true, color: "FFFFFF", fill: { color: PINK } },
+      }));
+      const bodyRows = block.rows.map((row) =>
+        block.columns.map((_, c) => ({ text: stripInline(row[c] ?? "") })),
+      );
+      slide.addTable([headerRow, ...bodyRows], {
+        x: 0.7,
+        y: 1.5,
+        w: 12,
+        fontSize: 12,
+        border: { type: "solid", color: "E2E2E8", pt: 0.5 },
+      });
+    }
+  }
+  flushBullets();
+
+  const data = await pptx.write({ outputType: "nodebuffer" });
+  return Buffer.isBuffer(data) ? data : Buffer.from(data);
 }
 
 /** Turn a title into a safe file name stem. */

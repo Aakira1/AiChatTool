@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  buildCsv,
   buildSheetData,
   buildXlsxBuffer,
   safeFileName,
@@ -9,6 +10,7 @@ import {
 import {
   buildDocxBuffer,
   buildPdfBuffer,
+  buildPptxBuffer,
   safeDocName,
 } from "../services/documentExportService.js";
 
@@ -80,6 +82,47 @@ exportRouter.post("/docx", async (request, response) => {
     response.send(buffer);
   } catch (error) {
     response.status(502).json({ error: error.message ?? "Failed to build the document" });
+  }
+});
+
+// Convert markdown content into a downloadable PowerPoint (.pptx) deck.
+exportRouter.post("/pptx", async (request, response) => {
+  const parsed = docSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide non-empty content to export" });
+    return;
+  }
+
+  const title = parsed.data.title || "Presentation";
+  try {
+    const buffer = await buildPptxBuffer({ title, content: parsed.data.content });
+    response.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    );
+    response.setHeader("Content-Disposition", `attachment; filename="${safeDocName(title)}.pptx"`);
+    response.send(buffer);
+  } catch (error) {
+    response.status(502).json({ error: error.message ?? "Failed to build the presentation" });
+  }
+});
+
+// Convert content into a downloadable CSV file (extracts tabular data).
+exportRouter.post("/csv", async (request, response) => {
+  const parsed = docSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide non-empty content to export" });
+    return;
+  }
+
+  const title = parsed.data.title || "Data";
+  try {
+    const csv = await buildCsv(parsed.data.content);
+    response.setHeader("Content-Type", "text/csv; charset=utf-8");
+    response.setHeader("Content-Disposition", `attachment; filename="${safeFileName(title)}.csv"`);
+    response.send(csv);
+  } catch (error) {
+    response.status(502).json({ error: error.message ?? "Failed to build the CSV" });
   }
 });
 

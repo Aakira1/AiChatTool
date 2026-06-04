@@ -190,6 +190,29 @@ export async function buildXlsxBuffer({ title = "Export", sheets }) {
   return Buffer.from(buffer);
 }
 
+/** Escape a single CSV cell per RFC 4180. */
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * Build a CSV string from free-form content. Reuses the same sheet extraction as
+ * the spreadsheet path; multiple sheets are stacked with a blank-line separator
+ * and a sheet-name marker (CSV has no native multi-sheet concept).
+ */
+export async function buildCsv(content) {
+  const sheets = await buildSheetData(content);
+  const parts = [];
+  sheets.forEach((sheet, index) => {
+    if (sheets.length > 1) parts.push(`# ${sheet.name}`);
+    if (sheet.columns.length) parts.push(sheet.columns.map(csvCell).join(","));
+    for (const row of sheet.rows) parts.push(row.map(csvCell).join(","));
+    if (index < sheets.length - 1) parts.push("");
+  });
+  return parts.join("\r\n");
+}
+
 /** Turn a title into a safe file name stem. */
 export function safeFileName(title) {
   return (

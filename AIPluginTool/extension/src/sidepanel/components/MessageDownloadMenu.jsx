@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { downloadDocx, downloadPdf, exportToExcel } from "../../lib/api.js";
+import {
+  downloadCsv,
+  downloadDocx,
+  downloadPdf,
+  downloadPptx,
+  exportToExcel,
+} from "../../lib/api.js";
 import { deriveFileTitle, hasMarkdownTable } from "../../lib/fileBlocks.js";
 
 // Deterministic "Download as…" menu for the side panel. Always available on
@@ -26,7 +32,9 @@ export function MessageDownloadMenu({ content, fallbackTitle = "Document" }) {
     try {
       if (kind === "docx") await downloadDocx({ content, title });
       else if (kind === "pdf") await downloadPdf({ content, title });
+      else if (kind === "pptx") await downloadPptx({ content, title });
       else if (kind === "xlsx") await exportToExcel({ content, title });
+      else if (kind === "csv") await downloadCsv({ content, title });
       setOpen(false);
     } catch {
       /* ignore */
@@ -35,10 +43,13 @@ export function MessageDownloadMenu({ content, fallbackTitle = "Document" }) {
     }
   }
 
+  const hasTable = hasMarkdownTable(content);
   const options = [
     { kind: "docx", label: "Word (.docx)" },
     { kind: "pdf", label: "PDF (.pdf)" },
-    ...(hasMarkdownTable(content) ? [{ kind: "xlsx", label: "Excel (.xlsx)" }] : []),
+    { kind: "pptx", label: "PowerPoint (.pptx)" },
+    ...(hasTable ? [{ kind: "xlsx", label: "Excel (.xlsx)" }] : []),
+    ...(hasTable ? [{ kind: "csv", label: "CSV (.csv)" }] : []),
   ];
 
   return (
