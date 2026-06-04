@@ -266,11 +266,17 @@ button:disabled {
 .cia-ext-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   scroll-behavior: smooth;
+}
+
+/* Each message row must be allowed to shrink to the panel width. */
+.cia-ext-message {
+  max-width: 100%;
 }
 
 .cia-ext-message {
@@ -326,6 +332,19 @@ button:disabled {
   font-size: 13.5px;
   line-height: 1.5;
   overflow-wrap: anywhere;
+  /* Allow the grid cell to shrink below its content's intrinsic width so text
+     wraps to the box instead of overflowing horizontally in the narrow widget. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Wide block content (tables, code) scrolls inside the bubble rather than
+   stretching the whole panel. */
+.cia-ext-bubble table,
+.cia-ext-bubble pre {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .cia-ext-bubble p {
