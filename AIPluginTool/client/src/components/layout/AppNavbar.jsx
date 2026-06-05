@@ -40,12 +40,14 @@ export function AppNavbar({ activeView, onNavigate }) {
     saveLayout(email, next);
   };
 
-  const moveApp = (id, target) => {
+  // Move an app into a list, optionally at a specific index (else append).
+  const moveApp = (id, target, index = null) => {
     if (!id || !appById(id)) return;
     const primary = layout.primary.filter((x) => x !== id);
     const drawer = layout.drawer.filter((x) => x !== id);
-    if (target === "primary") primary.push(id);
-    else drawer.push(id);
+    const list = target === "primary" ? primary : drawer;
+    const at = index == null ? list.length : Math.max(0, Math.min(index, list.length));
+    list.splice(at, 0, id);
     persist({ primary, drawer });
   };
 
@@ -57,13 +59,19 @@ export function AppNavbar({ activeView, onNavigate }) {
   };
   const allowDrop = (event, target) => {
     event.preventDefault();
+    // Stop drawer drop-zones (which live inside <nav>) from bubbling to the
+    // nav's own primary handler, which would steal the drop.
+    if (target === "drawer") event.stopPropagation();
     event.dataTransfer.dropEffect = "move";
     setDropTarget(target);
   };
-  const handleDrop = (event, target) => {
+  const handleDrop = (event, target, index = null) => {
     event.preventDefault();
+    // Item drops (with an index) and drawer drops must not bubble to the nav's
+    // append-at-end handler, which would override the placement.
+    if (target === "drawer" || index != null) event.stopPropagation();
     setDropTarget(null);
-    moveApp(event.dataTransfer.getData("text/plain"), target);
+    moveApp(event.dataTransfer.getData("text/plain"), target, index);
   };
 
   useEffect(() => {
@@ -133,7 +141,7 @@ export function AppNavbar({ activeView, onNavigate }) {
           onDragLeave={() => setDropTarget((t) => (t === "primary" ? null : t))}
           onDrop={(event) => handleDrop(event, "primary")}
         >
-          {layout.primary.map((id) => {
+          {layout.primary.map((id, index) => {
             const app = appById(id);
             if (!app) return null;
             return (
@@ -142,9 +150,11 @@ export function AppNavbar({ activeView, onNavigate }) {
                 type="button"
                 draggable
                 onDragStart={(event) => onDragStart(event, id, { openPanel: true })}
+                onDragOver={(event) => allowDrop(event, "primary")}
+                onDrop={(event) => handleDrop(event, "primary", index)}
                 className={`t1-nav-link ${activeView === id ? "active" : ""}`}
                 onClick={() => onNavigate(id)}
-                title="Drag into the apps panel to move it there"
+                title="Drag to reorder, or drop into the apps panel"
               >
                 {app.label}
               </button>
@@ -187,7 +197,7 @@ export function AppNavbar({ activeView, onNavigate }) {
                       Drag an app here to keep it in this panel.
                     </p>
                   ) : (
-                    layout.drawer.map((id) => {
+                    layout.drawer.map((id, index) => {
                       const app = appById(id);
                       if (!app) return null;
                       return (
@@ -196,6 +206,8 @@ export function AppNavbar({ activeView, onNavigate }) {
                           type="button"
                           draggable
                           onDragStart={(event) => onDragStart(event, id)}
+                          onDragOver={(event) => allowDrop(event, "drawer")}
+                          onDrop={(event) => handleDrop(event, "drawer", index)}
                           className={`t1-launcher-app${activeView === id ? " active" : ""}`}
                           onClick={() => {
                             onNavigate(id);
