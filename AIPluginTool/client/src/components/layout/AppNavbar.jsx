@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getProfile } from "../../lib/api.js";
 import { environmentLabel, getInitials, normalizeProfile } from "../../lib/profile.js";
 import { ProfilePanel } from "./ProfilePanel.jsx";
 import { NotificationBell } from "./NotificationBell.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../ui/ToastProvider.jsx";
+import { availableApps, appById } from "../../lib/appRegistry.js";
+import { loadLayout, saveLayout, reconcileLayout } from "../../lib/appLayout.js";
 import tneIcon from "../../assets/TNE_icon.svg";
 
 export function AppNavbar({ activeView, onNavigate }) {
@@ -15,6 +17,58 @@ export function AppNavbar({ activeView, onNavigate }) {
   const [panelTab, setPanelTab] = useState("profile");
   const [baseProfile, setProfile] = useState(normalizeProfile());
   const menuRef = useRef(null);
+
+  // ---- App launcher (primary nav vs. multi-app panel, drag & drop) --------
+  const isAdmin = authDisabled || user?.role === "admin";
+  const apps = useMemo(() => availableApps({ isAdmin, hasPlugin }), [isAdmin, hasPlugin]);
+  const email = user?.email ?? "default";
+
+  const [layout, setLayout] = useState(() =>
+    reconcileLayout(loadLayout(email), availableApps({ isAdmin, hasPlugin })),
+  );
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const [dropTarget, setDropTarget] = useState(null); // "primary" | "drawer"
+  const launcherRef = useRef(null);
+
+  // Re-reconcile when the account or available apps change.
+  useEffect(() => {
+    setLayout(reconcileLayout(loadLayout(email), apps));
+  }, [email, apps]);
+
+  const persist = (next) => {
+    setLayout(next);
+    saveLayout(email, next);
+  };
+
+  const moveApp = (id, target) => {
+    if (!id || !appById(id)) return;
+    const primary = layout.primary.filter((x) => x !== id);
+    const drawer = layout.drawer.filter((x) => x !== id);
+    if (target === "primary") primary.push(id);
+    else drawer.push(id);
+    persist({ primary, drawer });
+  };
+
+  const onDragStart = (event, id) => {
+    event.dataTransfer.setData("text/plain", id);
+    event.dataTransfer.effectAllowed = "move";
+  };
+  const handleDrop = (event, target) => {
+    event.preventDefault();
+    setDropTarget(null);
+    moveApp(event.dataTransfer.getData("text/plain"), target);
+  };
+
+  useEffect(() => {
+    if (!launcherOpen) return undefined;
+    const onClick = (event) => {
+      if (launcherRef.current && !launcherRef.current.contains(event.target)) {
+        setLauncherOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [launcherOpen]);
 
   useEffect(() => {
     getProfile()
@@ -65,39 +119,97 @@ export function AppNavbar({ activeView, onNavigate }) {
           </div>
         </div>
 
-        <nav className="t1-navbar-links" aria-label="Main navigation">
-          <button
-            type="button"
-            className={`t1-nav-link ${activeView === "chat" ? "active" : ""}`}
-            onClick={() => onNavigate("chat")}
-          >
-            Assistant
-          </button>
-          {hasPlugin("dashboard") ? (
+        <nav
+          className={`t1-navbar-links${dropTarget === "primary" ? " is-drop" : ""}`}
+          aria-label="Main navigation"
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDropTarget("primary");
+          }}
+          onDragLeave={() => setDropTarget((t) => (t === "primary" ? null : t))}
+          onDrop={(event) => handleDrop(event, "primary")}
+        >
+          {layout.primary.map((id) => {
+            const app = appById(id);
+            if (!app) return null;
+            return (
+              <button
+                key={id}
+                type="button"
+                draggable
+                onDragStart={(event) => onDragStart(event, id)}
+                className={`t1-nav-link ${activeView === id ? "active" : ""}`}
+                onClick={() => onNavigate(id)}
+                title="Drag into the apps panel to move it there"
+              >
+                {app.label}
+              </button>
+            );
+          })}
+
+          <div className="t1-launcher" ref={launcherRef}>
             <button
               type="button"
-              className={`t1-nav-link ${activeView === "dashboard" ? "active" : ""}`}
-              onClick={() => onNavigate("dashboard")}
+              className={`t1-launcher-btn${launcherOpen ? " active" : ""}`}
+              onClick={() => setLauncherOpen((open) => !open)}
+              aria-label="Apps"
+              aria-expanded={launcherOpen}
+              title="Apps"
             >
-              Dashboard
+              <span className="t1-launcher-grid" aria-hidden="true">
+                <i /><i /><i />
+                <i /><i /><i />
+                <i /><i /><i />
+              </span>
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={`t1-nav-link ${activeView === "forums" ? "active" : ""}`}
-            onClick={() => onNavigate("forums")}
-          >
-            Forums
-          </button>
-          {user?.role === "admin" ? (
-            <button
-              type="button"
-              className={`t1-nav-link ${activeView === "admin" ? "active" : ""}`}
-              onClick={() => onNavigate("admin")}
-            >
-              Admin
-            </button>
-          ) : null}
+
+            {launcherOpen ? (
+              <div
+                className={`t1-launcher-panel${dropTarget === "drawer" ? " is-drop" : ""}`}
+                role="menu"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDropTarget("drawer");
+                }}
+                onDragLeave={() => setDropTarget((t) => (t === "drawer" ? null : t))}
+                onDrop={(event) => handleDrop(event, "drawer")}
+              >
+                <p className="t1-launcher-title">Apps</p>
+                <div className="t1-launcher-apps">
+                  {layout.drawer.length === 0 ? (
+                    <p className="t1-launcher-empty">
+                      Drag an app here to keep it in this panel.
+                    </p>
+                  ) : (
+                    layout.drawer.map((id) => {
+                      const app = appById(id);
+                      if (!app) return null;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          draggable
+                          onDragStart={(event) => onDragStart(event, id)}
+                          className={`t1-launcher-app${activeView === id ? " active" : ""}`}
+                          onClick={() => {
+                            onNavigate(id);
+                            setLauncherOpen(false);
+                          }}
+                          title={app.label}
+                        >
+                          <span className="t1-launcher-app-icon" aria-hidden="true">
+                            {app.icon}
+                          </span>
+                          <span className="t1-launcher-app-label">{app.label}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                <p className="t1-launcher-hint">Drag apps in or out to customise your navbar.</p>
+              </div>
+            ) : null}
+          </div>
         </nav>
 
         <div className="t1-navbar-actions">
