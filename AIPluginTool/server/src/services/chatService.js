@@ -186,6 +186,27 @@ function pickBestReply(replies, query) {
   return [...replies].sort((a, b) => scoreReply(b.reply, query) - scoreReply(a.reply, query))[0];
 }
 
+// Pre-route a prompt to the agent whose configured keywords best match it.
+// Returns the chosen agent, or null when no agent's keywords match.
+function routeByKeywords(agents, query) {
+  const q = String(query).toLowerCase();
+  let best = null;
+  let bestScore = 0;
+  for (const agent of agents) {
+    const keywords = String(agent.keywords ?? "")
+      .toLowerCase()
+      .split(/[\s,;]+/)
+      .filter((k) => k.length >= 2);
+    if (!keywords.length) continue;
+    const score = keywords.reduce((acc, k) => acc + (q.includes(k) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = agent;
+    }
+  }
+  return bestScore > 0 ? best : null;
+}
+
 export async function* streamFromMessages({
   messages,
   signal,
@@ -205,7 +226,17 @@ export async function* streamFromMessages({
     const broadcastAgents = copilotBroadcast && copilotAgents?.length ? copilotAgents : null;
 
     if (broadcastAgents && broadcastAgents.length > 1) {
-      // Fan out to every agent, then auto-route to the most relevant reply.
+      // 1) Prefer keyword routing: send only to the agent whose keywords match.
+      const routed = routeByKeywords(broadcastAgents, userText);
+      if (routed) {
+        yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, {
+          signal,
+          secret: routed.directLineSecret,
+        });
+        return;
+      }
+
+      // 2) Otherwise fan out to every agent and auto-route to the best reply.
       const replies = await askAllCopilotAgents(`${contextPrefix}${userText}`, broadcastAgents, {
         signal,
       });

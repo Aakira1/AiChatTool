@@ -579,11 +579,19 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
                     className={`t1-agent-card${activeAgentId === agent.id ? " is-active" : ""}`}
                   >
                     <div className="t1-agent-card-row">
-                      <label className="t1-agent-radio">
+                      <label
+                        className="t1-agent-radio"
+                        title={
+                          settings.ai.copilotBroadcast && agents.length > 1
+                            ? "Disabled while broadcasting to all agents"
+                            : "Use this agent for chats"
+                        }
+                      >
                         <input
                           type="radio"
                           name="active-copilot-agent"
                           checked={activeAgentId === agent.id}
+                          disabled={settings.ai.copilotBroadcast && agents.length > 1}
                           onChange={() => selectAgent(agent.id)}
                         />
                         <span>Use</span>
@@ -617,6 +625,12 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
                         {showApiKey ? "Hide" : "Show"}
                       </button>
                     </div>
+                    <input
+                      className="t1-agent-keywords"
+                      placeholder="Routing keywords (e.g. billing, invoices, payments)"
+                      value={agent.keywords ?? ""}
+                      onChange={(event) => updateAgent(agent.id, { keywords: event.target.value })}
+                    />
                   </div>
                 ))}
               </div>
@@ -633,7 +647,7 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
             ) : null}
             <p className="t1-settings-hint">
               {settings.ai.copilotBroadcast && agents.length > 1
-                ? "Every prompt is sent to all agents in parallel; the most relevant reply is returned automatically."
+                ? "Routing keywords win first: a prompt that matches an agent's keywords goes straight to that agent. If nothing matches, the prompt is broadcast to all agents and the most relevant reply is returned."
                 : "Switch the active agent here; the selected agent handles your chats while the provider is set to Copilot Studio."}
             </p>
           </div>

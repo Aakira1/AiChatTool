@@ -273,7 +273,11 @@ export function getCopilotPayload() {
   const { ai } = getSettings();
   const agents = (Array.isArray(ai.copilotAgents) ? ai.copilotAgents : [])
     .filter((a) => a.directLineSecret)
-    .map((a) => ({ name: a.name || "Copilot agent", directLineSecret: a.directLineSecret }));
+    .map((a) => ({
+      name: a.name || "Copilot agent",
+      directLineSecret: a.directLineSecret,
+      ...(a.keywords ? { keywords: a.keywords } : {}),
+    }));
   if (ai.copilotBroadcast && agents.length > 1) {
     return { copilotAgents: agents, copilotBroadcast: true };
   }

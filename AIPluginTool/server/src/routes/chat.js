@@ -101,6 +101,7 @@ const connectorIdSchema = z.enum([
 const copilotAgentSchema = z.object({
   name: z.string().trim().max(120).optional(),
   directLineSecret: z.string().trim().min(1).max(6000),
+  keywords: z.string().trim().max(400).optional(),
 });
 
 const copilotFields = {
