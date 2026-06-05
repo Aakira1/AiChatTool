@@ -117,6 +117,17 @@ export async function prepareAssistantMessages({
     chartCount: artifacts.metricsCharts?.length ?? 0,
   };
 
+  // Only feed the analytics "review hints" to the model when the user actually
+  // asked for metrics/comparisons/charts — otherwise the model tends to append
+  // unsolicited "Imported Case Metrics / Chart Count" sections to every answer.
+  const wantsAnalytics =
+    /\b(metric|metrics|kpi|kpis|chart|charts|compare|comparison|reliabilit|backlog|statistic|stats|dashboard|how many|open cases|hot topics|analy)/i.test(
+      latestUserMessage ?? "",
+    );
+  const reviewHints = wantsAnalytics
+    ? `\n\nStructured review hints for this answer (expand in the response when relevant):\n${JSON.stringify(artifactSummary)}`
+    : "";
+
   // The file-generation directive is placed FIRST so it survives the Copilot
   // Studio path, which truncates the system prompt to its first 4000 chars.
   const systemPrompt = `${FILE_GENERATION_DIRECTIVE}
@@ -130,10 +141,7 @@ ${buildSystemPrompt({
     knowledgeChunks,
   })}${connectorContext ? `\n\n${connectorContext}` : ""}${
     reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
-  }
-
-Structured review hints for this answer (expand in the response when relevant):
-${JSON.stringify(artifactSummary)}`;
+  }${reviewHints}`;
 
   const userContent = attachmentContext
     ? `${latestUserMessage}\n\n${attachmentContext}\n\nAnalyze the attached document(s) and relate findings to Ci/CiA transition context when relevant.`
