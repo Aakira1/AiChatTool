@@ -110,20 +110,38 @@ export function ComposerToolbar({
 
   return (
     <div className="cia-toolbar" ref={wrapRef}>
-      {/* Sources */}
+      {/* Sources — web results, company knowledge, and connected apps */}
       <div className="cia-toolbar-wrap">
         <button
           type="button"
-          className={`cia-toolbar-pill${sourceCount > 0 ? " is-active" : ""}`}
+          className={`cia-toolbar-btn${totalSourceCount > 0 ? " is-active" : ""}`}
           onClick={() => toggle("sources")}
           disabled={disabled}
-          title="Search connected apps"
+          title="Sources"
         >
           <span>+</span>
-          {sourceCount > 0 ? <span className="cia-toolbar-badge">{sourceCount}</span> : null}
+          {totalSourceCount > 0 ? (
+            <span className="cia-toolbar-badge">{totalSourceCount}</span>
+          ) : null}
         </button>
         {open === "sources" ? (
           <PickerPanel title="Sources">
+            <PickerRow
+              icon="🌐"
+              label="Include web results"
+              desc="Search the web and use results in the answer"
+              selected={sources.webSearch}
+              onClick={() => onSourcesChange?.({ ...sources, webSearch: !sources.webSearch })}
+            />
+            <PickerRow
+              icon="🏢"
+              label="Search company knowledge"
+              desc="Use imported knowledge base & cases"
+              selected={sources.companyKnowledge}
+              onClick={() =>
+                onSourcesChange?.({ ...sources, companyKnowledge: !sources.companyKnowledge })
+              }
+            />
             {connectable.length === 0 ? (
               <p className="cia-toolbar-picker-empty">
                 No connected apps. Open Settings → App connectors to connect Google Drive, OneDrive,
@@ -168,39 +186,6 @@ export function ComposerToolbar({
                 }}
               />
             ))}
-          </PickerPanel>
-        ) : null}
-      </div>
-
-      {/* Web / knowledge sources */}
-      <div className="cia-toolbar-wrap">
-        <button
-          type="button"
-          className={`cia-toolbar-pill${sources.webSearch ? " is-active" : ""}`}
-          onClick={() => toggle("websources")}
-          disabled={disabled}
-          title="Web & knowledge sources"
-        >
-          🌐 Sources
-        </button>
-        {open === "websources" ? (
-          <PickerPanel title="Sources">
-            <PickerRow
-              icon="🌐"
-              label="Include web results"
-              desc="Search the web and use results in the answer"
-              selected={sources.webSearch}
-              onClick={() => onSourcesChange?.({ ...sources, webSearch: !sources.webSearch })}
-            />
-            <PickerRow
-              icon="🏢"
-              label="Search company knowledge"
-              desc="Use imported knowledge base & cases"
-              selected={sources.companyKnowledge}
-              onClick={() =>
-                onSourcesChange?.({ ...sources, companyKnowledge: !sources.companyKnowledge })
-              }
-            />
           </PickerPanel>
         ) : null}
       </div>

@@ -1940,27 +1940,28 @@
   position: relative;
 }
 
+/* Pill + button styling mirrors the extension toolbar, themed via --t1-* so it
+   follows the selected theme color. */
 .cia-toolbar-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1.5px solid rgba(228, 0, 124, 0.35);
+  border: 1px solid var(--t1-border, #e8dff0);
   background: #fff;
-  color: var(--navy);
+  color: var(--t1-muted, #6f5f82);
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(228, 0, 124, 0.06);
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .cia-toolbar-pill:hover:not(:disabled) {
-  border-color: var(--primary);
-  background: var(--light);
-  box-shadow: 0 2px 6px rgba(228, 0, 124, 0.16);
+  background: var(--t1-soft, #faf7fc);
+  color: var(--t1-body, #3b2a4d);
 }
 
 .cia-toolbar-pill:disabled {
@@ -1969,9 +1970,42 @@
 }
 
 .cia-toolbar-pill.is-active {
-  border-color: var(--primary);
-  background: var(--light);
-  color: var(--primary);
+  border-color: var(--t1-magenta, #e4007c);
+  background: var(--t1-light, #fde8f3);
+  color: var(--t1-magenta, #e4007c);
+}
+
+/* Square "+" sources button (matches the extension's toolbar-btn). */
+.cia-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--t1-body, #3b2a4d);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.cia-toolbar-btn:hover:not(:disabled) {
+  background: var(--t1-soft, #faf7fc);
+}
+
+.cia-toolbar-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cia-toolbar-btn.is-active {
+  border-color: var(--t1-magenta, #e4007c);
+  background: var(--t1-light, #fde8f3);
+  color: var(--t1-magenta, #e4007c);
 }
 
 .cia-toolbar-badge {
@@ -1982,7 +2016,7 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--primary);
+  background: var(--t1-magenta, #e4007c);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -1997,7 +2031,7 @@
   max-height: 320px;
   overflow-y: auto;
   background: #fff;
-  border: 1px solid var(--border);
+  border: 1px solid var(--t1-border, #e8dff0);
   border-radius: 14px;
   box-shadow: 0 16px 44px rgba(26, 11, 46, 0.22);
   padding: 6px;
@@ -2009,13 +2043,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--muted);
+  color: var(--t1-muted, #6f5f82);
 }
 
 .cia-toolbar-picker-empty {
   padding: 10px 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--t1-muted, #6f5f82);
 }
 
 .cia-toolbar-picker-row {
@@ -2032,11 +2066,11 @@
 }
 
 .cia-toolbar-picker-row:hover {
-  background: var(--soft);
+  background: var(--t1-soft, #faf7fc);
 }
 
 .cia-toolbar-picker-row.is-selected {
-  background: var(--light);
+  background: var(--t1-light, #fde8f3);
 }
 
 .cia-toolbar-picker-icon {
@@ -2054,16 +2088,16 @@
 .cia-toolbar-picker-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--navy);
+  color: var(--t1-navy, #2a1446);
 }
 
 .cia-toolbar-picker-desc {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--t1-muted, #6f5f82);
 }
 
 .cia-toolbar-picker-check {
-  color: var(--primary);
+  color: var(--t1-magenta, #e4007c);
   font-weight: 700;
 }
 
