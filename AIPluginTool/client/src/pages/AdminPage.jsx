@@ -13,6 +13,7 @@ import {
 } from "../lib/api.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { appById } from "../lib/appRegistry.js";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -119,6 +120,7 @@ function PluginsTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(null);
+  const [selected, setSelected] = useState(null); // plugin id whose access panel is open
 
   useEffect(() => {
     Promise.all([listAdminPlugins(), listAdminUsers()])
@@ -151,13 +153,47 @@ function PluginsTab() {
 
   if (loading) return <p className="cia-forum-muted">Loading plugins…</p>;
 
+  const activePlugin = plugins.find((p) => p.id === selected) ?? null;
+  const grantedCount = (pluginId) =>
+    users.filter((u) => u.role === "admin" || (u.plugins ?? []).includes(pluginId)).length;
+
   return (
     <div className="cia-admin-plugins">
-      {plugins.map((plugin) => (
-        <div key={plugin.id} className="cia-plugin-card">
-          <div className="cia-plugin-card-head">
-            <strong>{plugin.label}</strong>
-            <p className="cia-forum-muted">{plugin.description}</p>
+      {/* Square plugin tiles — click one to open its access panel. */}
+      <div className="cia-plugin-tiles">
+        {plugins.map((plugin) => (
+          <button
+            key={plugin.id}
+            type="button"
+            className={`cia-plugin-tile${selected === plugin.id ? " active" : ""}`}
+            onClick={() => setSelected((cur) => (cur === plugin.id ? null : plugin.id))}
+            title={plugin.description}
+          >
+            <span className="cia-plugin-tile-icon" aria-hidden="true">
+              {appById(plugin.id)?.icon ?? "🧩"}
+            </span>
+            <span className="cia-plugin-tile-label">{plugin.label}</span>
+            <span className="cia-plugin-tile-meta">{grantedCount(plugin.id)} with access</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Access / permission panel for the selected plugin. */}
+      {activePlugin ? (
+        <div className="cia-plugin-access">
+          <div className="cia-plugin-access-head">
+            <div>
+              <strong>{activePlugin.label}</strong>
+              <p className="cia-forum-muted">{activePlugin.description}</p>
+            </div>
+            <button
+              type="button"
+              className="cia-plugin-access-close"
+              onClick={() => setSelected(null)}
+              aria-label="Close access panel"
+            >
+              ×
+            </button>
           </div>
           <div className="cia-admin-table">
             <div className="cia-admin-row cia-admin-row-head cia-admin-row-plugin">
@@ -167,8 +203,8 @@ function PluginsTab() {
             </div>
             {users.map((u) => {
               const isAdminRole = u.role === "admin";
-              const enabled = isAdminRole || (u.plugins ?? []).includes(plugin.id);
-              const key = `${u.email}:${plugin.id}`;
+              const enabled = isAdminRole || (u.plugins ?? []).includes(activePlugin.id);
+              const key = `${u.email}:${activePlugin.id}`;
               return (
                 <div key={u.email} className="cia-admin-row cia-admin-row-plugin">
                   <span className="cia-admin-name">{u.display_name || "—"}</span>
@@ -181,7 +217,7 @@ function PluginsTab() {
                         type="button"
                         className={`cia-admin-toggle ${enabled ? "danger" : ""}`}
                         disabled={saving === key}
-                        onClick={() => toggle(u, plugin, !enabled)}
+                        onClick={() => toggle(u, activePlugin, !enabled)}
                       >
                         {saving === key ? "…" : enabled ? "Revoke" : "Grant"}
                       </button>
@@ -192,7 +228,11 @@ function PluginsTab() {
             })}
           </div>
         </div>
-      ))}
+      ) : (
+        <p className="cia-forum-muted cia-plugin-hint">
+          Select a plugin above to manage who can access it.
+        </p>
+      )}
     </div>
   );
 }

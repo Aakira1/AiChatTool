@@ -4134,25 +4134,92 @@
   gap: 18px;
 }
 
-.cia-plugin-card {
-  background: #ffffff;
-  border: 1px solid var(--t1-border, #e8dff0);
-  border-radius: 14px;
-  padding: 16px;
+/* Square plugin tiles (same launcher language as the navbar app panel). */
+.cia-plugin-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
 }
 
-.cia-plugin-card-head {
+.cia-plugin-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 1 / 1;
+  padding: 14px 8px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--t1-navy, #2a1446);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.cia-plugin-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--t1-magenta, #e4007c);
+  box-shadow: 0 8px 18px rgba(26, 11, 46, 0.12);
+}
+
+.cia-plugin-tile.active {
+  border-color: var(--t1-magenta, #e4007c);
+  background: var(--t1-light, #fde8f3);
+  box-shadow: 0 8px 18px rgba(228, 0, 124, 0.18);
+}
+
+.cia-plugin-tile-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.cia-plugin-tile-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cia-plugin-tile-meta {
+  font-size: 11px;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-plugin-access {
+  background: #ffffff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 16px;
+  padding: 16px;
+  animation: t1-fade-in-up 0.25s ease-out both;
+}
+
+.cia-plugin-access-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
-.cia-plugin-card-head strong {
+.cia-plugin-access-head strong {
   color: var(--t1-navy, #2a1446);
   font-size: 15px;
 }
 
-.cia-plugin-card-head p {
+.cia-plugin-access-head p {
   margin: 2px 0 0;
   font-size: 13px;
+}
+
+.cia-plugin-access-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-plugin-hint {
+  padding: 4px 2px;
 }
 
 .cia-admin-tabs {
