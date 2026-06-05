@@ -163,6 +163,8 @@ const DEFAULTS = {
     // Multiple Copilot Studio agents the user can switch between.
     copilotAgents: [],
     activeCopilotAgentId: "",
+    // Broadcast each prompt to all agents and auto-route to the best reply.
+    copilotBroadcast: false,
   },
 };
 
@@ -263,12 +265,27 @@ export function getActiveCopilotAgent() {
   return { name: agent.name || "Copilot agent", directLineSecret: agent.directLineSecret };
 }
 
+/**
+ * Copilot agent payload: broadcast to all configured agents (auto-route) when
+ * enabled and there's more than one, otherwise send the single active agent.
+ */
+export function getCopilotPayload() {
+  const { ai } = getSettings();
+  const agents = (Array.isArray(ai.copilotAgents) ? ai.copilotAgents : [])
+    .filter((a) => a.directLineSecret)
+    .map((a) => ({ name: a.name || "Copilot agent", directLineSecret: a.directLineSecret }));
+  if (ai.copilotBroadcast && agents.length > 1) {
+    return { copilotAgents: agents, copilotBroadcast: true };
+  }
+  const agent = getActiveCopilotAgent();
+  return agent ? { copilotAgent: agent } : {};
+}
+
 /** Payload sent with chat requests selecting the AI provider/agent. */
 export function getChatAiProvider() {
   const { ai } = getSettings();
   if (ai.provider === "copilot-studio") {
-    const agent = getActiveCopilotAgent();
-    return { aiProvider: "copilot-studio", ...(agent ? { copilotAgent: agent } : {}) };
+    return { aiProvider: "copilot-studio", ...getCopilotPayload() };
   }
   return { aiProvider: "default" };
 }

@@ -102,6 +102,24 @@ export async function askCopilotStudioAgent(userText, { signal, secret } = {}) {
   return waitForBotReply(conversationId, signal, { secret });
 }
 
+/**
+ * Ask every configured agent in parallel and return the successful, non-empty
+ * replies as { name, reply }. Failures and empty answers are dropped.
+ */
+export async function askAllCopilotAgents(userText, agents, { signal } = {}) {
+  const settled = await Promise.allSettled(
+    agents.map((agent) =>
+      askCopilotStudioAgent(userText, { signal, secret: agent.directLineSecret }).then((reply) => ({
+        name: agent.name || "Copilot agent",
+        reply,
+      })),
+    ),
+  );
+  return settled
+    .filter((r) => r.status === "fulfilled" && r.value.reply?.trim())
+    .map((r) => r.value);
+}
+
 /** Yield reply in chunks for SSE streaming. */
 export async function* streamCopilotStudioAgent(userText, { signal, secret } = {}) {
   const reply = await askCopilotStudioAgent(userText, { signal, secret });

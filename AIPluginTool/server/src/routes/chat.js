@@ -103,6 +103,12 @@ const copilotAgentSchema = z.object({
   directLineSecret: z.string().trim().min(1).max(6000),
 });
 
+const copilotFields = {
+  copilotAgent: copilotAgentSchema.optional(),
+  copilotAgents: z.array(copilotAgentSchema).max(6).optional(),
+  copilotBroadcast: z.boolean().optional(),
+};
+
 const chatSchema = z
   .object({
     conversationId: z.string().min(1),
@@ -110,7 +116,7 @@ const chatSchema = z
     pageContext: pageContextSchema,
     attachments: z.array(attachmentSchema).max(3).optional(),
     aiProvider: z.enum(["default", "copilot-studio"]).optional(),
-    copilotAgent: copilotAgentSchema.optional(),
+    ...copilotFields,
     connectorSources: z.array(connectorIdSchema).max(6).optional(),
     reasoning: z.enum(["auto", "quick", "deep", "research"]).optional(),
     sources: z
@@ -131,7 +137,7 @@ const chatSchema = z
 const actionSchema = z.object({
   conversationId: z.string().min(1),
   aiProvider: z.enum(["default", "copilot-studio"]).optional(),
-  copilotAgent: copilotAgentSchema.optional(),
+  ...copilotFields,
 });
 
 const editSchema = z.object({
@@ -139,7 +145,7 @@ const editSchema = z.object({
   messageId: z.string().min(1),
   content: z.string().trim().min(1).max(12_000),
   aiProvider: z.enum(["default", "copilot-studio"]).optional(),
-  copilotAgent: copilotAgentSchema.optional(),
+  ...copilotFields,
 });
 
 export const chatRouter = Router();
@@ -158,6 +164,8 @@ async function runAssistantStream({
   reasoning = "auto",
   sources = {},
   copilotAgent = null,
+  copilotAgents = null,
+  copilotBroadcast = false,
 }) {
   let assistantContent = "";
   const abortController = new AbortController();
@@ -184,7 +192,7 @@ async function runAssistantStream({
     response.flushHeaders?.();
 
     const aiProvider = resolveAiProvider(requestedAiProvider, {
-      agentSecret: copilotAgent?.directLineSecret,
+      agentSecret: copilotAgent?.directLineSecret ?? copilotAgents?.[0]?.directLineSecret,
     });
 
     for await (const token of streamFromMessages({
@@ -192,6 +200,8 @@ async function runAssistantStream({
       signal: abortController.signal,
       aiProvider,
       copilotAgent,
+      copilotAgents,
+      copilotBroadcast,
     })) {
       assistantContent += token;
       response.write(`data: ${JSON.stringify({ type: "token", token })}\n\n`);
@@ -278,6 +288,8 @@ chatRouter.post("/regenerate", async (request, response, next) => {
     request,
     aiProvider: parsed.data.aiProvider ?? "default",
     copilotAgent: parsed.data.copilotAgent ?? null,
+    copilotAgents: parsed.data.copilotAgents ?? null,
+    copilotBroadcast: parsed.data.copilotBroadcast ?? false,
   });
 });
 
@@ -321,6 +333,8 @@ chatRouter.post("/edit", async (request, response, next) => {
     request,
     aiProvider: parsed.data.aiProvider ?? "default",
     copilotAgent: parsed.data.copilotAgent ?? null,
+    copilotAgents: parsed.data.copilotAgents ?? null,
+    copilotBroadcast: parsed.data.copilotBroadcast ?? false,
   });
 });
 
@@ -394,5 +408,7 @@ chatRouter.post("/", async (request, response, next) => {
     reasoning: parsed.data.reasoning ?? "auto",
     sources: parsed.data.sources ?? {},
     copilotAgent: parsed.data.copilotAgent ?? null,
+    copilotAgents: parsed.data.copilotAgents ?? null,
+    copilotBroadcast: parsed.data.copilotBroadcast ?? false,
   });
 });

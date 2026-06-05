@@ -1,5 +1,9 @@
 import { getLlmConfig } from "../config/env.js";
-import { isCopilotStudioConfigured, streamCopilotStudioAgent } from "./copilotStudioService.js";
+import {
+  isCopilotStudioConfigured,
+  streamCopilotStudioAgent,
+  askAllCopilotAgents,
+} from "./copilotStudioService.js";
 import { findSimilarCases } from "../db/repositories/caseRepo.js";
 import { buildResponseArtifacts } from "./artifactService.js";
 import { retrieveRelevantMemories, getPreferences } from "./memoryService.js";
@@ -165,11 +169,30 @@ ${buildSystemPrompt({
   return { messages, knowledgeChunks, artifacts };
 }
 
+// Score a candidate agent reply for relevance to the user's question so the
+// system can auto-route to the best answer when broadcasting to many agents.
+function scoreReply(reply, query) {
+  const text = String(reply).toLowerCase();
+  const terms = (String(query).toLowerCase().match(/[a-z0-9]{3,}/g) ?? []).slice(0, 40);
+  let score = terms.reduce((acc, term) => acc + (text.includes(term) ? 1 : 0), 0);
+  score += Math.min(text.length / 500, 2); // prefer substantive answers (capped)
+  if (/\b(i (?:don'?t|do not) know|can'?t help|no (?:information|results)|unable to)\b/.test(text)) {
+    score -= 3; // demote non-answers
+  }
+  return score;
+}
+
+function pickBestReply(replies, query) {
+  return [...replies].sort((a, b) => scoreReply(b.reply, query) - scoreReply(a.reply, query))[0];
+}
+
 export async function* streamFromMessages({
   messages,
   signal,
   aiProvider = "default",
   copilotAgent = null,
+  copilotAgents = null,
+  copilotBroadcast = false,
 }) {
   if (aiProvider === "copilot-studio") {
     const latestUser = [...messages].reverse().find((entry) => entry.role === "user");
@@ -178,10 +201,26 @@ export async function* streamFromMessages({
     const contextPrefix = system?.content
       ? `[Context from CiA Transition Assistant — use if helpful, otherwise answer as your Copilot Studio agent.]\n${system.content.slice(0, 4000)}\n\n---\n\nUser: `
       : "";
-    yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, {
-      signal,
-      secret: copilotAgent?.directLineSecret,
-    });
+
+    const broadcastAgents = copilotBroadcast && copilotAgents?.length ? copilotAgents : null;
+
+    if (broadcastAgents && broadcastAgents.length > 1) {
+      // Fan out to every agent, then auto-route to the most relevant reply.
+      const replies = await askAllCopilotAgents(`${contextPrefix}${userText}`, broadcastAgents, {
+        signal,
+      });
+      if (!replies.length) {
+        throw new Error("No Copilot Studio agent returned a usable reply.");
+      }
+      const best = pickBestReply(replies, userText);
+      for (const token of best.reply.split(/(\s+)/)) {
+        if (token) yield token;
+      }
+      return;
+    }
+
+    const secret = copilotAgent?.directLineSecret ?? broadcastAgents?.[0]?.directLineSecret;
+    yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, { signal, secret });
     return;
   }
 

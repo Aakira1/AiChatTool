@@ -621,9 +621,20 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
                 ))}
               </div>
             )}
+            {agents.length > 1 ? (
+              <label className="t1-profile-toggle">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settings.ai.copilotBroadcast)}
+                  onChange={(event) => onUpdateAi({ copilotBroadcast: event.target.checked })}
+                />
+                Broadcast each prompt to all agents and auto-route the best answer
+              </label>
+            ) : null}
             <p className="t1-settings-hint">
-              Switch the active agent here; the selected agent handles your chats while the provider
-              is set to Copilot Studio.
+              {settings.ai.copilotBroadcast && agents.length > 1
+                ? "Every prompt is sent to all agents in parallel; the most relevant reply is returned automatically."
+                : "Switch the active agent here; the selected agent handles your chats while the provider is set to Copilot Studio."}
             </p>
           </div>
         ) : provider.requiresKey ? (
