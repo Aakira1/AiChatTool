@@ -448,6 +448,32 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
     });
   };
 
+  // ---- Multiple Copilot Studio agents ----
+  const agents = settings.ai.copilotAgents ?? [];
+  const activeAgentId = settings.ai.activeCopilotAgentId ?? "";
+  const newAgentId = () =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const addAgent = () => {
+    const id = newAgentId();
+    const next = [...agents, { id, name: "", directLineSecret: "" }];
+    onUpdateAi({
+      copilotAgents: next,
+      ...(agents.length === 0 ? { activeCopilotAgentId: id } : {}),
+    });
+  };
+  const updateAgent = (id, patch) =>
+    onUpdateAi({ copilotAgents: agents.map((a) => (a.id === id ? { ...a, ...patch } : a)) });
+  const removeAgent = (id) => {
+    const next = agents.filter((a) => a.id !== id);
+    onUpdateAi({
+      copilotAgents: next,
+      ...(activeAgentId === id ? { activeCopilotAgentId: next[0]?.id ?? "" } : {}),
+    });
+  };
+  const selectAgent = (id) => onUpdateAi({ activeCopilotAgentId: id });
+
   return (
     <div className="t1-profile-form">
       <ConnectorsManager />
@@ -533,12 +559,73 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
         </label>
 
         {provider.connector === "copilot-studio" ? (
-          <CopilotStudioConnectorForm
-            copilotStudio={settings.ai.copilotStudio ?? {}}
-            showSecret={showApiKey}
-            onToggleSecret={onToggleApiKey}
-            onChange={updateCopilotStudio}
-          />
+          <div className="t1-copilot-agents">
+            <div className="t1-copilot-agents-head">
+              <span>Copilot Studio agents</span>
+              <button type="button" className="t1-add-agent-btn" onClick={addAgent}>
+                + Add agent
+              </button>
+            </div>
+            {agents.length === 0 ? (
+              <p className="t1-settings-hint">
+                No agents yet. Add one with its Direct Line secret (Copilot Studio → Channels →
+                Direct Line) to route chat through it.
+              </p>
+            ) : (
+              <div className="t1-agent-list">
+                {agents.map((agent) => (
+                  <div
+                    key={agent.id}
+                    className={`t1-agent-card${activeAgentId === agent.id ? " is-active" : ""}`}
+                  >
+                    <div className="t1-agent-card-row">
+                      <label className="t1-agent-radio">
+                        <input
+                          type="radio"
+                          name="active-copilot-agent"
+                          checked={activeAgentId === agent.id}
+                          onChange={() => selectAgent(agent.id)}
+                        />
+                        <span>Use</span>
+                      </label>
+                      <input
+                        className="t1-agent-name"
+                        placeholder="Agent name"
+                        value={agent.name ?? ""}
+                        onChange={(event) => updateAgent(agent.id, { name: event.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="t1-agent-remove"
+                        onClick={() => removeAgent(agent.id)}
+                        aria-label="Remove agent"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="t1-api-key-row">
+                      <input
+                        className="t1-api-key-input"
+                        type={showApiKey ? "text" : "password"}
+                        placeholder="Direct Line secret"
+                        value={agent.directLineSecret ?? ""}
+                        onChange={(event) =>
+                          updateAgent(agent.id, { directLineSecret: event.target.value })
+                        }
+                      />
+                      <button type="button" className="t1-api-key-toggle" onClick={onToggleApiKey}>
+                        {showApiKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="t1-settings-hint">
+              Switch the active agent here; the selected agent handles your chats while the provider
+              is set to Copilot Studio.
+            </p>
+          </div>
         ) : provider.requiresKey ? (
           <>
             {provider.id === "cloudflare" ? (

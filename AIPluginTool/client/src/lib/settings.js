@@ -160,6 +160,9 @@ const DEFAULTS = {
       tenantId: "",
       directLineSecret: "",
     },
+    // Multiple Copilot Studio agents the user can switch between.
+    copilotAgents: [],
+    activeCopilotAgentId: "",
   },
 };
 
@@ -243,11 +246,29 @@ export function maskApiKey(key) {
   return `••••••••${last}`;
 }
 
-/** Payload sent with chat requests — secrets stay on the server. */
+/** The Copilot agent the user has selected (or the first/legacy one), or null. */
+export function getActiveCopilotAgent() {
+  const { ai } = getSettings();
+  const agents = Array.isArray(ai.copilotAgents) ? ai.copilotAgents : [];
+  let agent = agents.find((a) => a.id === ai.activeCopilotAgentId) || agents[0] || null;
+  // Backward-compat: fall back to the single legacy copilotStudio config.
+  if (!agent && ai.copilotStudio?.directLineSecret) {
+    agent = {
+      id: "legacy",
+      name: ai.copilotStudio.agentName || "Copilot agent",
+      directLineSecret: ai.copilotStudio.directLineSecret,
+    };
+  }
+  if (!agent?.directLineSecret) return null;
+  return { name: agent.name || "Copilot agent", directLineSecret: agent.directLineSecret };
+}
+
+/** Payload sent with chat requests selecting the AI provider/agent. */
 export function getChatAiProvider() {
   const { ai } = getSettings();
   if (ai.provider === "copilot-studio") {
-    return { aiProvider: "copilot-studio" };
+    const agent = getActiveCopilotAgent();
+    return { aiProvider: "copilot-studio", ...(agent ? { copilotAgent: agent } : {}) };
   }
   return { aiProvider: "default" };
 }

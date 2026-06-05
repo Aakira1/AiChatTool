@@ -165,7 +165,12 @@ ${buildSystemPrompt({
   return { messages, knowledgeChunks, artifacts };
 }
 
-export async function* streamFromMessages({ messages, signal, aiProvider = "default" }) {
+export async function* streamFromMessages({
+  messages,
+  signal,
+  aiProvider = "default",
+  copilotAgent = null,
+}) {
   if (aiProvider === "copilot-studio") {
     const latestUser = [...messages].reverse().find((entry) => entry.role === "user");
     const system = messages.find((entry) => entry.role === "system");
@@ -173,20 +178,24 @@ export async function* streamFromMessages({ messages, signal, aiProvider = "defa
     const contextPrefix = system?.content
       ? `[Context from CiA Transition Assistant — use if helpful, otherwise answer as your Copilot Studio agent.]\n${system.content.slice(0, 4000)}\n\n---\n\nUser: `
       : "";
-    yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, { signal });
+    yield* streamCopilotStudioAgent(`${contextPrefix}${userText}`, {
+      signal,
+      secret: copilotAgent?.directLineSecret,
+    });
     return;
   }
 
   yield* adapter.streamGenerate({ messages, signal });
 }
 
-export function resolveAiProvider(requested) {
-  if (requested === "copilot-studio" && isCopilotStudioConfigured()) {
-    return "copilot-studio";
-  }
-  if (requested === "copilot-studio" && !isCopilotStudioConfigured()) {
+export function resolveAiProvider(requested, { agentSecret } = {}) {
+  if (requested === "copilot-studio") {
+    if (isCopilotStudioConfigured(agentSecret)) {
+      return "copilot-studio";
+    }
     throw new Error(
-      "Copilot Studio agent was requested but the server is not configured. Add COPILOT_STUDIO_ENABLED=true and COPILOT_STUDIO_DIRECT_LINE_SECRET to server/.env.",
+      "Copilot Studio agent was requested but no Direct Line secret is configured. Add an agent " +
+        "in Settings, or set COPILOT_STUDIO_ENABLED=true and COPILOT_STUDIO_DIRECT_LINE_SECRET on the server.",
     );
   }
   return "default";

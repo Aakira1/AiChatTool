@@ -1936,6 +1936,89 @@
   padding: 12px 20px 0;
 }
 
+/* ---- Copilot Studio multi-agent manager ---- */
+.t1-copilot-agents-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1-navy, #2a1446);
+}
+
+.t1-add-agent-btn {
+  border: 1px solid var(--t1-magenta, #e4007c);
+  background: var(--t1-light, #fde8f3);
+  color: var(--t1-magenta, #e4007c);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.t1-add-agent-btn:hover {
+  filter: brightness(1.03);
+}
+
+.t1-agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.t1-agent-card {
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.t1-agent-card.is-active {
+  border-color: var(--t1-magenta, #e4007c);
+  box-shadow: 0 0 0 1px var(--t1-magenta, #e4007c) inset;
+}
+
+.t1-agent-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.t1-agent-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--t1-muted, #6f5f82);
+  white-space: nowrap;
+}
+
+.t1-agent-name {
+  flex: 1;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.t1-agent-remove {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.t1-agent-remove:hover {
+  color: #c0392b;
+}
+
 .cia-toolbar-wrap {
   position: relative;
 }

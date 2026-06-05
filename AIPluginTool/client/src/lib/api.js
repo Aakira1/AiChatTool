@@ -1,4 +1,4 @@
-import { getChatAiProvider } from "./settings.js";
+import { getChatAiProvider, getActiveCopilotAgent } from "./settings.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -752,6 +752,9 @@ export async function streamChat({
       ...(reasoning ? { reasoning } : {}),
       ...(sources ? { sources } : {}),
       ...(aiProvider ? { aiProvider } : getChatAiProvider()),
+      ...(aiProvider === "copilot-studio" && getActiveCopilotAgent()
+        ? { copilotAgent: getActiveCopilotAgent() }
+        : {}),
     }),
     signal,
   });
