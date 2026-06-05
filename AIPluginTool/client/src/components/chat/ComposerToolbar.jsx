@@ -68,6 +68,8 @@ export function ComposerToolbar({
   onProviderChange,
   onTopicSelect,
   onTemplateSelect,
+  sources = { webSearch: false, companyKnowledge: true },
+  onSourcesChange,
   disabled,
 }) {
   const [open, setOpen] = useState(null); // "sources" | "topics" | "reasoning" | "model"
@@ -166,6 +168,39 @@ export function ComposerToolbar({
                 }}
               />
             ))}
+          </PickerPanel>
+        ) : null}
+      </div>
+
+      {/* Web / knowledge sources */}
+      <div className="cia-toolbar-wrap">
+        <button
+          type="button"
+          className={`cia-toolbar-pill${sources.webSearch ? " is-active" : ""}`}
+          onClick={() => toggle("websources")}
+          disabled={disabled}
+          title="Web & knowledge sources"
+        >
+          🌐 Sources
+        </button>
+        {open === "websources" ? (
+          <PickerPanel title="Sources">
+            <PickerRow
+              icon="🌐"
+              label="Include web results"
+              desc="Search the web and use results in the answer"
+              selected={sources.webSearch}
+              onClick={() => onSourcesChange?.({ ...sources, webSearch: !sources.webSearch })}
+            />
+            <PickerRow
+              icon="🏢"
+              label="Search company knowledge"
+              desc="Use imported knowledge base & cases"
+              selected={sources.companyKnowledge}
+              onClick={() =>
+                onSourcesChange?.({ ...sources, companyKnowledge: !sources.companyKnowledge })
+              }
+            />
           </PickerPanel>
         ) : null}
       </div>

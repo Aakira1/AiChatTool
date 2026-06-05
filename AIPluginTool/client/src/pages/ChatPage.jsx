@@ -56,6 +56,7 @@ export function ChatPage() {
   const [connectorSources, setConnectorSources] = useState([]);
   const [reasoning, setReasoning] = useState("auto");
   const [provider, setProvider] = useState("server");
+  const [sources, setSources] = useState({ webSearch: false, companyKnowledge: true });
   const [threadsCollapsed, setThreadsCollapsed] = useState(false);
   const [insightsCollapsed, setInsightsCollapsed] = useState(true);
   const [promptsCollapsed, setPromptsCollapsed] = useState(true);
@@ -331,6 +332,7 @@ export function ChatPage() {
           pageContext: getPageContext(),
           connectorSources,
           reasoning,
+          sources,
           aiProvider: provider === "copilot-studio" ? "copilot-studio" : "default",
           ...callbacks,
         }),
@@ -582,6 +584,8 @@ export function ChatPage() {
           onProviderChange={setProvider}
           onTopicSelect={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
           onTemplateSelect={(text) => setInput(text)}
+          sources={sources}
+          onSourcesChange={setSources}
           onError={(message) => {
             setError(message);
             toast.error(message);

@@ -9,6 +9,7 @@ import { buildAttachmentContext } from "../utils/documentText.js";
 import { retrieveKnowledge } from "./ragService.js";
 import { describePageScreenshot } from "./visionService.js";
 import { searchConnectors, buildConnectorContext } from "./connectorService.js";
+import { searchWeb, buildWebContext } from "./webSearchService.js";
 
 const adapter = new OpenAiCompatibleAdapter(getLlmConfig());
 
@@ -73,11 +74,19 @@ export async function prepareAssistantMessages({
   connectorSources = [],
   userEmail,
   reasoning = "auto",
+  sources = {},
   signal,
 }) {
   const memories = retrieveRelevantMemories(latestUserMessage, conversationId);
   const cases = findSimilarCases(latestUserMessage, { limit: 5 });
-  const knowledgeChunks = await retrieveKnowledge(latestUserMessage);
+  // Company knowledge (RAG) is on by default; the Sources toggle can disable it.
+  const knowledgeChunks =
+    sources?.companyKnowledge === false ? [] : await retrieveKnowledge(latestUserMessage);
+  // Web results are opt-in via the Sources toggle.
+  const webResults = sources?.webSearch
+    ? await searchWeb(latestUserMessage, { limit: 5, signal }).catch(() => [])
+    : [];
+  const webContext = buildWebContext(webResults);
   const { artifacts } = buildResponseArtifacts(latestUserMessage, { knowledgeChunks });
   const preferences = getPreferences(userEmail);
   // The full extracted text (up to 200K chars/file) is ingested into the vector
@@ -139,7 +148,7 @@ ${buildSystemPrompt({
     cases,
     attachments,
     knowledgeChunks,
-  })}${connectorContext ? `\n\n${connectorContext}` : ""}${
+  })}${webContext ? `\n\n${webContext}` : ""}${connectorContext ? `\n\n${connectorContext}` : ""}${
     reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
   }${reviewHints}`;
 
