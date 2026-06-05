@@ -29,6 +29,7 @@ export function AppNavbar({ activeView, onNavigate }) {
   );
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [dropTarget, setDropTarget] = useState(null); // "primary" | "drawer"
+  const [dropIndex, setDropIndex] = useState(null); // insertion slot within the drawer
   const [locked, setLocked] = useState(() => Boolean(getSettings().lockAppLayout));
   const launcherRef = useRef(null);
 
@@ -45,12 +46,17 @@ export function AppNavbar({ activeView, onNavigate }) {
   };
 
   // Move an app into a list, optionally at a specific index (else append).
+  // `index` is measured against the list *including* the dragged item, so when
+  // reordering within the same list we shift it down by one after removal.
   const moveApp = (id, target, index = null) => {
     if (!id || !appById(id)) return;
+    const fromIdx = (target === "primary" ? layout.primary : layout.drawer).indexOf(id);
     const primary = layout.primary.filter((x) => x !== id);
     const drawer = layout.drawer.filter((x) => x !== id);
     const list = target === "primary" ? primary : drawer;
-    const at = index == null ? list.length : Math.max(0, Math.min(index, list.length));
+    let at = index == null ? list.length : index;
+    if (fromIdx >= 0 && fromIdx < at) at -= 1;
+    at = Math.max(0, Math.min(at, list.length));
     list.splice(at, 0, id);
     persist({ primary, drawer });
   };
@@ -80,8 +86,24 @@ export function AppNavbar({ activeView, onNavigate }) {
     // Item drops (with an index) and drawer drops must not bubble to the nav's
     // append-at-end handler, which would override the placement.
     if (target === "drawer" || index != null) event.stopPropagation();
+    const id = event.dataTransfer.getData("text/plain");
+    // For the drawer, use the live insertion slot computed during drag-over.
+    const at = target === "drawer" ? dropIndex : index;
     setDropTarget(null);
-    moveApp(event.dataTransfer.getData("text/plain"), target, index);
+    setDropIndex(null);
+    moveApp(id, target, at);
+  };
+
+  // Compute the drawer insertion slot from the cursor's position over a tile.
+  const onDrawerTileOver = (event, index) => {
+    if (locked) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    const rect = event.currentTarget.getBoundingClientRect();
+    const after = event.clientX > rect.left + rect.width / 2;
+    setDropTarget("drawer");
+    setDropIndex(after ? index + 1 : index);
   };
 
   const toggleLock = () => {
@@ -203,7 +225,10 @@ export function AppNavbar({ activeView, onNavigate }) {
                 className={`t1-launcher-panel${dropTarget === "drawer" ? " is-drop" : ""}`}
                 role="menu"
                 onDragOver={(event) => allowDrop(event, "drawer")}
-                onDragLeave={() => setDropTarget((t) => (t === "drawer" ? null : t))}
+                onDragLeave={() => {
+                  setDropTarget((t) => (t === "drawer" ? null : t));
+                  setDropIndex(null);
+                }}
                 onDrop={(event) => handleDrop(event, "drawer")}
               >
                 <div className="t1-launcher-head">
@@ -232,9 +257,16 @@ export function AppNavbar({ activeView, onNavigate }) {
                           type="button"
                           draggable={!locked}
                           onDragStart={(event) => onDragStart(event, id)}
-                          onDragOver={(event) => allowDrop(event, "drawer")}
-                          onDrop={(event) => handleDrop(event, "drawer", index)}
-                          className={`t1-launcher-app${activeView === id ? " active" : ""}`}
+                          onDragOver={(event) => onDrawerTileOver(event, index)}
+                          className={`t1-launcher-app${activeView === id ? " active" : ""}${
+                            dropTarget === "drawer" && dropIndex === index ? " insert-before" : ""
+                          }${
+                            dropTarget === "drawer" &&
+                            index === layout.drawer.length - 1 &&
+                            dropIndex === layout.drawer.length
+                              ? " insert-after"
+                              : ""
+                          }`}
                           onClick={() => {
                             onNavigate(id);
                             setLauncherOpen(false);

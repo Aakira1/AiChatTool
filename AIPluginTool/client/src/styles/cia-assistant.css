@@ -427,6 +427,31 @@
   background: var(--t1-light, #fde8f3);
 }
 
+/* Insertion markers showing where a dragged app will land. */
+.t1-launcher-app {
+  position: relative;
+}
+
+.t1-launcher-app.insert-before::before,
+.t1-launcher-app.insert-after::after {
+  content: "";
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--t1-magenta, #e4007c);
+  box-shadow: 0 0 6px rgba(228, 0, 124, 0.6);
+}
+
+.t1-launcher-app.insert-before::before {
+  left: -7px;
+}
+
+.t1-launcher-app.insert-after::after {
+  right: -7px;
+}
+
 .t1-launcher-app-icon {
   font-size: 22px;
   line-height: 1;
