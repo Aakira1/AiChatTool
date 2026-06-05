@@ -361,13 +361,37 @@
   outline-offset: -6px;
 }
 
+.t1-launcher-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 .t1-launcher-title {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--t1-muted, #6f5f82);
+}
+
+.t1-launcher-lock {
+  border: 1px solid var(--t1-border, #e8dff0);
+  background: #ffffff;
+  color: var(--t1-muted, #6f5f82);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.t1-launcher-lock.is-locked {
+  border-color: var(--t1-magenta, #e4007c);
+  color: var(--t1-magenta, #e4007c);
+  background: var(--t1-light, #fde8f3);
 }
 
 .t1-launcher-apps {

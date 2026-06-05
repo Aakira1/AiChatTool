@@ -146,6 +146,7 @@ const DEFAULTS = {
   density: "comfortable",
   showInsights: true,
   showArtifactsByDefault: false,
+  lockAppLayout: false,
   ai: {
     provider: "server",
     apiKey: "",

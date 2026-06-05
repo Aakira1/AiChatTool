@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../ui/ToastProvider.jsx";
 import { availableApps, appById } from "../../lib/appRegistry.js";
 import { loadLayout, saveLayout, reconcileLayout } from "../../lib/appLayout.js";
+import { getSettings, saveSettings, subscribeSettings } from "../../lib/settings.js";
 import tneIcon from "../../assets/TNE_icon.svg";
 
 export function AppNavbar({ activeView, onNavigate }) {
@@ -28,7 +29,10 @@ export function AppNavbar({ activeView, onNavigate }) {
   );
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [dropTarget, setDropTarget] = useState(null); // "primary" | "drawer"
+  const [locked, setLocked] = useState(() => Boolean(getSettings().lockAppLayout));
   const launcherRef = useRef(null);
+
+  useEffect(() => subscribeSettings((next) => setLocked(Boolean(next.lockAppLayout))), []);
 
   // Re-reconcile when the account or available apps change.
   useEffect(() => {
@@ -52,12 +56,17 @@ export function AppNavbar({ activeView, onNavigate }) {
   };
 
   const onDragStart = (event, id, { openPanel = false } = {}) => {
+    if (locked) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.setData("text/plain", id);
     event.dataTransfer.effectAllowed = "move";
     // Reveal the multi-app panel so it's an available drop target mid-drag.
     if (openPanel) setLauncherOpen(true);
   };
   const allowDrop = (event, target) => {
+    if (locked) return;
     event.preventDefault();
     // Stop drawer drop-zones (which live inside <nav>) from bubbling to the
     // nav's own primary handler, which would steal the drop.
@@ -66,12 +75,19 @@ export function AppNavbar({ activeView, onNavigate }) {
     setDropTarget(target);
   };
   const handleDrop = (event, target, index = null) => {
+    if (locked) return;
     event.preventDefault();
     // Item drops (with an index) and drawer drops must not bubble to the nav's
     // append-at-end handler, which would override the placement.
     if (target === "drawer" || index != null) event.stopPropagation();
     setDropTarget(null);
     moveApp(event.dataTransfer.getData("text/plain"), target, index);
+  };
+
+  const toggleLock = () => {
+    const next = !locked;
+    setLocked(next);
+    saveSettings({ lockAppLayout: next });
   };
 
   useEffect(() => {
@@ -148,13 +164,13 @@ export function AppNavbar({ activeView, onNavigate }) {
               <button
                 key={id}
                 type="button"
-                draggable
+                draggable={!locked}
                 onDragStart={(event) => onDragStart(event, id, { openPanel: true })}
                 onDragOver={(event) => allowDrop(event, "primary")}
                 onDrop={(event) => handleDrop(event, "primary", index)}
                 className={`t1-nav-link ${activeView === id ? "active" : ""}`}
                 onClick={() => onNavigate(id)}
-                title="Drag to reorder, or drop into the apps panel"
+                title={locked ? app.label : "Drag to reorder, or drop into the apps panel"}
               >
                 {app.label}
               </button>
@@ -190,7 +206,17 @@ export function AppNavbar({ activeView, onNavigate }) {
                 onDragLeave={() => setDropTarget((t) => (t === "drawer" ? null : t))}
                 onDrop={(event) => handleDrop(event, "drawer")}
               >
-                <p className="t1-launcher-title">Apps</p>
+                <div className="t1-launcher-head">
+                  <p className="t1-launcher-title">Apps</p>
+                  <button
+                    type="button"
+                    className={`t1-launcher-lock${locked ? " is-locked" : ""}`}
+                    onClick={toggleLock}
+                    title={locked ? "Unlock to rearrange apps" : "Lock the layout"}
+                  >
+                    {locked ? "🔒 Locked" : "🔓 Lock"}
+                  </button>
+                </div>
                 <div className="t1-launcher-apps">
                   {layout.drawer.length === 0 ? (
                     <p className="t1-launcher-empty">
@@ -204,7 +230,7 @@ export function AppNavbar({ activeView, onNavigate }) {
                         <button
                           key={id}
                           type="button"
-                          draggable
+                          draggable={!locked}
                           onDragStart={(event) => onDragStart(event, id)}
                           onDragOver={(event) => allowDrop(event, "drawer")}
                           onDrop={(event) => handleDrop(event, "drawer", index)}
@@ -224,7 +250,11 @@ export function AppNavbar({ activeView, onNavigate }) {
                     })
                   )}
                 </div>
-                <p className="t1-launcher-hint">Drag apps in or out to customise your navbar.</p>
+                <p className="t1-launcher-hint">
+                  {locked
+                    ? "Layout locked. Unlock to drag apps in or out."
+                    : "Drag apps in or out to customise your navbar."}
+                </p>
               </div>
             ) : null}
           </div>
