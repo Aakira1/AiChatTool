@@ -100,6 +100,8 @@ export function ComposerToolbar({
 
   const connectable = connectors.filter((c) => c.connected);
   const sourceCount = connectorSources.length;
+  const totalSourceCount =
+    (sources.webSearch ? 1 : 0) + (sources.companyKnowledge ? 1 : 0) + sourceCount;
 
   const toggleSource = (id) =>
     onConnectorSourcesChange?.(
