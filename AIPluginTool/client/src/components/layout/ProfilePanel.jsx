@@ -431,6 +431,10 @@ function AccountSection({ user, toast, onDisplayNameChanged }) {
 
 function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateAi }) {
   const provider = AI_PROVIDERS.find((p) => p.id === settings.ai.provider) ?? AI_PROVIDERS[0];
+  // Per-agent secret visibility so Show/Hide affects only its own row.
+  const [revealedAgents, setRevealedAgents] = useState({});
+  const toggleAgentSecret = (id) =>
+    setRevealedAgents((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleProviderChange = (event) => {
     const next = AI_PROVIDERS.find((p) => p.id === event.target.value) ?? AI_PROVIDERS[0];
@@ -614,15 +618,19 @@ function SettingsTab({ settings, showApiKey, onToggleApiKey, onUpdate, onUpdateA
                     <div className="t1-api-key-row">
                       <input
                         className="t1-api-key-input"
-                        type={showApiKey ? "text" : "password"}
+                        type={revealedAgents[agent.id] ? "text" : "password"}
                         placeholder="Direct Line secret"
                         value={agent.directLineSecret ?? ""}
                         onChange={(event) =>
                           updateAgent(agent.id, { directLineSecret: event.target.value })
                         }
                       />
-                      <button type="button" className="t1-api-key-toggle" onClick={onToggleApiKey}>
-                        {showApiKey ? "Hide" : "Show"}
+                      <button
+                        type="button"
+                        className="t1-api-key-toggle"
+                        onClick={() => toggleAgentSecret(agent.id)}
+                      >
+                        {revealedAgents[agent.id] ? "Hide" : "Show"}
                       </button>
                     </div>
                     <input
