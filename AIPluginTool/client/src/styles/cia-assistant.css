@@ -2246,6 +2246,112 @@
   min-width: 0;
 }
 
+/* Rich markdown styling for assistant replies (the Tailwind `prose` classes are
+   not active, and the global reset strips headings/lists — restore them here). */
+.cia-message .prose {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--t1-body, #3b2a4d);
+}
+
+.cia-message .prose h1,
+.cia-message .prose h2,
+.cia-message .prose h3,
+.cia-message .prose h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-message .prose h1 {
+  font-size: 1.4em;
+  margin: 0.6em 0 0.4em;
+}
+
+.cia-message .prose h2 {
+  font-size: 1.2em;
+  margin: 0.95em 0 0.4em;
+}
+
+.cia-message .prose h3 {
+  font-size: 1.05em;
+  margin: 0.85em 0 0.3em;
+}
+
+.cia-message .prose p {
+  margin: 0 0 0.6em;
+}
+
+.cia-message .prose ul,
+.cia-message .prose ol {
+  margin: 0 0 0.7em;
+  padding-left: 1.35em;
+}
+
+.cia-message .prose ul {
+  list-style: disc;
+}
+
+.cia-message .prose ol {
+  list-style: decimal;
+}
+
+.cia-message .prose li {
+  margin: 0.2em 0;
+}
+
+.cia-message .prose li::marker {
+  color: var(--t1-magenta, #e4007c);
+}
+
+.cia-message .prose strong {
+  font-weight: 700;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-message .prose a {
+  color: var(--t1-magenta, #e4007c);
+  text-decoration: underline;
+}
+
+.cia-message .prose code {
+  background: var(--t1-soft, #faf7fc);
+  border: 1px solid var(--t1-border, #e8dff0);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.cia-message .prose pre {
+  background: var(--t1-soft, #faf7fc);
+  border: 1px solid var(--t1-border, #e8dff0);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0 0 0.7em;
+}
+
+.cia-message .prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.cia-message .prose blockquote {
+  border-left: 3px solid var(--t1-border, #e8dff0);
+  padding-left: 10px;
+  margin: 0 0 0.6em;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-message .prose > :first-child {
+  margin-top: 0;
+}
+
+.cia-message .prose > :last-child {
+  margin-bottom: 0;
+}
+
 .cia-message .prose table {
   width: 100%;
   border-collapse: collapse;
