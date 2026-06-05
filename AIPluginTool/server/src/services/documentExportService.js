@@ -335,6 +335,11 @@ export function buildPdfBuffer({ title = "Document", content }) {
         } else if (block.type === "table") {
           renderPdfTable(doc, block, pink);
           doc.moveDown(0.4);
+          const chart = chartFromTable(block);
+          if (chart) {
+            renderPdfBarChart(doc, chart);
+            doc.moveDown(0.4);
+          }
         }
       }
 
@@ -485,6 +490,119 @@ export async function buildPptxBuffer({ title = "Presentation", content }) {
 
   const data = await pptx.write({ outputType: "nodebuffer" });
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
+}
+
+// ---- Charts (PDF, drawn natively with pdfkit) ---------------------------
+
+const CHART_COLORS = ["E4007C", "7C3AED", "F7941D", "0EA5E9", "16A34A"];
+const MAX_CHART_CATEGORIES = 12;
+const MAX_CHART_SERIES = 4;
+
+function toNumber(value) {
+  if (value == null) return NaN;
+  const cleaned = String(value).replace(/[^0-9.\-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return NaN;
+  return Number.parseFloat(cleaned);
+}
+
+/**
+ * Turn a markdown table into chart data when it looks plottable: a label column
+ * plus one or more mostly-numeric columns. Returns { labels, series } or null.
+ */
+export function chartFromTable(block) {
+  const columns = block?.columns ?? [];
+  const rows = (block?.rows ?? []).filter((r) => Array.isArray(r) && r.length);
+  if (columns.length < 2 || rows.length < 2) return null;
+
+  const labels = rows.slice(0, MAX_CHART_CATEGORIES).map((r) => stripInline(String(r[0] ?? "")));
+  const series = [];
+  for (let c = 1; c < columns.length && series.length < MAX_CHART_SERIES; c += 1) {
+    const values = rows.slice(0, MAX_CHART_CATEGORIES).map((r) => toNumber(r[c]));
+    const numericCount = values.filter((v) => Number.isFinite(v)).length;
+    if (numericCount >= Math.ceil(values.length * 0.6)) {
+      series.push({
+        name: stripInline(String(columns[c] ?? `Series ${c}`)),
+        values: values.map((v) => (Number.isFinite(v) ? v : 0)),
+      });
+    }
+  }
+  if (!series.length) return null;
+  return { labels, series };
+}
+
+/** Draw a grouped vertical bar chart for the given chart data. */
+function renderPdfBarChart(doc, { labels, series }) {
+  const left = doc.page.margins.left;
+  const usable = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const chartHeight = 170;
+  const legendHeight = series.length > 1 ? 16 : 0;
+  const labelHeight = 16;
+  const needed = chartHeight + legendHeight + labelHeight + 10;
+
+  if (doc.y + needed > doc.page.height - doc.page.margins.bottom) doc.addPage();
+
+  const top = doc.y;
+  // Legend (only useful with multiple series).
+  if (series.length > 1) {
+    let lx = left;
+    series.forEach((s, i) => {
+      doc.rect(lx, top + 2, 9, 9).fill(`#${CHART_COLORS[i % CHART_COLORS.length]}`);
+      doc.font("Helvetica").fontSize(8).fillColor("#1f2330").text(s.name, lx + 13, top + 2, {
+        lineBreak: false,
+      });
+      lx += 13 + doc.widthOfString(s.name) + 16;
+    });
+  }
+
+  const plotTop = top + legendHeight;
+  const plotBottom = plotTop + chartHeight;
+  const maxVal = Math.max(1, ...series.flatMap((s) => s.values.map((v) => Math.abs(v))));
+
+  // Axes.
+  doc.strokeColor("#d8d2e0").lineWidth(0.75);
+  doc.moveTo(left, plotTop).lineTo(left, plotBottom).stroke();
+  doc.moveTo(left, plotBottom).lineTo(left + usable, plotBottom).stroke();
+
+  // Gridlines + y labels (4 steps).
+  doc.font("Helvetica").fontSize(7).fillColor("#9aa3b2");
+  for (let i = 1; i <= 4; i += 1) {
+    const y = plotBottom - (chartHeight * i) / 4;
+    doc.strokeColor("#eee7f2").lineWidth(0.5).moveTo(left, y).lineTo(left + usable, y).stroke();
+    doc.fillColor("#9aa3b2").text(((maxVal * i) / 4).toFixed(0), left - 26, y - 4, {
+      width: 22,
+      align: "right",
+      lineBreak: false,
+    });
+  }
+
+  const groupWidth = usable / labels.length;
+  const barGap = 4;
+  const barWidth = Math.max(
+    2,
+    (groupWidth - barGap * 2) / series.length - 2,
+  );
+
+  labels.forEach((label, gi) => {
+    const groupX = left + gi * groupWidth + barGap;
+    series.forEach((s, si) => {
+      const value = s.values[gi] ?? 0;
+      const h = (Math.abs(value) / maxVal) * chartHeight;
+      const x = groupX + si * (barWidth + 2);
+      doc
+        .rect(x, plotBottom - h, barWidth, h)
+        .fill(`#${CHART_COLORS[si % CHART_COLORS.length]}`);
+    });
+    // Category label (truncated/centred under the group).
+    doc.font("Helvetica").fontSize(7).fillColor("#5b5170").text(label, groupX - barGap, plotBottom + 4, {
+      width: groupWidth,
+      align: "center",
+      ellipsis: true,
+      lineBreak: false,
+    });
+  });
+
+  doc.y = plotBottom + labelHeight + 6;
+  doc.fillColor("#1f2330");
 }
 
 // ---- Fillable forms ------------------------------------------------------
