@@ -322,6 +322,12 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+.t1-launcher-btn.is-drop {
+  background: var(--t1-magenta, #e4007c);
+  border-color: var(--t1-magenta, #e4007c);
+  transform: scale(1.05);
+}
+
 .t1-launcher-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

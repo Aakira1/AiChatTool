@@ -49,9 +49,16 @@ export function AppNavbar({ activeView, onNavigate }) {
     persist({ primary, drawer });
   };
 
-  const onDragStart = (event, id) => {
+  const onDragStart = (event, id, { openPanel = false } = {}) => {
     event.dataTransfer.setData("text/plain", id);
     event.dataTransfer.effectAllowed = "move";
+    // Reveal the multi-app panel so it's an available drop target mid-drag.
+    if (openPanel) setLauncherOpen(true);
+  };
+  const allowDrop = (event, target) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTarget(target);
   };
   const handleDrop = (event, target) => {
     event.preventDefault();
@@ -122,10 +129,7 @@ export function AppNavbar({ activeView, onNavigate }) {
         <nav
           className={`t1-navbar-links${dropTarget === "primary" ? " is-drop" : ""}`}
           aria-label="Main navigation"
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDropTarget("primary");
-          }}
+          onDragOver={(event) => allowDrop(event, "primary")}
           onDragLeave={() => setDropTarget((t) => (t === "primary" ? null : t))}
           onDrop={(event) => handleDrop(event, "primary")}
         >
@@ -137,7 +141,7 @@ export function AppNavbar({ activeView, onNavigate }) {
                 key={id}
                 type="button"
                 draggable
-                onDragStart={(event) => onDragStart(event, id)}
+                onDragStart={(event) => onDragStart(event, id, { openPanel: true })}
                 className={`t1-nav-link ${activeView === id ? "active" : ""}`}
                 onClick={() => onNavigate(id)}
                 title="Drag into the apps panel to move it there"
@@ -150,11 +154,16 @@ export function AppNavbar({ activeView, onNavigate }) {
           <div className="t1-launcher" ref={launcherRef}>
             <button
               type="button"
-              className={`t1-launcher-btn${launcherOpen ? " active" : ""}`}
+              className={`t1-launcher-btn${launcherOpen ? " active" : ""}${
+                dropTarget === "drawer" ? " is-drop" : ""
+              }`}
               onClick={() => setLauncherOpen((open) => !open)}
+              onDragOver={(event) => allowDrop(event, "drawer")}
+              onDragLeave={() => setDropTarget((t) => (t === "drawer" ? null : t))}
+              onDrop={(event) => handleDrop(event, "drawer")}
               aria-label="Apps"
               aria-expanded={launcherOpen}
-              title="Apps"
+              title="Apps — drag an app here to move it into the panel"
             >
               <span className="t1-launcher-grid" aria-hidden="true">
                 <i /><i /><i />
@@ -167,10 +176,7 @@ export function AppNavbar({ activeView, onNavigate }) {
               <div
                 className={`t1-launcher-panel${dropTarget === "drawer" ? " is-drop" : ""}`}
                 role="menu"
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDropTarget("drawer");
-                }}
+                onDragOver={(event) => allowDrop(event, "drawer")}
                 onDragLeave={() => setDropTarget((t) => (t === "drawer" ? null : t))}
                 onDrop={(event) => handleDrop(event, "drawer")}
               >
