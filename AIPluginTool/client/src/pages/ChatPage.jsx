@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantArtifacts } from "../components/chat/AssistantArtifacts";
+import { FilesPanel } from "../components/chat/FilesPanel";
 import { detectRequestedDocFormats } from "../lib/fileBlocks";
+import { collectConversationFiles } from "../lib/conversationFiles";
 import { ChatComposer } from "../components/chat/ChatComposer";
 import { CiaSidePanel } from "../components/chat/CiaSidePanel";
 import { CiaThreadList } from "../components/chat/CiaThreadList";
@@ -49,6 +51,7 @@ export function ChatPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
+  const [showFiles, setShowFiles] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [connectorSources, setConnectorSources] = useState([]);
   const [reasoning, setReasoning] = useState("auto");
@@ -416,6 +419,8 @@ export function ChatPage() {
     toast.success("Chat exported as Markdown");
   };
 
+  const conversationFiles = useMemo(() => collectConversationFiles(messages), [messages]);
+
   const activeThread =
     threads.find((thread) => thread.id === conversationId) ??
     archivedThreads.find((thread) => thread.id === conversationId);
@@ -452,12 +457,23 @@ export function ChatPage() {
             ) : null}
           </div>
           <div className="cia-chat-header-actions">
+            <button
+              type="button"
+              className="cia-header-btn"
+              onClick={() => setShowFiles(true)}
+            >
+              Files{conversationFiles.length ? ` (${conversationFiles.length})` : ""}
+            </button>
             <button type="button" className="cia-header-btn" onClick={handleExport} disabled={pending}>
               Export
             </button>
             <div className="cia-badge">⚡ AI Powered</div>
           </div>
         </div>
+
+        {showFiles ? (
+          <FilesPanel files={conversationFiles} onClose={() => setShowFiles(false)} />
+        ) : null}
 
         <div className="cia-messages" ref={messagesRef}>
           {messages.map((message, index) => (
