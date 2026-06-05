@@ -75,6 +75,32 @@ export function hasFormFields(text) {
   });
 }
 
+// Inspect a user's request and, if they asked to generate a downloadable
+// document, return the format(s) implied: ["pdf"], ["docx"], or both. Returns
+// null when no document was requested (or a spreadsheet was, handled elsewhere).
+export function detectRequestedDocFormats(userText) {
+  const t = String(userText ?? "").toLowerCase();
+  if (!/\b(generate|create|make|write|produce|build|draft|export|give me|need)\b/.test(t)) {
+    return null;
+  }
+  // Spreadsheets/CSV are handled by the table path, not the document card.
+  const spreadsheetOnly =
+    /\b(spreadsheet|excel|xlsx|csv)\b/.test(t) &&
+    !/\b(pdf|word|docx|document|report|letter|memo|brief)\b/.test(t);
+  if (spreadsheetOnly) return null;
+
+  const wantsPdf = /\bpdf\b/.test(t);
+  const wantsWord = /\b(word|docx|\.doc|word document)\b/.test(t);
+  const wantsDocLike =
+    wantsWord || /\b(document|report|letter|memo|brief|minutes|proposal|policy)\b/.test(t);
+
+  if (wantsPdf && wantsDocLike) return ["docx", "pdf"];
+  if (wantsPdf) return ["pdf"];
+  if (wantsWord) return ["docx"];
+  if (wantsDocLike) return ["docx", "pdf"];
+  return null;
+}
+
 // Best-effort title for a generated spreadsheet, derived from the assistant's
 // own wording so the file name matches what it called the sheet. Looks for an
 // explicit "Title: X" line, then a leading markdown/bold heading, else falls

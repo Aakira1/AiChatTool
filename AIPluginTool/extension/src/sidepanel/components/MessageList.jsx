@@ -5,9 +5,14 @@ import { InsightsArtifacts } from "./InsightsArtifacts.jsx";
 import { FileDownloadCard } from "./FileDownloadCard.jsx";
 import { MessageDownloadMenu } from "./MessageDownloadMenu.jsx";
 import { MessageActions } from "./MessageActions.jsx";
-import { parseFileBlocks, hasMarkdownTable, deriveFileTitle } from "../../lib/fileBlocks.js";
+import {
+  parseFileBlocks,
+  hasMarkdownTable,
+  deriveFileTitle,
+  detectRequestedDocFormats,
+} from "../../lib/fileBlocks.js";
 
-function AssistantContent({ content }) {
+function AssistantContent({ content, requestedDocFormats }) {
   const { text, files, pending } = parseFileBlocks(content);
 
   // Fallback: model describes a spreadsheet with prose + markdown tables instead
@@ -15,6 +20,26 @@ function AssistantContent({ content }) {
   let allFiles = files;
   if (!pending && !files.length && hasMarkdownTable(text)) {
     allFiles = [{ title: deriveFileTitle(content), content }];
+  }
+
+  // If the user explicitly asked to generate a document (pdf/word/etc.) and the
+  // model didn't emit a document marker, surface a document card in the format
+  // they requested anyway.
+  if (
+    !pending &&
+    requestedDocFormats?.length &&
+    !allFiles.some((f) => f.kind === "document") &&
+    text
+  ) {
+    allFiles = [
+      ...allFiles,
+      {
+        kind: "document",
+        title: deriveFileTitle(content, "Document"),
+        content,
+        formats: requestedDocFormats,
+      },
+    ];
   }
 
   return (
@@ -45,7 +70,13 @@ export const MessageList = forwardRef(function MessageList(
 ) {
   return (
     <div className="cia-ext-messages" ref={ref}>
-      {messages.map((message) => (
+      {messages.map((message, index) => {
+        const prevUser = [...messages.slice(0, index)]
+          .reverse()
+          .find((m) => m.role === "user");
+        const requestedDocFormats =
+          message.role === "assistant" ? detectRequestedDocFormats(prevUser?.content) : null;
+        return (
         <article key={message.id} className={`cia-ext-message cia-ext-message-${message.role}`}>
           <div className="cia-ext-avatar" aria-hidden="true">
             {message.role === "assistant" ? "AI" : "You"}
@@ -53,7 +84,12 @@ export const MessageList = forwardRef(function MessageList(
           <div className="cia-ext-bubble">
             {message.role === "assistant" ? (
               <>
-                {message.content ? <AssistantContent content={message.content} /> : null}
+                {message.content ? (
+                  <AssistantContent
+                    content={message.content}
+                    requestedDocFormats={requestedDocFormats}
+                  />
+                ) : null}
                 <InsightsArtifacts artifacts={message.metadata?.artifacts} />
               </>
             ) : (
@@ -74,7 +110,8 @@ export const MessageList = forwardRef(function MessageList(
             </div>
           ) : null}
         </article>
-      ))}
+        );
+      })}
       {pending ? (
         <article className="cia-ext-message cia-ext-message-assistant">
           <div className="cia-ext-avatar" aria-hidden="true">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantArtifacts } from "../components/chat/AssistantArtifacts";
+import { detectRequestedDocFormats } from "../lib/fileBlocks";
 import { ChatComposer } from "../components/chat/ChatComposer";
 import { CiaSidePanel } from "../components/chat/CiaSidePanel";
 import { CiaThreadList } from "../components/chat/CiaThreadList";
@@ -472,6 +473,10 @@ export function ChatPage() {
                     <AssistantArtifacts
                       content={message.content}
                       artifacts={message.metadata?.artifacts}
+                      requestedDocFormats={detectRequestedDocFormats(
+                        [...messages.slice(0, index)].reverse().find((m) => m.role === "user")
+                          ?.content,
+                      )}
                     />
                   ) : (
                     <UserMessageContent

@@ -76,7 +76,7 @@ function MetricRow({ metric }) {
   );
 }
 
-export function AssistantArtifacts({ content, artifacts }) {
+export function AssistantArtifacts({ content, artifacts, requestedDocFormats }) {
   const rich = useMemo(() => isRich(artifacts), [artifacts]);
   const [showInsights, setShowInsights] = useState(() => getSettings().showInsights !== false);
   const [expanded, setExpanded] = useState(() => Boolean(getSettings().showArtifactsByDefault));
@@ -103,7 +103,23 @@ export function AssistantArtifacts({ content, artifacts }) {
     return [{ title: deriveFileTitle(content), content }];
   }, [pending, files.length, text, content]);
 
-  const allFiles = files.length ? files : fallbackFiles;
+  // If the user explicitly asked to generate a document (pdf/word/etc.) and no
+  // document card was produced, surface one in the requested format(s).
+  const docFallback = useMemo(() => {
+    if (pending || !requestedDocFormats?.length || !text) return [];
+    const base = files.length ? files : fallbackFiles;
+    if (base.some((f) => f.kind === "document")) return [];
+    return [
+      {
+        kind: "document",
+        title: deriveFileTitle(content, "Document"),
+        content,
+        formats: requestedDocFormats,
+      },
+    ];
+  }, [pending, requestedDocFormats, text, files, fallbackFiles, content]);
+
+  const allFiles = [...(files.length ? files : fallbackFiles), ...docFallback];
 
   return (
     <div>
