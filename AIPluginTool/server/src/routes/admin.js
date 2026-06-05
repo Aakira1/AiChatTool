@@ -9,6 +9,8 @@ import {
 } from "../db/repositories/userRepo.js";
 import { listForums, listPosts } from "../db/repositories/forumRepo.js";
 import { recordAudit, listAudit } from "../db/repositories/auditRepo.js";
+import { listUserPlugins, setUserPlugin } from "../db/repositories/pluginRepo.js";
+import { PLUGINS, PLUGIN_IDS, isValidPlugin } from "../config/plugins.js";
 import { roleFor } from "../utils/permissions.js";
 
 export const adminRouter = Router();
@@ -21,11 +23,14 @@ const configuredAdmin = env.authEmail?.trim().toLowerCase() ?? "";
 /** Shape a user row for the client, marking the env admin as locked. */
 function present(user) {
   const email = user.email.toLowerCase();
+  const role = roleFor(user.email, user.role ?? "user");
   return {
     email: user.email,
     display_name: user.display_name,
-    role: roleFor(user.email, user.role ?? "user"),
+    role,
     created_at: user.created_at,
+    // Admins implicitly have every plugin; others get what's been granted.
+    plugins: role === "admin" ? [...PLUGIN_IDS] : listUserPlugins(user.email),
     // The configured AUTH_EMAIL account is always admin and can't be demoted.
     locked: email === configuredAdmin,
   };
@@ -40,10 +45,50 @@ adminRouter.get("/users", (request, response) => {
       display_name: null,
       role: "admin",
       created_at: null,
+      plugins: [...PLUGIN_IDS],
       locked: true,
     });
   }
   response.json({ users });
+});
+
+// The registry of permission-gated plugins (for the Admin → Plugins tab).
+adminRouter.get("/plugins", (_request, response) => {
+  response.json({ plugins: PLUGINS });
+});
+
+const pluginSchema = z.object({
+  plugin: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+adminRouter.patch("/users/:email/plugins", (request, response) => {
+  const parsed = pluginSchema.safeParse(request.body ?? {});
+  if (!parsed.success || !isValidPlugin(parsed.data.plugin)) {
+    response.status(400).json({ error: "Provide a valid plugin id and enabled flag" });
+    return;
+  }
+
+  const targetEmail = String(request.params.email ?? "").trim().toLowerCase();
+  const user = getUserByEmail(targetEmail);
+  if (!user) {
+    response.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (roleFor(user.email, user.role ?? "user") === "admin") {
+    response.status(400).json({ error: "Admins already have access to every plugin" });
+    return;
+  }
+
+  setUserPlugin(targetEmail, parsed.data.plugin, parsed.data.enabled);
+  recordAudit({
+    actorEmail: request.user?.email ?? null,
+    action: parsed.data.enabled ? "grant_plugin" : "revoke_plugin",
+    targetType: "user",
+    targetId: targetEmail,
+    summary: `${parsed.data.enabled ? "Granted" : "Revoked"} "${parsed.data.plugin}" for ${targetEmail}`,
+  });
+  response.json({ email: targetEmail, plugins: listUserPlugins(targetEmail) });
 });
 
 const roleSchema = z.object({

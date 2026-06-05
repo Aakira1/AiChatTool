@@ -9,7 +9,7 @@ import tneIcon from "../../assets/TNE_icon.svg";
 
 export function AppNavbar({ activeView, onNavigate }) {
   const toast = useToast();
-  const { logout, authDisabled, user } = useAuth();
+  const { logout, authDisabled, user, hasPlugin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState("profile");
@@ -73,13 +73,15 @@ export function AppNavbar({ activeView, onNavigate }) {
           >
             Assistant
           </button>
-          <button
-            type="button"
-            className={`t1-nav-link ${activeView === "dashboard" ? "active" : ""}`}
-            onClick={() => onNavigate("dashboard")}
-          >
-            Dashboard
-          </button>
+          {hasPlugin("dashboard") ? (
+            <button
+              type="button"
+              className={`t1-nav-link ${activeView === "dashboard" ? "active" : ""}`}
+              onClick={() => onNavigate("dashboard")}
+            >
+              Dashboard
+            </button>
+          ) : null}
           <button
             type="button"
             className={`t1-nav-link ${activeView === "forums" ? "active" : ""}`}
@@ -165,16 +167,18 @@ export function AppNavbar({ activeView, onNavigate }) {
                 <button type="button" role="menuitem" onClick={() => openPanel("settings")}>
                   Settings
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onNavigate("dashboard");
-                    setMenuOpen(false);
-                  }}
-                >
-                  Data & Imports
-                </button>
+                {hasPlugin("dashboard") ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onNavigate("dashboard");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Data & Imports
+                  </button>
+                ) : null}
                 <button type="button" role="menuitem" onClick={() => { onNavigate("help"); setMenuOpen(false); }}>
                   Help & Support
                 </button>

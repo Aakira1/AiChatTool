@@ -442,6 +442,25 @@ export async function setUserRole(email, role) {
   return response.json();
 }
 
+export async function listAdminPlugins() {
+  const response = await apiFetch("/api/admin/plugins");
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't load plugins"));
+  }
+  return response.json();
+}
+
+export async function setUserPlugin(email, plugin, enabled) {
+  const response = await apiFetch(`/api/admin/users/${encodeURIComponent(email)}/plugins`, {
+    method: "PATCH",
+    body: JSON.stringify({ plugin, enabled }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Couldn't update plugin access"));
+  }
+  return response.json();
+}
+
 export async function listAdminContent() {
   const response = await apiFetch("/api/admin/content");
   if (!response.ok) {

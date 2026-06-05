@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
     try {
       const session = await getAuthMe();
       if (session.authenticated) {
-        setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
+        setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user", plugins: session.plugins ?? [] });
         setAuthDisabled(Boolean(session.authDisabled));
       } else {
         setUser(null);
@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
     async (email, password) => {
       sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
       const session = await apiLogin(email, password);
-      setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
+      setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user", plugins: session.plugins ?? [] });
       setAuthDisabled(false);
       return session;
     },
@@ -74,7 +74,7 @@ export function AuthProvider({ children }) {
   const register = useCallback(async ({ email, password, displayName }) => {
     sessionStorage.removeItem(MANUAL_LOGOUT_KEY);
     const session = await apiRegister({ email, password, displayName });
-    setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user" });
+    setUser({ email: session.email, displayName: session.displayName ?? null, role: session.role ?? "user", plugins: session.plugins ?? [] });
     setAuthDisabled(false);
     return session;
   }, []);
@@ -90,19 +90,29 @@ export function AuthProvider({ children }) {
     setAuthDisabled(false);
   }, []);
 
+  // A user can access a plugin if they're an admin or it's in their grant list.
+  const hasPlugin = useCallback(
+    (pluginId) =>
+      authDisabled ||
+      user?.role === "admin" ||
+      Boolean(user?.plugins?.includes(pluginId)),
+    [authDisabled, user],
+  );
+
   const value = useMemo(
     () => ({
       user,
       authDisabled,
       loading,
       isAuthenticated: Boolean(user) || authDisabled,
+      hasPlugin,
       login,
       register,
       logout,
       refresh,
       updateUserDisplayName,
     }),
-    [user, authDisabled, loading, login, register, logout, refresh, updateUserDisplayName],
+    [user, authDisabled, loading, hasPlugin, login, register, logout, refresh, updateUserDisplayName],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

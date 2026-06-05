@@ -206,6 +206,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 `);
 
+// Per-user feature/plugin grants. A row means the user has access to that plugin
+// (admins implicitly have all of them, resolved in code).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_plugins (
+    email TEXT NOT NULL,
+    plugin TEXT NOT NULL,
+    granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (email, plugin)
+  );
+`);
+
 try {
   db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
 } catch {

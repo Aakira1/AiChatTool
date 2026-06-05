@@ -5,6 +5,8 @@ import { getSessionCookieName, readSessionFromRequest } from "../middleware/auth
 import { verifyPassword } from "../utils/password.js";
 import { createSessionToken } from "../utils/session.js";
 import { roleFor } from "../utils/permissions.js";
+import { effectivePluginsFor } from "../db/repositories/pluginRepo.js";
+import { PLUGIN_IDS } from "../config/plugins.js";
 import {
   createUser,
   getUserByEmail,
@@ -66,6 +68,7 @@ authRouter.get("/me", (request, response) => {
       email: env.authEmail,
       authDisabled: true,
       role: "admin",
+      plugins: PLUGIN_IDS,
     });
     return;
   }
@@ -76,11 +79,13 @@ authRouter.get("/me", (request, response) => {
     return;
   }
 
+  const dbRole = getUserByEmail(session.email)?.role ?? "user";
   response.json({
     authenticated: true,
     email: session.email,
     displayName: displayNameFor(session.email),
-    role: roleFor(session.email, getUserByEmail(session.email)?.role ?? "user"),
+    role: roleFor(session.email, dbRole),
+    plugins: effectivePluginsFor(session.email, dbRole),
   });
 });
 
@@ -124,6 +129,7 @@ authRouter.post("/register", (request, response) => {
     email: created.email,
     displayName: created.display_name,
     role: roleFor(created.email, "user"),
+    plugins: effectivePluginsFor(created.email, "user"),
   });
 });
 
@@ -156,6 +162,7 @@ authRouter.post("/login", (request, response) => {
       email: user.email,
       displayName: user.display_name,
       role: roleFor(user.email, user.role ?? "user"),
+      plugins: effectivePluginsFor(user.email, user.role ?? "user"),
     });
     return;
   }
@@ -170,7 +177,7 @@ authRouter.post("/login", (request, response) => {
   }
 
   issueSession(response, env.authEmail);
-  response.json({ authenticated: true, email: env.authEmail, role: "admin" });
+  response.json({ authenticated: true, email: env.authEmail, role: "admin", plugins: PLUGIN_IDS });
 });
 
 const displayNameSchema = z.object({

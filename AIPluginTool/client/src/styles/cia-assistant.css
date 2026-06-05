@@ -3960,6 +3960,37 @@
   grid-template-columns: 1.5fr 1.6fr 1fr 2.4fr;
 }
 
+.cia-admin-row-plugin {
+  grid-template-columns: 1.4fr 2fr 1fr;
+}
+
+.cia-admin-plugins {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cia-plugin-card {
+  background: #ffffff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.cia-plugin-card-head {
+  margin-bottom: 12px;
+}
+
+.cia-plugin-card-head strong {
+  color: var(--t1-navy, #2a1446);
+  font-size: 15px;
+}
+
+.cia-plugin-card-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
 .cia-admin-tabs {
   display: flex;
   gap: 4px;

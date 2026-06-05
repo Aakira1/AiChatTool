@@ -11,7 +11,7 @@ import { LoginPage } from "./pages/LoginPage";
 import "./styles/cia-assistant.css";
 
 function AppShell() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, hasPlugin } = useAuth();
   const [view, setView] = useState("chat");
 
   if (loading) {
@@ -22,17 +22,20 @@ function AppShell() {
     return <LoginPage />;
   }
 
+  // Permission-gated views fall back to chat if the user lacks access.
+  const effectiveView = view === "dashboard" && !hasPlugin("dashboard") ? "chat" : view;
+
   return (
     <div className="cia-app">
-      <AppNavbar activeView={view} onNavigate={setView} />
-      <main key={view} className="t1-main t1-view-enter">
-        {view === "dashboard" ? (
+      <AppNavbar activeView={effectiveView} onNavigate={setView} />
+      <main key={effectiveView} className="t1-main t1-view-enter">
+        {effectiveView === "dashboard" ? (
           <DashboardPage />
-        ) : view === "forums" ? (
+        ) : effectiveView === "forums" ? (
           <ForumsPage />
-        ) : view === "admin" ? (
+        ) : effectiveView === "admin" ? (
           <AdminPage />
-        ) : view === "help" ? (
+        ) : effectiveView === "help" ? (
           <HelpPage />
         ) : (
           <ChatPage />

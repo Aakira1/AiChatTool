@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   listAdminUsers,
   setUserRole,
+  listAdminPlugins,
+  setUserPlugin,
   listAdminContent,
   listAuditLog,
   deleteForum,
@@ -105,6 +107,92 @@ function UsersTab() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ---- Plugins tab --------------------------------------------------------
+
+function PluginsTab() {
+  const toast = useToast();
+  const [plugins, setPlugins] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+
+  useEffect(() => {
+    Promise.all([listAdminPlugins(), listAdminUsers()])
+      .then(([{ plugins: reg }, { users: list }]) => {
+        setPlugins(reg);
+        setUsers(list);
+      })
+      .catch((error) => toast.error(error.message || "Failed to load plugins"))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggle = async (target, plugin, enabled) => {
+    const key = `${target.email}:${plugin.id}`;
+    setSaving(key);
+    try {
+      const { plugins: granted } = await setUserPlugin(target.email, plugin.id, enabled);
+      setUsers((prev) =>
+        prev.map((u) => (u.email === target.email ? { ...u, plugins: granted } : u)),
+      );
+      toast.success(
+        `${enabled ? "Granted" : "Revoked"} ${plugin.label} for ${target.display_name || target.email}`,
+      );
+    } catch (error) {
+      toast.error(error.message || "Failed to update plugin access");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (loading) return <p className="cia-forum-muted">Loading plugins…</p>;
+
+  return (
+    <div className="cia-admin-plugins">
+      {plugins.map((plugin) => (
+        <div key={plugin.id} className="cia-plugin-card">
+          <div className="cia-plugin-card-head">
+            <strong>{plugin.label}</strong>
+            <p className="cia-forum-muted">{plugin.description}</p>
+          </div>
+          <div className="cia-admin-table">
+            <div className="cia-admin-row cia-admin-row-head cia-admin-row-plugin">
+              <span>User</span>
+              <span>Email</span>
+              <span>Access</span>
+            </div>
+            {users.map((u) => {
+              const isAdminRole = u.role === "admin";
+              const enabled = isAdminRole || (u.plugins ?? []).includes(plugin.id);
+              const key = `${u.email}:${plugin.id}`;
+              return (
+                <div key={u.email} className="cia-admin-row cia-admin-row-plugin">
+                  <span className="cia-admin-name">{u.display_name || "—"}</span>
+                  <span className="cia-admin-email">{u.email}</span>
+                  <span className="cia-admin-actions">
+                    {isAdminRole ? (
+                      <span className="cia-admin-badge admin">All (admin)</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`cia-admin-toggle ${enabled ? "danger" : ""}`}
+                        disabled={saving === key}
+                        onClick={() => toggle(u, plugin, !enabled)}
+                      >
+                        {saving === key ? "…" : enabled ? "Revoke" : "Grant"}
+                      </button>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -331,6 +419,7 @@ function AuditTab() {
 
 const TABS = [
   ["users", "Users"],
+  ["plugins", "Plugins"],
   ["moderation", "Moderation"],
   ["audit", "Audit log"],
 ];
@@ -360,7 +449,15 @@ export function AdminPage() {
         ))}
       </div>
 
-      {tab === "users" ? <UsersTab /> : tab === "moderation" ? <ModerationTab /> : <AuditTab />}
+      {tab === "users" ? (
+        <UsersTab />
+      ) : tab === "plugins" ? (
+        <PluginsTab />
+      ) : tab === "moderation" ? (
+        <ModerationTab />
+      ) : (
+        <AuditTab />
+      )}
     </div>
   );
 }
