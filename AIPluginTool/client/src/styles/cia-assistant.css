@@ -1978,39 +1978,110 @@
   background: #fff;
   border: 1px solid var(--t1-border, #e8dff0);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 14px 16px;
+  border-top: 3px solid var(--t1-border, #e8dff0);
+}
+
+.cia-chk-insight-next {
+  border-top-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-insight-prog {
+  border-top-color: var(--t1-orange, #f7941d);
 }
 
 .cia-chk-insight-card h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--t1-navy, #2a1446);
 }
 
-.cia-chk-insight-card ul {
+.cia-chk-insight-dot {
+  font-size: 12px;
+}
+
+.cia-chk-insight-count {
+  margin-left: auto;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--t1-soft, #faf7fc);
+  color: var(--t1-muted, #6f5f82);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cia-chk-insight-list {
   margin: 0;
-  padding-left: 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  counter-reset: upnext;
 }
 
-.cia-chk-insight-card li {
-  font-size: 12.5px;
-  color: var(--t1-body, #3b2a4d);
-  line-height: 1.35;
+.cia-chk-insight-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--t1-soft, #faf7fc);
+}
+
+.cia-chk-insight-next .cia-chk-insight-list li {
+  position: relative;
+  padding-left: 30px;
+  counter-increment: upnext;
+}
+
+.cia-chk-insight-next .cia-chk-insight-list li::before {
+  content: counter(upnext);
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--t1-magenta, #e4007c);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
 }
 
 .cia-chk-insight-fg {
-  display: inline-block;
-  margin-right: 6px;
-  padding: 1px 6px;
+  align-self: flex-start;
+  padding: 1px 7px;
   border-radius: 999px;
-  background: var(--t1-soft, #faf7fc);
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
   color: var(--t1-purple, #6b2b8c);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.cia-chk-insight-task {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--t1-body, #3b2a4d);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cia-chk-insight-empty {
@@ -2036,13 +2107,15 @@
 
 .cia-chk-header h1 {
   margin: 0;
-  color: var(--t1-navy, #2a1446);
-  font-size: 22px;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .cia-chk-header p {
   margin: 4px 0 0;
-  color: var(--t1-muted, #6f5f82);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
 }
 

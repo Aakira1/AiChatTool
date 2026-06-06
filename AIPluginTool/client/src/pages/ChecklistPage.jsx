@@ -231,29 +231,41 @@ export function ChecklistPage() {
 
           {insights && (insights.nextUp.length || insights.inProgress.length) ? (
             <div className="cia-chk-insights">
-              <div className="cia-chk-insight-card">
-                <h3>▶ Up next</h3>
+              <div className="cia-chk-insight-card cia-chk-insight-next">
+                <h3>
+                  <span className="cia-chk-insight-dot" aria-hidden="true">
+                    ▶
+                  </span>
+                  Up next
+                  <span className="cia-chk-insight-count">{overall.total - overall.completed - overall.inProgress}</span>
+                </h3>
                 {insights.nextUp.length ? (
-                  <ul>
+                  <ol className="cia-chk-insight-list">
                     {insights.nextUp.map((i) => (
                       <li key={i.rowIndex}>
                         <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
-                        {i.task}
+                        <span className="cia-chk-insight-task">{i.task}</span>
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 ) : (
                   <p className="cia-chk-insight-empty">Nothing left to start 🎉</p>
                 )}
               </div>
-              <div className="cia-chk-insight-card">
-                <h3>⏳ In progress</h3>
+              <div className="cia-chk-insight-card cia-chk-insight-prog">
+                <h3>
+                  <span className="cia-chk-insight-dot" aria-hidden="true">
+                    ⏳
+                  </span>
+                  In progress
+                  <span className="cia-chk-insight-count">{overall.inProgress}</span>
+                </h3>
                 {insights.inProgress.length ? (
-                  <ul>
+                  <ul className="cia-chk-insight-list">
                     {insights.inProgress.map((i) => (
                       <li key={i.rowIndex}>
                         <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
-                        {i.task}
+                        <span className="cia-chk-insight-task">{i.task}</span>
                       </li>
                     ))}
                   </ul>
