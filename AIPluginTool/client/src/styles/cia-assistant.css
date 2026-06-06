@@ -1996,28 +1996,6 @@
   margin-bottom: 6px;
 }
 
-.cia-bpa-templates {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding-bottom: 10px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--t1-border, #e8dff0);
-}
-
-.cia-bpa-templates .cia-bpa-assist-label {
-  margin: 0;
-}
-
-.cia-bpa-templates select {
-  border: 1px solid var(--t1-border, #e8dff0);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 13px;
-  background: #fff;
-}
-
 .cia-bpa-assist-row {
   display: flex;
   gap: 8px;

@@ -131,12 +131,10 @@ export function generateProcess(rows, analysis, plan) {
   };
 
   const newRows = [];
-  const planTasks = plan.filter((t) => t.name);
-  const taskIds = planTasks.map(() => uuid());
-
-  planTasks.forEach((task, ti) => {
+  for (const task of plan) {
+    if (!task.name) continue;
     const pt = [...rows[ptTmpl.rowIndex]];
-    setCol(pt, "TaskProcessTaskId", taskIds[ti]);
+    setCol(pt, "TaskProcessTaskId", uuid());
     setCol(pt, "TaskTaskName", task.name);
     setCol(pt, "TaskDisplayName", "");
     newRows.push(pt);
@@ -152,133 +150,14 @@ export function generateProcess(rows, analysis, plan) {
         newRows.push(pa);
       }
     }
-  });
+  }
   if (!newRows.length) return rows;
 
   const endTask = analysis.tasks.find((t) => t.type === "END");
   const out = [...rows];
   out.splice(endTask ? endTask.rowIndex : out.length, 0, ...newRows);
-
-  // Also update the BP Definition graph so the diagram renders the new tasks.
-  const bpIndex = out.findIndex((r, i) => i >= 2 && r[idx.LineType] === "BP");
-  if (bpIndex >= 0 && idx.Definition != null) {
-    try {
-      const def = JSON.parse(out[bpIndex][idx.Definition] || "{}");
-      if (!Array.isArray(def.Nodes)) def.Nodes = [];
-      let seq = def.Nodes.reduce((m, n) => Math.max(m, Number(n.SequenceNumber) || 0), 0);
-      const endNode = def.Nodes.find((n) => (n.Icon || "") === "end");
-      planTasks.forEach((task, ti) => {
-        seq += 10;
-        const nextId = ti < taskIds.length - 1 ? taskIds[ti + 1] : endNode?.Id;
-        const connections = nextId
-          ? [
-              {
-                Id: ti + 1,
-                ConnectionText: task.items?.[0] || "Proceed",
-                FromNodeId: taskIds[ti],
-                ToNodeId: nextId,
-                IsExpectedDecision: true,
-                Parameters: { ActionId: "", DecisionId: "" },
-              },
-            ]
-          : [];
-        def.Nodes.push({
-          Id: taskIds[ti],
-          SourceNodeId: "",
-          SequenceNumber: seq,
-          Position: {},
-          NodeType: "",
-          NodeText: task.name,
-          Icon: "user",
-          Connections: connections,
-        });
-      });
-      const bpRow = [...out[bpIndex]];
-      bpRow[idx.Definition] = JSON.stringify(def);
-      out[bpIndex] = bpRow;
-    } catch {
-      /* leave Definition untouched if it isn't parseable */
-    }
-  }
   return out;
 }
-
-// Built-in BPA workflow templates derived from the TechnologyOne BPM project
-// design — each is an ordered set of tasks (statuses) with a forward decision.
-export const BPA_TEMPLATES = [
-  {
-    id: "standard-dev",
-    label: "Standard Development",
-    tasks: [
-      "Pending",
-      "Dev Spec",
-      "Dev Ready",
-      "Active",
-      "Development Complete",
-      "Functional QA",
-      "Analyst QA",
-      "ITQA",
-      "Release Merge",
-      "Release QA",
-      "Closed",
-    ].map((name, i, a) => ({ name, items: [i < a.length - 1 ? "Proceed" : "Done"] })),
-  },
-  {
-    id: "epic",
-    label: "Epic",
-    tasks: ["Pending", "Research", "Design", "Manufacture", "Prove", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Proceed" : "Done"],
-    })),
-  },
-  {
-    id: "change-request",
-    label: "Change Request",
-    tasks: ["Pending", "In Progress", "RPO Review", "GM Review", "CTO Review", "Closed"].map(
-      (name, i, a) => ({ name, items: [i < a.length - 1 ? "Approve" : "Done"] }),
-    ),
-  },
-  {
-    id: "customer-request",
-    label: "Customer Request",
-    tasks: ["Pending", "Active", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Proceed" : "Done"],
-    })),
-  },
-  {
-    id: "rd-artefact",
-    label: "R&D Artefact",
-    tasks: ["Pending", "In Progress", "Awaiting Sign-off", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Submit" : "Done"],
-    })),
-  },
-  {
-    id: "product-success",
-    label: "Product Success",
-    tasks: ["Pending", "Active", "In Review", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Proceed" : "Done"],
-    })),
-  },
-  {
-    id: "compliance",
-    label: "Compliance",
-    tasks: ["Pending", "Provided", "Reviewed", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Proceed" : "Done"],
-    })),
-  },
-  {
-    id: "acceptance",
-    label: "Acceptance",
-    tasks: ["Pending", "Tested", "Failed", "Closed"].map((name, i, a) => ({
-      name,
-      items: [i < a.length - 1 ? "Check" : "Done"],
-    })),
-  },
-];
 
 /**
  * Build a flow graph from the process Definition blob: nodes (tasks) and edges
