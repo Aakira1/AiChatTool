@@ -6,8 +6,10 @@ import {
   bpaDecisionLabels,
   addItem as addItemToGrid,
   generateProcess,
+  parseBpaGraph,
 } from "../lib/bpa.js";
 import { bpaAssist } from "../lib/api.js";
+import { BpaGraph } from "../components/BpaGraph.jsx";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
 function withCell(row, i, value) {
@@ -26,8 +28,13 @@ export function BpaPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
   const [newItem, setNewItem] = useState({}); // taskRowIndex -> draft label
+  const [tab, setTab] = useState("editor"); // editor | diagram
 
   const analysis = useMemo(() => (rows ? analyzeBpa(rows) : null), [rows]);
+  const graph = useMemo(
+    () => (rows && analysis ? parseBpaGraph(rows, analysis) : null),
+    [rows, analysis],
+  );
 
   const loadFile = async (file) => {
     try {
@@ -152,9 +159,25 @@ export function BpaPage() {
             {rows ? "Open another" : "Open BPA CSV"}
           </button>
           {rows ? (
-            <button type="button" className="cia-header-btn" onClick={downloadCsv}>
-              Download CSV
-            </button>
+            <>
+              <button
+                type="button"
+                className={`cia-header-btn${tab === "editor" ? " active" : ""}`}
+                onClick={() => setTab("editor")}
+              >
+                Editor
+              </button>
+              <button
+                type="button"
+                className={`cia-header-btn${tab === "diagram" ? " active" : ""}`}
+                onClick={() => setTab("diagram")}
+              >
+                Diagram
+              </button>
+              <button type="button" className="cia-header-btn" onClick={downloadCsv}>
+                Download CSV
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -167,6 +190,14 @@ export function BpaPage() {
             with an AI prompt to suggest names and outcomes.
           </p>
         </div>
+      ) : tab === "diagram" ? (
+        graph && graph.nodes.length ? (
+          <BpaGraph graph={graph} />
+        ) : (
+          <p className="cia-forum-muted">
+            No diagram in this file (the process Definition has no nodes).
+          </p>
+        )
       ) : (
         <>
           {/* AI prompt field */}

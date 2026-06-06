@@ -159,4 +159,64 @@ export function generateProcess(rows, analysis, plan) {
   return out;
 }
 
+/**
+ * Build a flow graph from the process Definition blob: nodes (tasks) and edges
+ * (decision connections with their action), plus lookups so the UI can show the
+ * action(s) within each decision.
+ */
+export function parseBpaGraph(rows, analysis) {
+  const idx = analysis.idx;
+  const cell = (r, name) => {
+    const i = idx[name];
+    return i != null && i < r.length ? r[i] : "";
+  };
+  const bp = rows.find((r, i) => i >= 2 && cell(r, "LineType") === "BP");
+  let def = {};
+  try {
+    def = JSON.parse(bp ? cell(bp, "Definition") || "{}" : "{}");
+  } catch {
+    def = {};
+  }
+  const defNodes = Array.isArray(def.Nodes) ? def.Nodes : [];
+  const nodes = defNodes.map((n) => ({
+    id: n.Id,
+    text: n.NodeText || "",
+    icon: n.Icon || "user",
+    seq: Number(n.SequenceNumber ?? 0),
+  }));
+  const edges = [];
+  for (const n of defNodes) {
+    for (const c of n.Connections || []) {
+      if (!c.ToNodeId) continue;
+      edges.push({
+        from: c.FromNodeId || n.Id,
+        to: c.ToNodeId,
+        label: c.ConnectionText || "",
+        actionId: c.Parameters?.ActionId || "",
+        decisionId: c.Parameters?.DecisionId || "",
+        expected: Boolean(c.IsExpectedDecision),
+      });
+    }
+  }
+
+  // Action lookups from PTA rows so an edge can show its action.
+  const actionsByActionId = {};
+  const actionsByDecisionId = {};
+  for (let i = 2; i < rows.length; i += 1) {
+    const r = rows[i];
+    if (cell(r, "LineType") !== "PTA") continue;
+    const a = {
+      decision: cell(r, "ActionDecision"),
+      type: cell(r, "ActionActionType"),
+      description: cell(r, "ActionDescription"),
+      actionId: cell(r, "ActionActionId"),
+      decisionId: cell(r, "ActionDecisionId"),
+    };
+    if (a.actionId) actionsByActionId[a.actionId] = a;
+    if (a.decisionId) actionsByDecisionId[a.decisionId] = a;
+  }
+
+  return { nodes, edges, actionsByActionId, actionsByDecisionId };
+}
+
 export { GUID_ZERO };
