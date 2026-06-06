@@ -2121,6 +2121,23 @@
   color: var(--t1-body, #3b2a4d);
 }
 
+.cia-pkg-editor {
+  width: 100%;
+  min-height: 50vh;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 10px;
+  resize: vertical;
+  background: var(--t1-soft, #faf7fc);
+}
+
+.cia-pkg-edited {
+  color: var(--t1-magenta, #e4007c);
+  margin-right: 5px;
+  font-size: 9px;
+  vertical-align: middle;
+}
+
 @media (max-width: 820px) {
   .cia-pkg-body {
     grid-template-columns: 1fr;

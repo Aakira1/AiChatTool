@@ -51,6 +51,9 @@ export function PackagePage() {
   const [selected, setSelected] = useState(null);
   const [content, setContent] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // Edited entry text keyed by path; only these get written back on export.
+  const [drafts, setDrafts] = useState({});
 
   const loadFile = async (file) => {
     try {
@@ -66,6 +69,8 @@ export function PackagePage() {
       setFileName(file.name);
       setSelected(null);
       setContent(null);
+      setDrafts({});
+      setEditing(false);
       toast.success(`Opened ${list.length} entries`);
       if (list.length) void openEntry(list[0].path);
     } catch (error) {
@@ -75,14 +80,47 @@ export function PackagePage() {
 
   const openEntry = async (path) => {
     setSelected(path);
+    const ext = path.split(".").pop()?.toLowerCase();
+    const kind = ext === "json" ? "json" : ext === "xml" ? "xml" : "text";
+    if (drafts[path] != null) {
+      setContent({ kind, text: drafts[path] });
+      return;
+    }
     try {
       const raw = await zipRef.current.file(path).async("string");
-      const ext = path.split(".").pop()?.toLowerCase();
-      if (ext === "json") setContent({ kind: "json", text: prettyJson(raw) });
-      else if (ext === "xml") setContent({ kind: "xml", text: prettyXml(raw) });
-      else setContent({ kind: "text", text: raw.slice(0, 200_000) });
+      if (kind === "json") setContent({ kind, text: prettyJson(raw) });
+      else if (kind === "xml") setContent({ kind, text: prettyXml(raw) });
+      else setContent({ kind, text: raw.slice(0, 200_000) });
     } catch {
       setContent({ kind: "text", text: "(Could not read this entry as text)" });
+    }
+  };
+
+  const editDraft = (value) => {
+    setContent((c) => (c ? { ...c, text: value } : c));
+    setDrafts((d) => ({ ...d, [selected]: value }));
+  };
+
+  // Re-export the package: keep every original entry/path, write back only edits.
+  const downloadPackage = async () => {
+    const zip = zipRef.current;
+    if (!zip) return;
+    try {
+      for (const [path, text] of Object.entries(drafts)) {
+        if (text != null) zip.file(path, text);
+      }
+      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName || "package.t1pkg";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Package exported (original structure preserved)");
+    } catch (error) {
+      toast.error(error.message || "Couldn't export the package");
     }
   };
 
@@ -147,8 +185,28 @@ export function PackagePage() {
             {entries.length ? "Open another" : "Open .t1pkg"}
           </button>
           {content ? (
-            <button type="button" className="cia-header-btn" onClick={() => void copyContent()}>
-              Copy
+            <>
+              <button
+                type="button"
+                className={`cia-header-btn${editing ? " active" : ""}`}
+                onClick={() => setEditing((v) => !v)}
+              >
+                {editing ? "Viewing" : "Edit"}
+              </button>
+              <button type="button" className="cia-header-btn" onClick={() => void copyContent()}>
+                Copy
+              </button>
+            </>
+          ) : null}
+          {entries.length ? (
+            <button
+              type="button"
+              className="cia-header-btn"
+              onClick={() => void downloadPackage()}
+              title="Re-export keeping the original package structure"
+            >
+              Export .t1pkg
+              {Object.keys(drafts).length ? ` (${Object.keys(drafts).length})` : ""}
             </button>
           ) : null}
         </div>
@@ -180,6 +238,7 @@ export function PackagePage() {
                       title={e.path}
                     >
                       <span className="cia-pkg-entry-name">
+                        {drafts[e.path] != null ? <span className="cia-pkg-edited">●</span> : null}
                         {e.path.replace(/^package\//, "")}
                       </span>
                       <span className="cia-pkg-entry-size">{fmtSize(e.size)}</span>
@@ -197,7 +256,16 @@ export function PackagePage() {
                   <span className="cia-pkg-viewer-path">{selected?.replace(/^package\//, "")}</span>
                   <span className="cia-pkg-viewer-kind">{content.kind.toUpperCase()}</span>
                 </div>
-                <pre className="cia-pkg-code">{content.text}</pre>
+                {editing ? (
+                  <textarea
+                    className="cia-pkg-code cia-pkg-editor"
+                    value={content.text}
+                    spellCheck={false}
+                    onChange={(e) => editDraft(e.target.value)}
+                  />
+                ) : (
+                  <pre className="cia-pkg-code">{content.text}</pre>
+                )}
               </>
             ) : (
               <p className="cia-forum-muted">Select an entry to view it.</p>
