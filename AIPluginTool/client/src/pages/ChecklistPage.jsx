@@ -37,23 +37,41 @@ export function ChecklistPage() {
   const [dragActive, setDragActive] = useState(false);
 
   const saveTimer = useRef(null);
+  const serverUpdatedAt = useRef(null);
+
+  const applyParsed = (parsed, name) => {
+    const a = analyzeChecklist(parsed);
+    if (!a) return false;
+    setRows(parsed);
+    setAnalysis(a);
+    setFileName(name || "checklist.csv");
+    setTick((t) => t + 1);
+    return true;
+  };
+
+  // Pull the latest server copy; adopt it if it changed elsewhere.
+  const refreshFromServer = async ({ notify = false } = {}) => {
+    try {
+      const remote = await getCompanion();
+      if (remote?.rows?.length && remote.updatedAt !== serverUpdatedAt.current) {
+        serverUpdatedAt.current = remote.updatedAt;
+        applyParsed(remote.rows, remote.fileName);
+        if (notify) toast.info("Companion refreshed from the latest saved copy.");
+      }
+    } catch {
+      /* offline — keep local */
+    }
+  };
 
   // Load the shared (server) checklist first, falling back to the local cache.
   useEffect(() => {
     let active = true;
-    const applyRows = (parsed, name) => {
-      const a = analyzeChecklist(parsed);
-      if (a && active) {
-        setRows(parsed);
-        setAnalysis(a);
-        setFileName(name || "checklist.csv");
-      }
-    };
     (async () => {
       try {
         const remote = await getCompanion();
-        if (remote?.rows?.length) {
-          applyRows(remote.rows, remote.fileName);
+        if (remote?.rows?.length && active) {
+          serverUpdatedAt.current = remote.updatedAt;
+          applyParsed(remote.rows, remote.fileName);
           return;
         }
       } catch {
@@ -61,14 +79,19 @@ export function ChecklistPage() {
       }
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (saved?.rows?.length) applyRows(saved.rows, saved.fileName);
+        if (saved?.rows?.length && active) applyParsed(saved.rows, saved.fileName);
       } catch {
         /* ignore */
       }
     })();
+    // Re-sync when the tab regains focus (picks up edits from the extension).
+    const onFocus = () => void refreshFromServer();
+    window.addEventListener("focus", onFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const persist = (nextRows, name) => {
@@ -80,7 +103,18 @@ export function ChecklistPage() {
     // Debounced server sync so the same checklist appears in the extension.
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      saveCompanion({ fileName: name, rows: nextRows }).catch(() => {});
+      saveCompanion({ fileName: name, rows: nextRows, baseUpdatedAt: serverUpdatedAt.current })
+        .then((res) => {
+          if (res?.conflict) {
+            // The other surface saved a newer copy — adopt it.
+            serverUpdatedAt.current = res.updatedAt;
+            applyParsed(res.rows, res.fileName);
+            toast.info("Companion was updated elsewhere — loaded the latest.");
+          } else if (res?.updatedAt) {
+            serverUpdatedAt.current = res.updatedAt;
+          }
+        })
+        .catch(() => {});
     }, 700);
   };
 
@@ -157,19 +191,12 @@ export function ChecklistPage() {
 
   const downloadExcel = async () => {
     try {
-      const sheet = {
-        name: "Checklist",
-        columns: ["Functional Group", "Task Group", "Task", "Status", "Date", "Responsible"],
-        rows: analysis.items.map((i) => [
-          i.functionalGroup,
-          i.taskGroup,
-          i.task,
-          i.status,
-          i.date,
-          i.responsible,
-        ]),
-      };
-      await downloadXlsxSpec({ title: fileName.replace(/\.csv$/i, "") || "Checklist", sheets: [sheet] });
+      // Keep the original layout: export the full grid (preamble + every column),
+      // with only the status/date cells updated. Empty columns = no styled header.
+      await downloadXlsxSpec({
+        title: fileName.replace(/\.csv$/i, "") || "Checklist",
+        sheets: [{ name: "Companion", columns: [], rows }],
+      });
     } catch (error) {
       toast.error(error.message || "Couldn't build the Excel file");
     }
@@ -218,6 +245,14 @@ export function ChecklistPage() {
           </button>
           {rows ? (
             <>
+              <button
+                type="button"
+                className="cia-header-btn"
+                onClick={() => void refreshFromServer({ notify: true })}
+                title="Reload the latest saved copy"
+              >
+                Refresh
+              </button>
               <button type="button" className="cia-header-btn" onClick={downloadCsv}>
                 Download CSV
               </button>

@@ -429,11 +429,13 @@ export async function getCompanion() {
   return response.json();
 }
 
-export async function saveCompanion({ fileName, rows }) {
+export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
   const response = await apiFetch("/api/companion", {
     method: "PUT",
-    body: JSON.stringify({ fileName, rows }),
+    body: JSON.stringify({ fileName, rows, baseUpdatedAt }),
   });
+  // 409 = another surface saved a newer copy; return it so the caller can adopt it.
+  if (response.status === 409) return { conflict: true, ...(await response.json()) };
   if (!response.ok) throw new Error(await readError(response, "Couldn't save the checklist"));
   return response.json();
 }

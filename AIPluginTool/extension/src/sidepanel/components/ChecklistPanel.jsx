@@ -22,21 +22,37 @@ export function ChecklistPanel({ onClose }) {
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const saveTimer = useRef(null);
+  const serverUpdatedAt = useRef(null);
+
+  const apply = (parsed, name) => {
+    const a = analyzeChecklist(parsed);
+    if (!a) return false;
+    setRows(parsed);
+    setAnalysis(a);
+    setFileName(name || "checklist.csv");
+    setTick((t) => t + 1);
+    return true;
+  };
+
+  const refreshFromServer = async () => {
+    try {
+      const remote = await getCompanion();
+      if (remote?.rows?.length && remote.updatedAt !== serverUpdatedAt.current) {
+        serverUpdatedAt.current = remote.updatedAt;
+        apply(remote.rows, remote.fileName);
+      }
+    } catch {
+      /* offline */
+    }
+  };
 
   useEffect(() => {
     let active = true;
-    const apply = (parsed, name) => {
-      const a = analyzeChecklist(parsed);
-      if (a && active) {
-        setRows(parsed);
-        setAnalysis(a);
-        setFileName(name || "checklist.csv");
-      }
-    };
     (async () => {
       try {
         const remote = await getCompanion();
-        if (remote?.rows?.length) {
+        if (remote?.rows?.length && active) {
+          serverUpdatedAt.current = remote.updatedAt;
           apply(remote.rows, remote.fileName);
           return;
         }
@@ -45,13 +61,16 @@ export function ChecklistPanel({ onClose }) {
       }
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (saved?.rows?.length) apply(saved.rows, saved.fileName);
+        if (saved?.rows?.length && active) apply(saved.rows, saved.fileName);
       } catch {
         /* ignore */
       }
     })();
+    const onFocus = () => void refreshFromServer();
+    window.addEventListener("focus", onFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
@@ -63,7 +82,16 @@ export function ChecklistPanel({ onClose }) {
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      saveCompanion({ fileName: name, rows: nextRows }).catch(() => {});
+      saveCompanion({ fileName: name, rows: nextRows, baseUpdatedAt: serverUpdatedAt.current })
+        .then((res) => {
+          if (res?.conflict) {
+            serverUpdatedAt.current = res.updatedAt;
+            apply(res.rows, res.fileName);
+          } else if (res?.updatedAt) {
+            serverUpdatedAt.current = res.updatedAt;
+          }
+        })
+        .catch(() => {});
     }, 700);
   };
 

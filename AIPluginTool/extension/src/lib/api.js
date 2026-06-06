@@ -384,11 +384,12 @@ export async function getCompanion() {
   return response.json();
 }
 
-export async function saveCompanion({ fileName, rows }) {
+export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
   const response = await apiFetch("/api/companion", {
     method: "PUT",
-    body: JSON.stringify({ fileName, rows }),
+    body: JSON.stringify({ fileName, rows, baseUpdatedAt }),
   });
+  if (response.status === 409) return { conflict: true, ...(await response.json()) };
   if (!response.ok) throw new Error("Couldn't save the checklist");
   return response.json();
 }
