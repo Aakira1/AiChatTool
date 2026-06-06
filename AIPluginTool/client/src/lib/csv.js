@@ -29,3 +29,59 @@ export function parseCsvFile(text) {
     };
   });
 }
+
+// ---- Robust RFC-4180 grid parser/serializer (quotes, commas, newlines) ----
+
+export function parseCsv(text) {
+  const s = String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (s[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += c;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+export function toCsv(rows) {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const v = String(cell ?? "");
+          return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+        })
+        .join(","),
+    )
+    .join("\r\n");
+}

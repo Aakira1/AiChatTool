@@ -3,6 +3,7 @@ import { AppNavbar } from "./components/layout/AppNavbar";
 import { ToastProvider } from "./components/ui/ToastProvider.jsx";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ChatPage } from "./pages/ChatPage";
+import { ChecklistPage } from "./pages/ChecklistPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForumsPage } from "./pages/ForumsPage";
 import { AdminPage } from "./pages/AdminPage";
@@ -23,7 +24,10 @@ function AppShell() {
   }
 
   // Permission-gated views fall back to chat if the user lacks access.
-  const effectiveView = view === "dashboard" && !hasPlugin("dashboard") ? "chat" : view;
+  const blockedByPlugin =
+    (view === "dashboard" && !hasPlugin("dashboard")) ||
+    (view === "checklist" && !hasPlugin("checklist"));
+  const effectiveView = blockedByPlugin ? "chat" : view;
 
   return (
     <div className="cia-app">
@@ -31,6 +35,8 @@ function AppShell() {
       <main key={effectiveView} className="t1-main t1-view-enter">
         {effectiveView === "dashboard" ? (
           <DashboardPage />
+        ) : effectiveView === "checklist" ? (
+          <ChecklistPage />
         ) : effectiveView === "forums" ? (
           <ForumsPage />
         ) : effectiveView === "admin" ? (

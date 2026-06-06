@@ -7,6 +7,11 @@ export const PLUGINS = [
     label: "Dashboard",
     description: "Analytics dashboard, metrics, and data imports.",
   },
+  {
+    id: "checklist",
+    label: "Checklist Companion",
+    description: "Import an implementation companion CSV, track progress, export it back.",
+  },
 ];
 
 export const PLUGIN_IDS = PLUGINS.map((p) => p.id);

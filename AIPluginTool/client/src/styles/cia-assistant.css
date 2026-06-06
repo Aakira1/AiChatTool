@@ -1936,6 +1936,192 @@
   padding: 12px 20px 0;
 }
 
+/* ---- Checklist Companion ---- */
+.cia-chk-page {
+  padding: 24px 28px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.cia-chk-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.cia-chk-header h1 {
+  margin: 0;
+  color: var(--t1-navy, #2a1446);
+  font-size: 22px;
+}
+
+.cia-chk-header p {
+  margin: 4px 0 0;
+  color: var(--t1-muted, #6f5f82);
+  font-size: 13px;
+}
+
+.cia-chk-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cia-chk-empty {
+  background: #fff;
+  border: 1px dashed var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  padding: 28px;
+  color: var(--t1-muted, #6f5f82);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.cia-chk-summary {
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.cia-chk-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-summary-head strong {
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-chk-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--t1-soft, #faf7fc);
+  overflow: hidden;
+}
+
+.cia-chk-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--t1-magenta, #e4007c), var(--t1-orange, #f7941d));
+  transition: width 0.25s ease;
+}
+
+.cia-chk-group {
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.cia-chk-group-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.cia-chk-group-head h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-chk-group-meta {
+  font-size: 12px;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-group-bar {
+  grid-column: 1 / -1;
+}
+
+.cia-chk-taskgroup h3 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1-purple, #6b2b8c);
+}
+
+.cia-chk-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cia-chk-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 10px;
+}
+
+.cia-chk-task.is-completed {
+  background: #f1faf4;
+  border-color: #bfe6cd;
+}
+
+.cia-chk-task.is-in-progress {
+  background: #fff7ec;
+  border-color: #f4d9a8;
+}
+
+.cia-chk-task input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cia-chk-task-title {
+  display: block;
+  font-size: 13.5px;
+  color: var(--t1-body, #3b2a4d);
+}
+
+.cia-chk-task.is-completed .cia-chk-task-title {
+  text-decoration: line-through;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-task-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-status {
+  flex: none;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #fff;
+  color: var(--t1-body, #3b2a4d);
+}
+
 /* ---- Copilot Studio multi-agent manager ---- */
 .t1-copilot-agents-head {
   display: flex;
