@@ -145,9 +145,13 @@ export function BpaGraph({ graph }) {
 
   const selEdge = sel?.type === "edge" ? edges.find((e) => e.i === sel.key) : null;
   const selNode = sel?.type === "node" ? nodeById.get(sel.key) : null;
-  const action = selEdge
-    ? graph.actionsByActionId[selEdge.actionId] || graph.actionsByDecisionId[selEdge.decisionId] || null
-    : null;
+  const actions = (() => {
+    if (!selEdge) return [];
+    const list = graph.actionsByDecisionId[selEdge.decisionId];
+    if (list?.length) return list;
+    const one = graph.actionsByActionId[selEdge.actionId];
+    return one ? [one] : [];
+  })();
   const nodeEdges = selNode ? edges.filter((e) => e.from === selNode.id) : [];
 
   const edgePath = (e) => {
@@ -296,13 +300,17 @@ export function BpaGraph({ graph }) {
             <p className="cia-bpa-graph-route">
               {nodeById.get(selEdge.from)?.text} → {nodeById.get(selEdge.to)?.text}
             </p>
-            <h4>Action within this decision</h4>
-            {action ? (
+            <h4>
+              Actions in this decision{actions.length ? ` (${actions.length})` : ""}
+            </h4>
+            {actions.length ? (
               <ul className="cia-bpa-graph-actions">
-                <li>
-                  <strong>{action.type || "Action"}</strong>
-                  <span>{action.description || action.decision}</span>
-                </li>
+                {actions.map((a, i) => (
+                  <li key={`${a.actionId}-${i}`}>
+                    <strong>{a.type || "Action"}</strong>
+                    <span>{a.description || a.decision}</span>
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="cia-forum-muted">No action detail recorded for this connection.</p>

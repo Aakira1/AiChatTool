@@ -199,21 +199,27 @@ export function parseBpaGraph(rows, analysis) {
     }
   }
 
-  // Action lookups from PTA rows so an edge can show its action.
+  // Action lookups from PTA rows. A decision (ActionDecisionId) usually groups
+  // several actions, so map decisionId -> ordered list.
   const actionsByActionId = {};
   const actionsByDecisionId = {};
   for (let i = 2; i < rows.length; i += 1) {
     const r = rows[i];
     if (cell(r, "LineType") !== "PTA") continue;
+    const seq = Number.parseInt(cell(r, "ActionSequence"), 10);
     const a = {
       decision: cell(r, "ActionDecision"),
       type: cell(r, "ActionActionType"),
       description: cell(r, "ActionDescription"),
       actionId: cell(r, "ActionActionId"),
       decisionId: cell(r, "ActionDecisionId"),
+      sequence: Number.isFinite(seq) ? seq : 0,
     };
     if (a.actionId) actionsByActionId[a.actionId] = a;
-    if (a.decisionId) actionsByDecisionId[a.decisionId] = a;
+    if (a.decisionId) (actionsByDecisionId[a.decisionId] ||= []).push(a);
+  }
+  for (const list of Object.values(actionsByDecisionId)) {
+    list.sort((x, y) => x.sequence - y.sequence);
   }
 
   return { nodes, edges, actionsByActionId, actionsByDecisionId };
