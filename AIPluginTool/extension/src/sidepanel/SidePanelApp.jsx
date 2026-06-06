@@ -13,7 +13,7 @@ import {
   pingHealth,
   streamChat,
 } from "../lib/api.js";
-import { openWebApp } from "../lib/storage.js";
+import { openWebApp, openPopoutWindow } from "../lib/storage.js";
 import { pickPageContextForApi } from "../lib/pageContextPayload.js";
 import { capturePageView, getPageContext } from "../lib/pageContext.js";
 import { getSettings, saveSettings, applySettings, applyTheme, subscribeSettings } from "../lib/settings.js";
@@ -157,9 +157,12 @@ export function SidePanelApp() {
         setUser(null);
         return;
       }
-      setUser(
-        me.user ?? { email: me.email ?? "signed-in", displayName: me.displayName ?? null },
-      );
+      setUser({
+        email: me.user?.email ?? me.email ?? "signed-in",
+        displayName: me.user?.displayName ?? me.displayName ?? null,
+        role: me.role ?? me.user?.role ?? "user",
+        plugins: me.plugins ?? me.user?.plugins ?? [],
+      });
 
       const list = await loadThreads();
       const active = await ensureConversation(list);
@@ -529,10 +532,16 @@ export function SidePanelApp() {
       <TopBar
         healthState={healthState}
         user={user}
-        onLogout={handleLogout}
-        onOpenOptions={() => setShowSettings(true)}
-        onOpenForums={() => setShowForums(true)}
-        onOpenChecklist={() => setShowChecklist(true)}
+        apps={[
+          ...(user?.role === "admin" || (user?.plugins ?? []).includes("checklist")
+            ? [{ label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) }]
+            : []),
+          { label: "Forums", icon: "💬", onClick: () => setShowForums(true) },
+          { label: "Settings", icon: "⚙️", onClick: () => setShowSettings(true) },
+          { label: "Web app", icon: "↗", onClick: () => void openWebApp() },
+          { label: "Pop out", icon: "⤢", onClick: () => void openPopoutWindow() },
+          { label: "Sign out", icon: "⎋", onClick: handleLogout, danger: true },
+        ]}
       />
 
       {showSettings ? (

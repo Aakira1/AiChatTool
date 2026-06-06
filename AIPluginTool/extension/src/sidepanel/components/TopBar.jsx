@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { openWebApp } from "../../lib/storage.js";
 
 /** Close the side panel. Chrome lets a panel page close itself via window.close(). */
 function closeSidePanel() {
@@ -18,6 +17,8 @@ function AppLauncher({ items }) {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
+
+  if (!items.length) return null;
 
   return (
     <div className="cia-ext-launcher" ref={ref}>
@@ -62,26 +63,12 @@ function AppLauncher({ items }) {
   );
 }
 
-export function TopBar({
-  healthState,
-  user,
-  onLogout,
-  onOpenOptions,
-  onOpenForums,
-  onOpenChecklist,
-  compact = false,
-}) {
+export function TopBar({ healthState, user, apps = [] }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
     status === "online" ? "Connected" : status === "offline" ? "Offline" : "Checking…";
 
-  const launcherItems = [
-    ...(onOpenChecklist ? [{ label: "Companion", icon: "✅", onClick: onOpenChecklist }] : []),
-    ...(onOpenForums ? [{ label: "Forums", icon: "💬", onClick: onOpenForums }] : []),
-    ...(onOpenOptions ? [{ label: "Settings", icon: "⚙️", onClick: onOpenOptions }] : []),
-    { label: "Web app", icon: "↗", onClick: () => void openWebApp() },
-    ...(onLogout ? [{ label: "Sign out", icon: "⎋", onClick: onLogout, danger: true }] : []),
-  ];
+  const launcherItems = apps;
 
   return (
     <header className="cia-ext-topbar">
@@ -98,7 +85,7 @@ export function TopBar({
       </div>
 
       <div className="cia-ext-topbar-actions">
-        {!compact && user?.email ? (
+        {user?.email ? (
           <span className="cia-ext-user" title={user.email}>
             {user.email}
           </span>

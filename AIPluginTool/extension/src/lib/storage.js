@@ -88,4 +88,20 @@ export async function openWebApp() {
   }
 }
 
+/**
+ * Pop the assistant out into its own detached window. This is still a Chrome
+ * window (type "popup" — no tabs/toolbar), which is the closest you can get to
+ * "outside the browser" without packaging a native app. Falls back to a plain
+ * window.open when the windows API isn't available.
+ */
+export async function openPopoutWindow() {
+  const path = "src/sidepanel/index.html";
+  if (typeof chrome !== "undefined" && chrome.windows?.create) {
+    const url = chrome.runtime.getURL(path);
+    chrome.windows.create({ url, type: "popup", width: 440, height: 760 });
+  } else if (typeof window !== "undefined") {
+    window.open(path, "_blank", "popup,width=440,height=760");
+  }
+}
+
 export { DEFAULT_API_BASE_URL, DEFAULT_WEB_APP_URL };
