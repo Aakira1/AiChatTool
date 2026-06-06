@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/ui/ToastProvider.jsx";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ChatPage } from "./pages/ChatPage";
 import { ChecklistPage } from "./pages/ChecklistPage";
+import { PackagePage } from "./pages/PackagePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForumsPage } from "./pages/ForumsPage";
 import { AdminPage } from "./pages/AdminPage";
@@ -26,7 +27,8 @@ function AppShell() {
   // Permission-gated views fall back to chat if the user lacks access.
   const blockedByPlugin =
     (view === "dashboard" && !hasPlugin("dashboard")) ||
-    (view === "checklist" && !hasPlugin("checklist"));
+    (view === "checklist" && !hasPlugin("checklist")) ||
+    (view === "package" && !hasPlugin("package"));
   const effectiveView = blockedByPlugin ? "chat" : view;
 
   return (
@@ -37,6 +39,8 @@ function AppShell() {
           <DashboardPage />
         ) : effectiveView === "checklist" ? (
           <ChecklistPage />
+        ) : effectiveView === "package" ? (
+          <PackagePage />
         ) : effectiveView === "forums" ? (
           <ForumsPage />
         ) : effectiveView === "admin" ? (

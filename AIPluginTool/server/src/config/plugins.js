@@ -12,6 +12,11 @@ export const PLUGINS = [
     label: "Companion",
     description: "Import an implementation companion CSV, track progress, export it back.",
   },
+  {
+    id: "package",
+    label: "Package Inspector",
+    description: "Open and browse the contents of a TechnologyOne .t1pkg package.",
+  },
 ];
 
 export const PLUGIN_IDS = PLUGINS.map((p) => p.id);
