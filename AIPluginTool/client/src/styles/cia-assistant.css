@@ -2189,8 +2189,22 @@
   overflow: auto;
 }
 
-.cia-bpa-edge {
+.cia-bpa-edge,
+.cia-bpa-node {
   cursor: pointer;
+}
+
+.cia-bpa-node text {
+  pointer-events: none;
+  user-select: none;
+}
+
+.cia-bpa-graph-declink {
+  cursor: pointer;
+}
+
+.cia-bpa-graph-declink:hover {
+  outline: 1px solid var(--t1-magenta, #e4007c);
 }
 
 .cia-bpa-edge text {
