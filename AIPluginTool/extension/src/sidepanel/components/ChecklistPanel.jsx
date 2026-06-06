@@ -9,6 +9,7 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../../lib/checklist.js";
+import { getCompanion, saveCompanion } from "../../lib/api.js";
 
 const STORAGE_KEY = "cia.ext.checklist.v1";
 
@@ -20,21 +21,38 @@ export function ChecklistPanel({ onClose }) {
   const [tick, setTick] = useState(0);
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const saveTimer = useRef(null);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (saved?.rows?.length) {
-        const a = analyzeChecklist(saved.rows);
-        if (a) {
-          setRows(saved.rows);
-          setAnalysis(a);
-          setFileName(saved.fileName || "checklist.csv");
-        }
+    let active = true;
+    const apply = (parsed, name) => {
+      const a = analyzeChecklist(parsed);
+      if (a && active) {
+        setRows(parsed);
+        setAnalysis(a);
+        setFileName(name || "checklist.csv");
       }
-    } catch {
-      /* ignore */
-    }
+    };
+    (async () => {
+      try {
+        const remote = await getCompanion();
+        if (remote?.rows?.length) {
+          apply(remote.rows, remote.fileName);
+          return;
+        }
+      } catch {
+        /* fall back to local */
+      }
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        if (saved?.rows?.length) apply(saved.rows, saved.fileName);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const persist = (nextRows, name) => {
@@ -43,6 +61,10 @@ export function ChecklistPanel({ onClose }) {
     } catch {
       /* ignore */
     }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveCompanion({ fileName: name, rows: nextRows }).catch(() => {});
+    }, 700);
   };
 
   const loadFile = async (file) => {
@@ -98,6 +120,7 @@ export function ChecklistPanel({ onClose }) {
     setAnalysis(null);
     setFileName("");
     localStorage.removeItem(STORAGE_KEY);
+    saveCompanion({ fileName: "", rows: null }).catch(() => {});
   };
 
   return (
@@ -191,7 +214,16 @@ export function ChecklistPanel({ onClose }) {
                               setItemStatus(item, e.target.checked ? "completed" : "not-started")
                             }
                           />
-                          <span className="cia-ext-chk-task-title">{item.task}</span>
+                          <span
+                            className="cia-ext-chk-task-title"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              setItemStatus(item, state === "completed" ? "not-started" : "completed")
+                            }
+                          >
+                            {item.task}
+                          </span>
                         </li>
                       );
                     })}

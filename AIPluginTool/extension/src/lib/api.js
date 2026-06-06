@@ -378,6 +378,21 @@ export async function rateMessage(messageId, rating) {
   return response.json().catch(() => ({}));
 }
 
+export async function getCompanion() {
+  const response = await apiFetch("/api/companion");
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function saveCompanion({ fileName, rows }) {
+  const response = await apiFetch("/api/companion", {
+    method: "PUT",
+    body: JSON.stringify({ fileName, rows }),
+  });
+  if (!response.ok) throw new Error("Couldn't save the checklist");
+  return response.json();
+}
+
 export async function listConnectors() {
   const response = await apiFetch("/api/connectors");
   if (!response.ok) {

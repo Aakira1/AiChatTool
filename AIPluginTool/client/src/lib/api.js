@@ -421,6 +421,23 @@ export async function downloadForm({ content, title = "Form" }) {
   await triggerBlobDownload(response, title, "pdf");
 }
 
+// ---- Companion (shared checklist) ---------------------------------------
+
+export async function getCompanion() {
+  const response = await apiFetch("/api/companion");
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function saveCompanion({ fileName, rows }) {
+  const response = await apiFetch("/api/companion", {
+    method: "PUT",
+    body: JSON.stringify({ fileName, rows }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't save the checklist"));
+  return response.json();
+}
+
 // ---- Admin --------------------------------------------------------------
 
 export async function listAdminUsers() {

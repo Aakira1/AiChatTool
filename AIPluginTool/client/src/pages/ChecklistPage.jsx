@@ -8,7 +8,7 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../lib/checklist.js";
-import { downloadXlsxSpec } from "../lib/api.js";
+import { downloadXlsxSpec, getCompanion, saveCompanion } from "../lib/api.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
 const STORAGE_KEY = "cia.checklist.session.v1";
@@ -36,21 +36,39 @@ export function ChecklistPage() {
   const [tick, setTick] = useState(0); // force re-render after mutating rows in place
   const [dragActive, setDragActive] = useState(false);
 
-  // Resume the last session from localStorage.
+  const saveTimer = useRef(null);
+
+  // Load the shared (server) checklist first, falling back to the local cache.
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (saved?.rows?.length) {
-        const a = analyzeChecklist(saved.rows);
-        if (a) {
-          setRows(saved.rows);
-          setAnalysis(a);
-          setFileName(saved.fileName || "checklist.csv");
-        }
+    let active = true;
+    const applyRows = (parsed, name) => {
+      const a = analyzeChecklist(parsed);
+      if (a && active) {
+        setRows(parsed);
+        setAnalysis(a);
+        setFileName(name || "checklist.csv");
       }
-    } catch {
-      /* ignore */
-    }
+    };
+    (async () => {
+      try {
+        const remote = await getCompanion();
+        if (remote?.rows?.length) {
+          applyRows(remote.rows, remote.fileName);
+          return;
+        }
+      } catch {
+        /* fall back to local cache */
+      }
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        if (saved?.rows?.length) applyRows(saved.rows, saved.fileName);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const persist = (nextRows, name) => {
@@ -59,6 +77,11 @@ export function ChecklistPage() {
     } catch {
       /* ignore quota */
     }
+    // Debounced server sync so the same checklist appears in the extension.
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveCompanion({ fileName: name, rows: nextRows }).catch(() => {});
+    }, 700);
   };
 
   const loadFile = async (file) => {
@@ -157,6 +180,7 @@ export function ChecklistPage() {
     setAnalysis(null);
     setFileName("");
     localStorage.removeItem(STORAGE_KEY);
+    saveCompanion({ fileName: "", rows: null }).catch(() => {});
   };
 
   return (
@@ -306,7 +330,20 @@ export function ChecklistPage() {
                               }
                               aria-label={`Mark ${item.task} complete`}
                             />
-                            <div className="cia-chk-task-main">
+                            <div
+                              className="cia-chk-task-main"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() =>
+                                setItemStatus(item, state === "completed" ? "not-started" : "completed")
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setItemStatus(item, state === "completed" ? "not-started" : "completed");
+                                }
+                              }}
+                            >
                               <span className="cia-chk-task-title">{item.task}</span>
                               <span className="cia-chk-task-meta">
                                 {item.responsible ? <span>👤 {item.responsible}</span> : null}

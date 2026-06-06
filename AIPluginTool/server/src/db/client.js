@@ -217,6 +217,16 @@ db.exec(`
   );
 `);
 
+// The user's current Companion checklist (shared across web + extension).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS companion_state (
+    email TEXT PRIMARY KEY,
+    file_name TEXT,
+    data TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 try {
   db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
 } catch {

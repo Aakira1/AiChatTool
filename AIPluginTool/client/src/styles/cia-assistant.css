@@ -2246,6 +2246,7 @@
 .cia-chk-task-main {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 
 .cia-chk-task-title {

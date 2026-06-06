@@ -617,6 +617,7 @@ button:disabled {
   flex: 1;
   line-height: 1.35;
   color: var(--cia-body);
+  cursor: pointer;
 }
 
 .cia-ext-launcher {
