@@ -2,6 +2,81 @@ import { useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
+const STATUS_LABEL = { added: "Added", removed: "Removed", changed: "Changed", same: "Same" };
+
+function PackageDiff({ compare, fileNameA, selected, onSelect, prettify }) {
+  const changed = compare.statuses.filter((s) => s.status !== "same");
+  const counts = {
+    added: changed.filter((s) => s.status === "added").length,
+    removed: changed.filter((s) => s.status === "removed").length,
+    changed: changed.filter((s) => s.status === "changed").length,
+  };
+  const sel = compare.statuses.find((s) => s.path === selected) ?? null;
+  const a = sel ? compare.textsA.get(sel.path) : null;
+  const b = sel ? compare.textsB.get(sel.path) : null;
+
+  return (
+    <div className="cia-pkg-diff">
+      <div className="cia-pkg-diff-summary">
+        <span className="cia-pkg-diff-files">
+          {fileNameA} <span aria-hidden="true">↔</span> {compare.fileNameB}
+        </span>
+        <span className="cia-pkg-badge added">+{counts.added}</span>
+        <span className="cia-pkg-badge removed">−{counts.removed}</span>
+        <span className="cia-pkg-badge changed">~{counts.changed}</span>
+      </div>
+
+      {changed.length === 0 ? (
+        <p className="cia-forum-muted">The two packages are identical.</p>
+      ) : (
+        <div className="cia-pkg-body">
+          <aside className="cia-pkg-tree">
+            {changed.map((s) => (
+              <button
+                key={s.path}
+                type="button"
+                className={`cia-pkg-entry${selected === s.path ? " active" : ""}`}
+                onClick={() => onSelect(s.path)}
+                title={s.path}
+              >
+                <span className="cia-pkg-entry-name">
+                  <span className={`cia-pkg-badge ${s.status}`}>{STATUS_LABEL[s.status][0]}</span>
+                  {s.path.replace(/^package\//, "")}
+                </span>
+              </button>
+            ))}
+          </aside>
+
+          <section className="cia-pkg-viewer">
+            {!sel ? (
+              <p className="cia-forum-muted">Select an entry to see the difference.</p>
+            ) : sel.status === "changed" ? (
+              <div className="cia-pkg-diff-cols">
+                <div>
+                  <div className="cia-pkg-diff-col-head">A · {fileNameA}</div>
+                  <pre className="cia-pkg-code">{prettify(sel.path, a)}</pre>
+                </div>
+                <div>
+                  <div className="cia-pkg-diff-col-head">B · {compare.fileNameB}</div>
+                  <pre className="cia-pkg-code">{prettify(sel.path, b)}</pre>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="cia-pkg-viewer-head">
+                  <span className="cia-pkg-viewer-path">{sel.path.replace(/^package\//, "")}</span>
+                  <span className={`cia-pkg-badge ${sel.status}`}>{STATUS_LABEL[sel.status]}</span>
+                </div>
+                <pre className="cia-pkg-code">{prettify(sel.path, sel.status === "added" ? b : a)}</pre>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function prettyJson(text) {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
@@ -45,7 +120,10 @@ function rank(path) {
 export function PackagePage() {
   const toast = useToast();
   const fileRef = useRef(null);
+  const compareRef = useRef(null);
   const zipRef = useRef(null);
+  const [compare, setCompare] = useState(null); // { fileNameB, statuses[], textsA, textsB }
+  const [selectedDiff, setSelectedDiff] = useState(null);
   const [fileName, setFileName] = useState("");
   const [entries, setEntries] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -124,6 +202,46 @@ export function PackagePage() {
     }
   };
 
+  const readAll = async (zip) => {
+    const map = new Map();
+    const names = [];
+    zip.forEach((p, e) => {
+      if (!e.dir) names.push(p);
+    });
+    for (const p of names) map.set(p, await zip.file(p).async("string"));
+    return map;
+  };
+
+  const loadCompare = async (file) => {
+    if (!zipRef.current) return;
+    try {
+      const zipB = await JSZip.loadAsync(file);
+      const [textsA, textsB] = await Promise.all([readAll(zipRef.current), readAll(zipB)]);
+      const paths = [...new Set([...textsA.keys(), ...textsB.keys()])].sort(
+        (a, b) => rank(a) - rank(b) || a.localeCompare(b),
+      );
+      const statuses = paths.map((path) => {
+        const a = textsA.get(path);
+        const b = textsB.get(path);
+        const status = a == null ? "added" : b == null ? "removed" : a === b ? "same" : "changed";
+        return { path, status };
+      });
+      setCompare({ fileNameB: file.name, statuses, textsA, textsB });
+      setSelectedDiff(statuses.find((s) => s.status !== "same")?.path ?? null);
+      toast.success("Comparison ready");
+    } catch (error) {
+      toast.error(error.message || "Couldn't read the comparison package");
+    }
+  };
+
+  const prettify = (path, raw) => {
+    if (raw == null) return "";
+    const ext = path.split(".").pop()?.toLowerCase();
+    if (ext === "json") return prettyJson(raw);
+    if (ext === "xml") return prettyXml(raw);
+    return raw.slice(0, 200_000);
+  };
+
   const copyContent = async () => {
     if (!content) return;
     try {
@@ -184,6 +302,30 @@ export function PackagePage() {
           <button type="button" className="cia-header-btn" onClick={() => fileRef.current?.click()}>
             {entries.length ? "Open another" : "Open .t1pkg"}
           </button>
+          {entries.length ? (
+            <>
+              <input
+                ref={compareRef}
+                type="file"
+                accept=".t1pkg,.zip,application/zip"
+                className="cia-file-input-hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void loadCompare(f);
+                  e.target.value = "";
+                }}
+              />
+              {compare ? (
+                <button type="button" className="cia-header-btn" onClick={() => setCompare(null)}>
+                  Exit compare
+                </button>
+              ) : (
+                <button type="button" className="cia-header-btn" onClick={() => compareRef.current?.click()}>
+                  Compare…
+                </button>
+              )}
+            </>
+          ) : null}
           {content ? (
             <>
               <button
@@ -212,7 +354,15 @@ export function PackagePage() {
         </div>
       </div>
 
-      {!entries.length ? (
+      {compare ? (
+        <PackageDiff
+          compare={compare}
+          fileNameA={fileName}
+          selected={selectedDiff}
+          onSelect={setSelectedDiff}
+          prettify={prettify}
+        />
+      ) : !entries.length ? (
         <div className="cia-pkg-empty">
           <p>
             <strong>Drag &amp; drop</strong> a <code>.t1pkg</code> here (or use Open). It's a ZIP of

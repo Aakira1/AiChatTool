@@ -2138,6 +2138,75 @@
   vertical-align: middle;
 }
 
+/* Diff view */
+.cia-pkg-diff-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+}
+
+.cia-pkg-diff-files {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.cia-pkg-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cia-pkg-badge.added {
+  background: #dff5e6;
+  color: #1d7044;
+}
+
+.cia-pkg-badge.removed {
+  background: #fde2e2;
+  color: #c0392b;
+}
+
+.cia-pkg-badge.changed {
+  background: #fdeccd;
+  color: #b9770e;
+}
+
+.cia-pkg-entry .cia-pkg-badge {
+  margin-right: 6px;
+  min-width: 16px;
+  padding: 0 5px;
+  font-size: 9px;
+}
+
+.cia-pkg-diff-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cia-pkg-diff-col-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t1-muted, #6f5f82);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+@media (max-width: 820px) {
+  .cia-pkg-diff-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 820px) {
   .cia-pkg-body {
     grid-template-columns: 1fr;
