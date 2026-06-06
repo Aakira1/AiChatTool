@@ -3,7 +3,7 @@
 export const APPS = [
   { id: "chat", label: "Assistant", icon: "💬" },
   { id: "dashboard", label: "Dashboard", icon: "📊", plugin: "dashboard" },
-  { id: "checklist", label: "Checklist", icon: "✅", plugin: "checklist", defaultDrawer: true },
+  { id: "checklist", label: "Companion", icon: "✅", plugin: "checklist", defaultDrawer: true },
   { id: "forums", label: "Forums", icon: "💡" },
   { id: "admin", label: "Admin", icon: "🛡️", adminOnly: true },
   { id: "help", label: "Help & Support", icon: "❓", defaultDrawer: true },

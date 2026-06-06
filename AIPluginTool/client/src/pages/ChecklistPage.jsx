@@ -174,7 +174,7 @@ export function ChecklistPage() {
       {dragActive ? <div className="cia-chk-dropmask">Drop the CSV to import</div> : null}
       <div className="cia-chk-header">
         <div>
-          <h1>Checklist Companion</h1>
+          <h1>Companion</h1>
           <p>Import an implementation companion CSV, track progress, and export it back.</p>
         </div>
         <div className="cia-chk-actions">

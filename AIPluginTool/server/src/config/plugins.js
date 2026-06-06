@@ -9,7 +9,7 @@ export const PLUGINS = [
   },
   {
     id: "checklist",
-    label: "Checklist Companion",
+    label: "Companion",
     description: "Import an implementation companion CSV, track progress, export it back.",
   },
 ];
