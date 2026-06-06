@@ -2044,8 +2044,20 @@
   color: var(--t1-magenta, #e4007c);
 }
 
+.cia-bpa-suggest-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .cia-bpa-suggest-dec {
   margin-bottom: 8px;
+}
+
+.cia-bpa-suggest-dec strong {
+  cursor: pointer;
 }
 
 .cia-bpa-suggest-dec strong {

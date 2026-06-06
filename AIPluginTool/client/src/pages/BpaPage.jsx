@@ -5,6 +5,7 @@ import {
   bpaTaskNames,
   bpaDecisionLabels,
   addItem as addItemToGrid,
+  generateProcess,
 } from "../lib/bpa.js";
 import { bpaAssist } from "../lib/api.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
@@ -71,14 +72,21 @@ export function BpaPage() {
         decisions: analysis ? bpaDecisionLabels(analysis) : [],
       });
       setSuggestions(res);
-      if (!res.taskNames?.length && !res.decisions?.length) {
-        toast.info("No structured suggestions came back — try rephrasing.");
+      if (!res.tasks?.length) {
+        toast.info("No structured plan came back — try rephrasing.");
       }
     } catch (error) {
       toast.error(error.message || "Couldn't get suggestions");
     } finally {
       setSuggesting(false);
     }
+  };
+
+  const generateFromPlan = () => {
+    if (!suggestions?.tasks?.length) return;
+    const next = generateProcess(rows, analysis, suggestions.tasks);
+    setRows(next);
+    toast.success(`Added ${suggestions.tasks.length} tasks to the process`);
   };
 
   const copy = async (text) => {
@@ -184,43 +192,32 @@ export function BpaPage() {
               </button>
             </div>
 
-            {suggestions ? (
+            {suggestions?.tasks?.length ? (
               <div className="cia-bpa-suggestions">
-                {suggestions.taskNames?.length ? (
-                  <div>
-                    <h4>Suggested task names</h4>
+                <div className="cia-bpa-suggest-top">
+                  <h4>Proposed process ({suggestions.tasks.length} tasks)</h4>
+                  <button type="button" className="cia-bpa-add" onClick={generateFromPlan}>
+                    + Generate into process
+                  </button>
+                </div>
+                {suggestions.tasks.map((t, i) => (
+                  <div key={`${t.name}-${i}`} className="cia-bpa-suggest-dec">
+                    <strong onClick={() => copy(t.name)} title="Click to copy">
+                      {i + 1}. {t.name}
+                    </strong>
                     <div className="cia-bpa-chips">
-                      {suggestions.taskNames.map((n) => (
-                        <button key={n} type="button" className="cia-bpa-chip" onClick={() => copy(n)}>
-                          {n}
+                      {t.items.map((it) => (
+                        <button key={it} type="button" className="cia-bpa-chip" onClick={() => copy(it)}>
+                          {it}
                         </button>
                       ))}
                     </div>
                   </div>
-                ) : null}
-                {suggestions.decisions?.length ? (
-                  <div>
-                    <h4>Suggested decisions &amp; items</h4>
-                    {suggestions.decisions.map((d) => (
-                      <div key={d.name} className="cia-bpa-suggest-dec">
-                        <strong>{d.name}</strong>
-                        <div className="cia-bpa-chips">
-                          {d.items.map((it) => (
-                            <button
-                              key={it}
-                              type="button"
-                              className="cia-bpa-chip"
-                              onClick={() => copy(it)}
-                            >
-                              {it}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                <p className="cia-bpa-suggest-hint">Click a suggestion to copy it, then edit a field below.</p>
+                ))}
+                <p className="cia-bpa-suggest-hint">
+                  "Generate into process" clones your file's task/decision rows for each item
+                  (names &amp; structure). Branch wiring is set up in TechnologyOne.
+                </p>
               </div>
             ) : null}
           </div>

@@ -107,4 +107,56 @@ export function addItem(rows, analysis, task, label) {
   return insertAt;
 }
 
+/**
+ * Build a process scaffold from an AI plan ([{name, items[]}]), reusing the
+ * loaded file's rows as templates: clone a USER task (PT) per plan task and a
+ * PTA row per decision item, with fresh GUIDs. Returns a NEW rows array with the
+ * scaffold inserted before the End task. Branch wiring (the Definition/DiagramData
+ * blob) is NOT generated — that must be wired in TechnologyOne.
+ */
+export function generateProcess(rows, analysis, plan) {
+  const idx = analysis.idx;
+  const ptTmpl = analysis.tasks.find((t) => t.type === "USER");
+  if (!ptTmpl) return rows;
+  let ptaTmplIdx = -1;
+  for (const t of analysis.tasks) {
+    if (t.items.length) {
+      ptaTmplIdx = t.items[0].rowIndex;
+      break;
+    }
+  }
+  const setCol = (row, name, val) => {
+    const i = idx[name];
+    if (i != null) row[i] = val;
+  };
+
+  const newRows = [];
+  for (const task of plan) {
+    if (!task.name) continue;
+    const pt = [...rows[ptTmpl.rowIndex]];
+    setCol(pt, "TaskProcessTaskId", uuid());
+    setCol(pt, "TaskTaskName", task.name);
+    setCol(pt, "TaskDisplayName", "");
+    newRows.push(pt);
+    if (ptaTmplIdx >= 0) {
+      let seq = 100;
+      for (const item of task.items || []) {
+        const pa = [...rows[ptaTmplIdx]];
+        setCol(pa, "ActionActionId", uuid());
+        setCol(pa, "ActionDecisionId", uuid());
+        setCol(pa, "ActionDecision", item);
+        setCol(pa, "ActionSequence", String(seq));
+        seq += 10;
+        newRows.push(pa);
+      }
+    }
+  }
+  if (!newRows.length) return rows;
+
+  const endTask = analysis.tasks.find((t) => t.type === "END");
+  const out = [...rows];
+  out.splice(endTask ? endTask.rowIndex : out.length, 0, ...newRows);
+  return out;
+}
+
 export { GUID_ZERO };

@@ -25,12 +25,12 @@ export async function assistBpa({ prompt, tasks = [], decisions = [], signal }) 
     {
       role: "system",
       content:
-        "You help design TechnologyOne BPA (business process automation) flows. A process has " +
-        "TASKS (e.g. 'Review Certificate', 'Approve Request') and DECISIONS/branches on each task " +
-        "(short labels like 'Approve', 'Reject', 'Revise', 'Completed'). Respond with ONLY valid " +
-        'JSON (no prose, no code fences) of the shape {"taskNames":["string",...],' +
-        '"decisions":[{"name":"string","items":["string",...]}]}. Task names are clear verb phrases; ' +
-        "decision items are short outcome labels (1-3 words).",
+        "You design TechnologyOne BPA (business process automation) flows. A process is a list of " +
+        "TASKS in order (clear verb phrases like 'Review Certificate', 'Approve Request'), and each " +
+        "task has DECISION ITEMS — short outcome labels that branch the flow (1-3 words, e.g. " +
+        "'Approve', 'Reject', 'Revise', 'Completed'). Respond with ONLY valid JSON (no prose, no code " +
+        'fences) of the shape {"tasks":[{"name":"string","items":["string",...]},...]}. Order tasks ' +
+        "logically; give each task the decisions that move it forward.",
     },
     {
       role: "user",
@@ -42,21 +42,17 @@ export async function assistBpa({ prompt, tasks = [], decisions = [], signal }) 
   const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    return { taskNames: [], decisions: [], raw };
-  }
+  if (start === -1 || end === -1) return { tasks: [], raw };
   try {
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    return {
-      taskNames: Array.isArray(parsed.taskNames) ? parsed.taskNames.slice(0, 30) : [],
-      decisions: Array.isArray(parsed.decisions)
-        ? parsed.decisions.slice(0, 30).map((d) => ({
-            name: String(d.name ?? "").slice(0, 120),
-            items: Array.isArray(d.items) ? d.items.slice(0, 20).map((i) => String(i).slice(0, 80)) : [],
-          }))
-        : [],
-    };
+    const tasks = Array.isArray(parsed.tasks)
+      ? parsed.tasks.slice(0, 40).map((t) => ({
+          name: String(t.name ?? "").slice(0, 120),
+          items: Array.isArray(t.items) ? t.items.slice(0, 20).map((i) => String(i).slice(0, 80)) : [],
+        }))
+      : [];
+    return { tasks: tasks.filter((t) => t.name) };
   } catch {
-    return { taskNames: [], decisions: [], raw };
+    return { tasks: [], raw };
   }
 }
