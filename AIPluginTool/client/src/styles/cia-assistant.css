@@ -2181,22 +2181,85 @@
 }
 
 .cia-bpa-graph-canvas {
+  position: relative;
   background: #fff;
   border: 1px solid var(--t1-border, #e8dff0);
   border-radius: 14px;
-  padding: 8px;
-  max-height: 72vh;
-  overflow: auto;
+  height: 70vh;
+  overflow: hidden;
+  cursor: grab;
 }
 
-.cia-bpa-edge,
-.cia-bpa-node {
+.cia-bpa-graph-canvas:active {
+  cursor: grabbing;
+}
+
+.cia-bpa-svg {
+  display: block;
+  touch-action: none;
+}
+
+.cia-bpa-edge {
   cursor: pointer;
+}
+
+.cia-bpa-node {
+  cursor: grab;
+}
+
+.cia-bpa-node:active {
+  cursor: grabbing;
 }
 
 .cia-bpa-node text {
   pointer-events: none;
   user-select: none;
+}
+
+.cia-bpa-edge-active {
+  stroke-dasharray: 7 5;
+  animation: cia-bpa-flow 0.6s linear infinite;
+}
+
+@keyframes cia-bpa-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.cia-bpa-zoom {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cia-bpa-zoom button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  background: #fff;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(26, 11, 46, 0.1);
+}
+
+.cia-bpa-zoom button:hover {
+  border-color: var(--t1-magenta, #e4007c);
+  color: var(--t1-magenta, #e4007c);
+}
+
+.cia-bpa-graph-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  font-size: 11px;
+  color: var(--t1-gray, #9b8cab);
+  pointer-events: none;
 }
 
 .cia-bpa-graph-declink {
