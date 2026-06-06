@@ -34,6 +34,7 @@ export function ChecklistPage() {
   const [fileName, setFileName] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [tick, setTick] = useState(0); // force re-render after mutating rows in place
+  const [dragActive, setDragActive] = useState(false);
 
   // Resume the last session from localStorage.
   useEffect(() => {
@@ -103,6 +104,21 @@ export function ChecklistPage() {
     () => (analysis ? progressOf(analysis.items) : null),
     [analysis, tick],
   );
+  const insights = useMemo(() => {
+    if (!analysis) return null;
+    const nextUp = analysis.items.filter((i) => statusState(i.status) === "not-started").slice(0, 6);
+    const inProgress = analysis.items
+      .filter((i) => statusState(i.status) === "in-progress")
+      .slice(0, 6);
+    return { nextUp, inProgress };
+  }, [analysis, tick]);
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) void loadFile(file);
+  };
 
   const downloadCsv = () => {
     const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
@@ -144,7 +160,18 @@ export function ChecklistPage() {
   };
 
   return (
-    <div className="cia-chk-page t1-animate-in">
+    <div
+      className={`cia-chk-page t1-animate-in${dragActive ? " is-drag" : ""}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget === event.target) setDragActive(false);
+      }}
+      onDrop={handleDrop}
+    >
+      {dragActive ? <div className="cia-chk-dropmask">Drop the CSV to import</div> : null}
       <div className="cia-chk-header">
         <div>
           <h1>Checklist Companion</h1>
@@ -184,9 +211,10 @@ export function ChecklistPage() {
       {!rows ? (
         <div className="cia-chk-empty">
           <p>
-            Upload a companion checklist CSV (e.g. the P&amp;R Transitions Implementation Companion).
-            It detects the <strong>Functional Group · Task Group · Task · Status</strong> layout,
-            lets you tick tasks off (auto-stamping the completion date), and exports the updated file.
+            <strong>Drag &amp; drop</strong> a companion checklist CSV here (or use Import CSV) — e.g.
+            the P&amp;R Transitions Implementation Companion. It detects the{" "}
+            <strong>Functional Group · Task Group · Task · Status</strong> layout, lets you tick tasks
+            off (auto-stamping the completion date), and exports the updated file.
           </p>
         </div>
       ) : (
@@ -200,6 +228,41 @@ export function ChecklistPage() {
             </div>
             <ProgressBar pct={overall.pct} />
           </div>
+
+          {insights && (insights.nextUp.length || insights.inProgress.length) ? (
+            <div className="cia-chk-insights">
+              <div className="cia-chk-insight-card">
+                <h3>▶ Up next</h3>
+                {insights.nextUp.length ? (
+                  <ul>
+                    {insights.nextUp.map((i) => (
+                      <li key={i.rowIndex}>
+                        <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
+                        {i.task}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="cia-chk-insight-empty">Nothing left to start 🎉</p>
+                )}
+              </div>
+              <div className="cia-chk-insight-card">
+                <h3>⏳ In progress</h3>
+                {insights.inProgress.length ? (
+                  <ul>
+                    {insights.inProgress.map((i) => (
+                      <li key={i.rowIndex}>
+                        <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
+                        {i.task}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="cia-chk-insight-empty">No tasks in progress.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {groups.map((fg) => {
             const fgProgress = progressOf(fg.taskGroups.flatMap((tg) => tg.items));

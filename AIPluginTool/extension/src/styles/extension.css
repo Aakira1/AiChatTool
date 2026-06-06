@@ -527,6 +527,94 @@ button:disabled {
   cursor: default;
 }
 
+.cia-ext-launcher {
+  position: relative;
+}
+
+.cia-ext-icon-btn.is-active {
+  background: var(--cia-soft);
+  border-color: var(--cia-magenta);
+}
+
+.cia-ext-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  justify-content: center;
+}
+
+.cia-ext-launcher-grid i {
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.cia-ext-launcher-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 220px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--cia-border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(26, 11, 46, 0.28);
+}
+
+.cia-ext-launcher-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cia-muted);
+}
+
+.cia-ext-launcher-apps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cia-ext-launcher-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  aspect-ratio: 1 / 1;
+  padding: 8px 4px;
+  border: 1px solid var(--cia-border);
+  border-radius: 12px;
+  background: var(--cia-soft);
+  color: var(--cia-body);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.cia-ext-launcher-app:hover {
+  transform: translateY(-2px);
+  border-color: var(--cia-magenta);
+}
+
+.cia-ext-launcher-app.is-danger:hover {
+  border-color: var(--cia-offline);
+  color: var(--cia-offline);
+}
+
+.cia-ext-launcher-app-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.cia-ext-launcher-app-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
 .cia-ext-dl-menu {
   position: relative;
   display: inline-block;
