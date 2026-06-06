@@ -21,6 +21,7 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { adminRouter } from "./routes/admin.js";
 import { exportRouter } from "./routes/export.js";
 import { companionRouter } from "./routes/companion.js";
+import { bpaRouter } from "./routes/bpa.js";
 
 export function createApp() {
   const app = express();
@@ -93,6 +94,7 @@ export function createApp() {
   app.use("/api/admin", adminRouter);
   app.use("/api/export", exportRouter);
   app.use("/api/companion", companionRouter);
+  app.use("/api/bpa", bpaRouter);
 
   if (env.serveClient) {
     attachClientApp(app);

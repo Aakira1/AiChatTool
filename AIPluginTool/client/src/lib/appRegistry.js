@@ -5,6 +5,7 @@ export const APPS = [
   { id: "dashboard", label: "Dashboard", icon: "📊", plugin: "dashboard" },
   { id: "checklist", label: "Companion", icon: "✅", plugin: "checklist", defaultDrawer: true },
   { id: "package", label: "Package", icon: "📦", plugin: "package", defaultDrawer: true },
+  { id: "bpa", label: "BPA", icon: "🔀", plugin: "bpa", defaultDrawer: true },
   { id: "forums", label: "Forums", icon: "💡" },
   { id: "admin", label: "Admin", icon: "🛡️", adminOnly: true },
   { id: "help", label: "Help & Support", icon: "❓", defaultDrawer: true },

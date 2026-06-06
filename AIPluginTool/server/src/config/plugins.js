@@ -17,6 +17,11 @@ export const PLUGINS = [
     label: "Package Inspector",
     description: "Open and browse the contents of a TechnologyOne .t1pkg package.",
   },
+  {
+    id: "bpa",
+    label: "BPA Helper",
+    description: "Open a BPA process CSV, AI-assist naming tasks/decisions, and add decision items.",
+  },
 ];
 
 export const PLUGIN_IDS = PLUGINS.map((p) => p.id);

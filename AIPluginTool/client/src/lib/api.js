@@ -440,6 +440,17 @@ export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
   return response.json();
 }
 
+// ---- BPA Helper ---------------------------------------------------------
+
+export async function bpaAssist({ prompt, tasks, decisions }) {
+  const response = await apiFetch("/api/bpa/assist", {
+    method: "POST",
+    body: JSON.stringify({ prompt, tasks, decisions }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't get suggestions"));
+  return response.json();
+}
+
 // ---- Admin --------------------------------------------------------------
 
 export async function listAdminUsers() {
