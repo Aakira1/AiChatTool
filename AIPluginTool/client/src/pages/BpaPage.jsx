@@ -7,6 +7,7 @@ import {
   addItem as addItemToGrid,
   generateProcess,
   parseBpaGraph,
+  BPA_TEMPLATES,
 } from "../lib/bpa.js";
 import { bpaAssist } from "../lib/api.js";
 import { BpaGraph } from "../components/BpaGraph.jsx";
@@ -94,6 +95,13 @@ export function BpaPage() {
     const next = generateProcess(rows, analysis, suggestions.tasks);
     setRows(next);
     toast.success(`Added ${suggestions.tasks.length} tasks to the process`);
+  };
+
+  const applyTemplate = (id) => {
+    const tpl = BPA_TEMPLATES.find((t) => t.id === id);
+    if (!tpl || !analysis) return;
+    setRows(generateProcess(rows, analysis, tpl.tasks));
+    toast.success(`Added the ${tpl.label} workflow`);
   };
 
   const copy = async (text) => {
@@ -202,6 +210,23 @@ export function BpaPage() {
         <>
           {/* AI prompt field */}
           <div className="cia-bpa-assist">
+            <div className="cia-bpa-templates">
+              <span className="cia-bpa-assist-label">Insert a workflow template</span>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) applyTemplate(e.target.value);
+                  e.target.value = "";
+                }}
+              >
+                <option value="">Choose a workflow…</option>
+                {BPA_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <label className="cia-bpa-assist-label" htmlFor="bpa-prompt">
               Describe the process or what you need — AI suggests task/decision names &amp; items
             </label>
