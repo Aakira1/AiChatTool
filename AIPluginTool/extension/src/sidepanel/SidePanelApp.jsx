@@ -26,6 +26,7 @@ import { TopBar } from "./components/TopBar.jsx";
 import { Banner } from "./components/Banner.jsx";
 import { SettingsPanel } from "./components/SettingsPanel.jsx";
 import { ForumsPanel } from "./components/ForumsPanel.jsx";
+import { ChecklistPanel } from "./components/ChecklistPanel.jsx";
 
 const WELCOME_MESSAGE = {
   id: "welcome",
@@ -65,6 +66,7 @@ export function SidePanelApp() {
   const [fallbackHint, setFallbackHint] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showForums, setShowForums] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [forumDraft, setForumDraft] = useState(null);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
@@ -530,6 +532,7 @@ export function SidePanelApp() {
         onLogout={handleLogout}
         onOpenOptions={() => setShowSettings(true)}
         onOpenForums={() => setShowForums(true)}
+        onOpenChecklist={() => setShowChecklist(true)}
       />
 
       {showSettings ? (
@@ -552,6 +555,8 @@ export function SidePanelApp() {
           }}
         />
       ) : null}
+
+      {showChecklist ? <ChecklistPanel onClose={() => setShowChecklist(false)} /> : null}
 
       <ConversationPicker
         threads={threads}

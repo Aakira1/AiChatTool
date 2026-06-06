@@ -62,12 +62,21 @@ function AppLauncher({ items }) {
   );
 }
 
-export function TopBar({ healthState, user, onLogout, onOpenOptions, onOpenForums, compact = false }) {
+export function TopBar({
+  healthState,
+  user,
+  onLogout,
+  onOpenOptions,
+  onOpenForums,
+  onOpenChecklist,
+  compact = false,
+}) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
     status === "online" ? "Connected" : status === "offline" ? "Offline" : "Checking…";
 
   const launcherItems = [
+    ...(onOpenChecklist ? [{ label: "Companion", icon: "✅", onClick: onOpenChecklist }] : []),
     ...(onOpenForums ? [{ label: "Forums", icon: "💬", onClick: onOpenForums }] : []),
     ...(onOpenOptions ? [{ label: "Settings", icon: "⚙️", onClick: onOpenOptions }] : []),
     { label: "Web app", icon: "↗", onClick: () => void openWebApp() },
