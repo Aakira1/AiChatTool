@@ -9,6 +9,7 @@ import {
   todayIso,
 } from "../lib/checklist.js";
 import { downloadXlsxSpec, getCompanion, saveCompanion, parseXlsxFile } from "../lib/api.js";
+import { classifyRows, DOC_TYPE_LABEL, DOC_TYPE_APP } from "../lib/docType.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
 const STORAGE_KEY = "cia.checklist.session.v1";
@@ -122,16 +123,22 @@ export function ChecklistPage() {
     try {
       const isExcel = /\.xlsx?$/i.test(file.name);
       const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
+      const type = classifyRows(parsed);
       const a = analyzeChecklist(parsed);
       if (!a) {
-        toast.error("Couldn't find a Functional Group / Task / Status layout in that file.");
+        const where = DOC_TYPE_APP[type];
+        toast.error(
+          where
+            ? `This looks like a ${DOC_TYPE_LABEL[type]} — open it in ${where}.`
+            : "Couldn't find a Functional Group / Task / Status layout in that file.",
+        );
         return;
       }
       setRows(parsed);
       setAnalysis(a);
       setFileName(file.name);
       persist(parsed, file.name);
-      toast.success(`Loaded ${a.items.length} tasks`);
+      toast.success(`Imported Companion checklist — ${a.items.length} tasks`);
     } catch (error) {
       toast.error(error.message || "Failed to read the CSV");
     }
@@ -241,7 +248,7 @@ export function ChecklistPage() {
             }}
           />
           <button type="button" className="cia-header-btn" onClick={() => fileInputRef.current?.click()}>
-            {rows ? "Import another" : "Import CSV"}
+            {rows ? "Import another" : "Import"}
           </button>
           {rows ? (
             <>

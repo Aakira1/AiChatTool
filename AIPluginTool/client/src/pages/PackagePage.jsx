@@ -149,7 +149,7 @@ export function PackagePage() {
       setContent(null);
       setDrafts({});
       setEditing(false);
-      toast.success(`Opened ${list.length} entries`);
+      toast.success(`Imported TechnologyOne package — ${list.length} entries`);
       if (list.length) void openEntry(list[0].path);
     } catch (error) {
       toast.error(error.message || "Couldn't read the package (is it a .t1pkg?)");
@@ -300,7 +300,7 @@ export function PackagePage() {
             }}
           />
           <button type="button" className="cia-header-btn" onClick={() => fileRef.current?.click()}>
-            {entries.length ? "Open another" : "Open .t1pkg"}
+            {entries.length ? "Import another" : "Import"}
           </button>
           {entries.length ? (
             <>

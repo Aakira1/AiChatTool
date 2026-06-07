@@ -191,7 +191,7 @@ export function ChecklistPanel({ onClose }) {
             }}
           />
           <button type="button" className="cia-ext-secondary-btn" onClick={() => fileRef.current?.click()}>
-            {rows ? "Import another" : "Import CSV"}
+            {rows ? "Import another" : "Import"}
           </button>
           {rows ? (
             <>

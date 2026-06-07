@@ -8,7 +8,8 @@ import {
   generateProcess,
   parseBpaGraph,
 } from "../lib/bpa.js";
-import { bpaAssist } from "../lib/api.js";
+import { bpaAssist, parseXlsxFile } from "../lib/api.js";
+import { classifyRows, DOC_TYPE_LABEL, DOC_TYPE_APP } from "../lib/docType.js";
 import { BpaGraph } from "../components/BpaGraph.jsx";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
@@ -38,18 +39,25 @@ export function BpaPage() {
 
   const loadFile = async (file) => {
     try {
-      const parsed = parseCsv(await file.text());
+      const isExcel = /\.xlsx?$/i.test(file.name);
+      const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
+      const type = classifyRows(parsed);
       const a = analyzeBpa(parsed);
       if (!a) {
-        toast.error("That doesn't look like a BPA (BPM_BPDEFINITION) CSV.");
+        const where = DOC_TYPE_APP[type];
+        toast.error(
+          where && type !== "bpa"
+            ? `This looks like a ${DOC_TYPE_LABEL[type]} — open it in ${where}.`
+            : "That doesn't look like a BPA (BPM_BPDEFINITION) export.",
+        );
         return;
       }
       setRows(parsed);
       setFileName(file.name);
       setSuggestions(null);
-      toast.success(`Loaded ${a.tasks.length} tasks`);
+      toast.success(`Imported BPA process — ${a.tasks.length} tasks`);
     } catch (error) {
-      toast.error(error.message || "Failed to read the CSV");
+      toast.error(error.message || "Failed to read the file");
     }
   };
 
@@ -147,7 +155,7 @@ export function BpaPage() {
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="cia-file-input-hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -156,7 +164,7 @@ export function BpaPage() {
             }}
           />
           <button type="button" className="cia-header-btn" onClick={() => fileRef.current?.click()}>
-            {rows ? "Open another" : "Open BPA CSV"}
+            {rows ? "Import another" : "Import"}
           </button>
           {rows ? (
             <>
