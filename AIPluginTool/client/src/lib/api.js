@@ -429,6 +429,28 @@ export async function getCompanion() {
   return response.json();
 }
 
+function fileToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+/** Parse an .xlsx File into a CSV-style 2D grid via the server (exceljs). */
+export async function parseXlsxFile(file) {
+  const dataBase64 = fileToBase64(await file.arrayBuffer());
+  const response = await apiFetch("/api/companion/parse-xlsx", {
+    method: "POST",
+    body: JSON.stringify({ dataBase64 }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't read the spreadsheet"));
+  const { rows } = await response.json();
+  return rows;
+}
+
 export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
   const response = await apiFetch("/api/companion", {
     method: "PUT",

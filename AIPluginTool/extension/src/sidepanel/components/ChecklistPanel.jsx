@@ -9,7 +9,7 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../../lib/checklist.js";
-import { getCompanion, saveCompanion } from "../../lib/api.js";
+import { getCompanion, saveCompanion, parseXlsxFile } from "../../lib/api.js";
 
 const STORAGE_KEY = "cia.ext.checklist.v1";
 
@@ -97,11 +97,11 @@ export function ChecklistPanel({ onClose }) {
 
   const loadFile = async (file) => {
     try {
-      const text = await file.text();
-      const parsed = parseCsv(text);
+      const isExcel = /\.xlsx?$/i.test(file.name);
+      const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
       const a = analyzeChecklist(parsed);
       if (!a) {
-        setError("Couldn't find a Functional Group / Task / Status layout in that CSV.");
+        setError("Couldn't find a Functional Group / Task / Status layout in that file.");
         return;
       }
       setRows(parsed);
@@ -182,7 +182,7 @@ export function ChecklistPanel({ onClose }) {
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];

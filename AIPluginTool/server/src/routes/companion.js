@@ -1,9 +1,44 @@
 import { Router } from "express";
 import { z } from "zod";
+import ExcelJS from "exceljs";
 import { env } from "../config/env.js";
 import { getCompanion, saveCompanion } from "../db/repositories/companionRepo.js";
 
 export const companionRouter = Router();
+
+// Convert an uploaded .xlsx (base64) into a CSV-style 2D grid of cell text so the
+// Companion can analyse it the same way it does a CSV.
+const parseSchema = z.object({
+  dataBase64: z.string().min(1).max(30_000_000),
+});
+
+companionRouter.post("/parse-xlsx", async (request, response) => {
+  const parsed = parseSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Provide the spreadsheet data" });
+    return;
+  }
+  try {
+    const buffer = Buffer.from(parsed.data.dataBase64, "base64");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+    const ws = wb.worksheets[0];
+    if (!ws) {
+      response.status(400).json({ error: "The workbook has no sheets" });
+      return;
+    }
+    const colCount = ws.columnCount || 0;
+    const rows = [];
+    ws.eachRow({ includeEmpty: true }, (row) => {
+      const arr = [];
+      for (let c = 1; c <= colCount; c += 1) arr.push(String(row.getCell(c).text ?? ""));
+      rows.push(arr);
+    });
+    response.json({ rows });
+  } catch (error) {
+    response.status(400).json({ error: error.message || "Couldn't read the spreadsheet" });
+  }
+});
 
 const saveSchema = z.object({
   fileName: z.string().max(300).optional(),

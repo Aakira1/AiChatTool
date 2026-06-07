@@ -8,7 +8,7 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../lib/checklist.js";
-import { downloadXlsxSpec, getCompanion, saveCompanion } from "../lib/api.js";
+import { downloadXlsxSpec, getCompanion, saveCompanion, parseXlsxFile } from "../lib/api.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
 const STORAGE_KEY = "cia.checklist.session.v1";
@@ -120,11 +120,11 @@ export function ChecklistPage() {
 
   const loadFile = async (file) => {
     try {
-      const text = await file.text();
-      const parsed = parseCsv(text);
+      const isExcel = /\.xlsx?$/i.test(file.name);
+      const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
       const a = analyzeChecklist(parsed);
       if (!a) {
-        toast.error("Couldn't find a Functional Group / Task / Status layout in that CSV.");
+        toast.error("Couldn't find a Functional Group / Task / Status layout in that file.");
         return;
       }
       setRows(parsed);
@@ -232,7 +232,7 @@ export function ChecklistPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="cia-file-input-hidden"
             onChange={(event) => {
               const f = event.target.files?.[0];
