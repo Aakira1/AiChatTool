@@ -9,14 +9,30 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../../lib/checklist.js";
-import { getCompanion, saveCompanion, parseXlsxFile } from "../../lib/api.js";
+import { getCompanion, saveCompanion, parseXlsxWorkbook } from "../../lib/api.js";
 
-const STORAGE_KEY = "cia.ext.checklist.v1";
+const STORAGE_KEY = "cia.ext.checklist.v2";
+
+// Build stages from {name, rows} sheets — keep only checklist-shaped sheets.
+function buildStages(sheets) {
+  const stages = [];
+  for (const sheet of sheets) {
+    const analysis = analyzeChecklist(sheet.rows);
+    if (analysis) stages.push({ name: sheet.name, rows: sheet.rows, analysis });
+  }
+  return stages;
+}
+
+function stagesFromPayload(payload) {
+  if (payload?.sheets?.length) return buildStages(payload.sheets);
+  if (payload?.rows?.length) return buildStages([{ name: "Checklist", rows: payload.rows }]);
+  return [];
+}
 
 export function ChecklistPanel({ onClose }) {
   const fileRef = useRef(null);
-  const [rows, setRows] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
+  const [stages, setStages] = useState(null);
+  const [activeStage, setActiveStage] = useState(0);
   const [fileName, setFileName] = useState("");
   const [tick, setTick] = useState(0);
   const [error, setError] = useState("");
@@ -24,11 +40,10 @@ export function ChecklistPanel({ onClose }) {
   const saveTimer = useRef(null);
   const serverUpdatedAt = useRef(null);
 
-  const apply = (parsed, name) => {
-    const a = analyzeChecklist(parsed);
-    if (!a) return false;
-    setRows(parsed);
-    setAnalysis(a);
+  const apply = (nextStages, name) => {
+    if (!nextStages?.length) return false;
+    setStages(nextStages);
+    setActiveStage((i) => Math.min(i, nextStages.length - 1));
     setFileName(name || "checklist.csv");
     setTick((t) => t + 1);
     return true;
@@ -37,9 +52,12 @@ export function ChecklistPanel({ onClose }) {
   const refreshFromServer = async () => {
     try {
       const remote = await getCompanion();
-      if (remote?.rows?.length && remote.updatedAt !== serverUpdatedAt.current) {
+      if (
+        (remote?.sheets?.length || remote?.rows?.length) &&
+        remote.updatedAt !== serverUpdatedAt.current
+      ) {
         serverUpdatedAt.current = remote.updatedAt;
-        apply(remote.rows, remote.fileName);
+        apply(stagesFromPayload(remote), remote.fileName);
       }
     } catch {
       /* offline */
@@ -51,9 +69,9 @@ export function ChecklistPanel({ onClose }) {
     (async () => {
       try {
         const remote = await getCompanion();
-        if (remote?.rows?.length && active) {
+        if ((remote?.sheets?.length || remote?.rows?.length) && active) {
           serverUpdatedAt.current = remote.updatedAt;
-          apply(remote.rows, remote.fileName);
+          apply(stagesFromPayload(remote), remote.fileName);
           return;
         }
       } catch {
@@ -61,7 +79,8 @@ export function ChecklistPanel({ onClose }) {
       }
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (saved?.rows?.length && active) apply(saved.rows, saved.fileName);
+        const local = stagesFromPayload(saved);
+        if (local.length && active) apply(local, saved.fileName);
       } catch {
         /* ignore */
       }
@@ -74,19 +93,25 @@ export function ChecklistPanel({ onClose }) {
     };
   }, []);
 
-  const persist = (nextRows, name) => {
+  const persist = (nextStages, name) => {
+    const sheets = nextStages.map((s) => ({ name: s.name, rows: s.rows }));
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows: nextRows, fileName: name }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sheets, fileName: name }));
     } catch {
       /* ignore */
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      saveCompanion({ fileName: name, rows: nextRows, baseUpdatedAt: serverUpdatedAt.current })
+      saveCompanion({
+        fileName: name,
+        rows: sheets[0]?.rows ?? null,
+        sheets,
+        baseUpdatedAt: serverUpdatedAt.current,
+      })
         .then((res) => {
           if (res?.conflict) {
             serverUpdatedAt.current = res.updatedAt;
-            apply(res.rows, res.fileName);
+            apply(stagesFromPayload(res), res.fileName);
           } else if (res?.updatedAt) {
             serverUpdatedAt.current = res.updatedAt;
           }
@@ -98,45 +123,55 @@ export function ChecklistPanel({ onClose }) {
   const loadFile = async (file) => {
     try {
       const isExcel = /\.xlsx?$/i.test(file.name);
-      const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
-      const a = analyzeChecklist(parsed);
-      if (!a) {
+      let nextStages;
+      if (isExcel) {
+        const { sheets } = await parseXlsxWorkbook(file);
+        nextStages = buildStages(sheets);
+      } else {
+        nextStages = buildStages([{ name: "Checklist", rows: parseCsv(await file.text()) }]);
+      }
+      if (!nextStages.length) {
         setError("Couldn't find a Functional Group / Task / Status layout in that file.");
         return;
       }
-      setRows(parsed);
-      setAnalysis(a);
-      setFileName(file.name);
+      setActiveStage(0);
+      apply(nextStages, file.name);
       setError("");
-      persist(parsed, file.name);
+      persist(nextStages, file.name);
     } catch (e) {
-      setError(e.message || "Failed to read the CSV");
+      setError(e.message || "Failed to read the file");
     }
   };
 
+  const stage = stages?.[activeStage] ?? null;
+
   const setItemStatus = (item, stateId) => {
-    if (!rows || !analysis) return;
-    const { cols } = analysis;
-    const r = rows[item.rowIndex];
+    if (!stage) return;
+    const { cols } = stage.analysis;
+    const r = stage.rows[item.rowIndex];
     if (cols.status >= 0) r[cols.status] = STATUS_TEXT[stateId];
     if (cols.date >= 0) {
       if (stateId === "completed" && !r[cols.date]) r[cols.date] = todayIso();
       if (stateId === "not-started") r[cols.date] = "";
     }
     item.status = cols.status >= 0 ? r[cols.status] : item.status;
-    persist(rows, fileName);
+    persist(stages, fileName);
     setTick((t) => t + 1);
   };
 
-  const groups = useMemo(() => (analysis ? groupItems(analysis.items) : []), [analysis, tick]);
-  const overall = useMemo(() => (analysis ? progressOf(analysis.items) : null), [analysis, tick]);
+  const groups = useMemo(() => (stage ? groupItems(stage.analysis.items) : []), [stage, tick]);
+  const overall = useMemo(
+    () => (stages ? progressOf(stages.flatMap((s) => s.analysis.items)) : null),
+    [stages, tick],
+  );
 
   const downloadCsv = () => {
-    const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([toCsv(stage.rows)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = fileName.replace(/\.csv$/i, "") + "-updated.csv";
+    const base = fileName.replace(/\.(csv|xlsx?)$/i, "");
+    link.download = `${base}${stages.length > 1 ? `-${stage.name}` : ""}-updated.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -144,11 +179,11 @@ export function ChecklistPanel({ onClose }) {
   };
 
   const clearSession = () => {
-    setRows(null);
-    setAnalysis(null);
+    setStages(null);
+    setActiveStage(0);
     setFileName("");
     localStorage.removeItem(STORAGE_KEY);
-    saveCompanion({ fileName: "", rows: null }).catch(() => {});
+    saveCompanion({ fileName: "", rows: null, sheets: null }).catch(() => {});
   };
 
   return (
@@ -191,9 +226,9 @@ export function ChecklistPanel({ onClose }) {
             }}
           />
           <button type="button" className="cia-ext-secondary-btn" onClick={() => fileRef.current?.click()}>
-            {rows ? "Import another" : "Import"}
+            {stages ? "Import another" : "Import"}
           </button>
-          {rows ? (
+          {stages ? (
             <>
               <button type="button" className="cia-ext-secondary-btn" onClick={downloadCsv}>
                 Download CSV
@@ -205,9 +240,9 @@ export function ChecklistPanel({ onClose }) {
           ) : null}
         </div>
 
-        {!rows ? (
+        {!stages ? (
           <p className="cia-ext-forum-muted">
-            Drag &amp; drop or import a companion checklist CSV to track progress.
+            Drag &amp; drop or import a companion checklist (CSV or multi-sheet Excel) to track progress.
           </p>
         ) : (
           <>
@@ -219,6 +254,24 @@ export function ChecklistPanel({ onClose }) {
                 <div className="cia-ext-chk-bar-fill" style={{ width: `${overall.pct}%` }} />
               </div>
             </div>
+
+            {stages.length > 1 ? (
+              <div className="cia-ext-chk-stages">
+                {stages.map((s, i) => {
+                  const p = progressOf(s.analysis.items);
+                  return (
+                    <button
+                      key={s.name}
+                      type="button"
+                      className={`cia-ext-chk-stage-tab${i === activeStage ? " is-active" : ""}`}
+                      onClick={() => setActiveStage(i)}
+                    >
+                      {s.name} · {p.pct}%
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
             {groups.map((fg) => {
               const fp = progressOf(fg.items);

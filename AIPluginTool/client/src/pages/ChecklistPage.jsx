@@ -8,11 +8,18 @@ import {
   STATUS_TEXT,
   todayIso,
 } from "../lib/checklist.js";
-import { downloadXlsxSpec, getCompanion, saveCompanion, parseXlsxFile } from "../lib/api.js";
+import {
+  downloadXlsxSpec,
+  downloadCompanionXlsx,
+  fileToBase64Async,
+  getCompanion,
+  saveCompanion,
+  parseXlsxWorkbook,
+} from "../lib/api.js";
 import { classifyRows, DOC_TYPE_LABEL, DOC_TYPE_APP } from "../lib/docType.js";
 import { useToast } from "../components/ui/ToastProvider.jsx";
 
-const STORAGE_KEY = "cia.checklist.session.v1";
+const STORAGE_KEY = "cia.checklist.session.v2";
 
 const STATUS_OPTIONS = [
   { id: "not-started", label: "Not started" },
@@ -28,35 +35,59 @@ function ProgressBar({ pct }) {
   );
 }
 
+// Build stage objects from a set of {name, rows} sheets: keep only the sheets
+// that actually contain a Functional Group / Task / Status checklist layout.
+function buildStages(sheets) {
+  const stages = [];
+  for (const sheet of sheets) {
+    const analysis = analyzeChecklist(sheet.rows);
+    if (analysis) stages.push({ name: sheet.name, rows: sheet.rows, analysis });
+  }
+  return stages;
+}
+
 export function ChecklistPage() {
   const toast = useToast();
   const fileInputRef = useRef(null);
-  const [rows, setRows] = useState(null);
+  const [stages, setStages] = useState(null); // [{ name, rows, analysis }]
+  const [activeStage, setActiveStage] = useState(0);
   const [fileName, setFileName] = useState("");
-  const [analysis, setAnalysis] = useState(null);
   const [tick, setTick] = useState(0); // force re-render after mutating rows in place
   const [dragActive, setDragActive] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef(null);
 
   const saveTimer = useRef(null);
   const serverUpdatedAt = useRef(null);
+  const originalXlsx = useRef(null); // base64 of the imported .xlsx (for 1:1 export)
 
-  const applyParsed = (parsed, name) => {
-    const a = analyzeChecklist(parsed);
-    if (!a) return false;
-    setRows(parsed);
-    setAnalysis(a);
+  // Adopt a parsed workbook (already split into stages).
+  const applyStages = (nextStages, name) => {
+    if (!nextStages?.length) return false;
+    setStages(nextStages);
+    setActiveStage((i) => Math.min(i, nextStages.length - 1));
     setFileName(name || "checklist.csv");
     setTick((t) => t + 1);
     return true;
+  };
+
+  // Turn a server/local payload ({ sheets } or { rows }) into stages.
+  const stagesFromPayload = (payload) => {
+    if (payload?.sheets?.length) return buildStages(payload.sheets);
+    if (payload?.rows?.length) return buildStages([{ name: "Checklist", rows: payload.rows }]);
+    return [];
   };
 
   // Pull the latest server copy; adopt it if it changed elsewhere.
   const refreshFromServer = async ({ notify = false } = {}) => {
     try {
       const remote = await getCompanion();
-      if (remote?.rows?.length && remote.updatedAt !== serverUpdatedAt.current) {
+      if (
+        (remote?.sheets?.length || remote?.rows?.length) &&
+        remote.updatedAt !== serverUpdatedAt.current
+      ) {
         serverUpdatedAt.current = remote.updatedAt;
-        applyParsed(remote.rows, remote.fileName);
+        applyStages(stagesFromPayload(remote), remote.fileName);
         if (notify) toast.info("Companion refreshed from the latest saved copy.");
       }
     } catch {
@@ -70,9 +101,9 @@ export function ChecklistPage() {
     (async () => {
       try {
         const remote = await getCompanion();
-        if (remote?.rows?.length && active) {
+        if ((remote?.sheets?.length || remote?.rows?.length) && active) {
           serverUpdatedAt.current = remote.updatedAt;
-          applyParsed(remote.rows, remote.fileName);
+          applyStages(stagesFromPayload(remote), remote.fileName);
           return;
         }
       } catch {
@@ -80,12 +111,13 @@ export function ChecklistPage() {
       }
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (saved?.rows?.length && active) applyParsed(saved.rows, saved.fileName);
+        if (saved?.dataBase64) originalXlsx.current = saved.dataBase64;
+        const local = stagesFromPayload(saved);
+        if (local.length && active) applyStages(local, saved.fileName);
       } catch {
         /* ignore */
       }
     })();
-    // Re-sync when the tab regains focus (picks up edits from the extension).
     const onFocus = () => void refreshFromServer();
     window.addEventListener("focus", onFocus);
     return () => {
@@ -95,21 +127,40 @@ export function ChecklistPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persist = (nextRows, name) => {
+  // Close the export menu when clicking outside it.
+  useEffect(() => {
+    if (!exportOpen) return undefined;
+    const onDown = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [exportOpen]);
+
+  const persist = (nextStages, name) => {
+    const sheets = nextStages.map((s) => ({ name: s.name, rows: s.rows }));
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows: nextRows, fileName: name }));
+      // Keep the original .xlsx bytes too so a 1:1 export still works after reload.
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ sheets, fileName: name, dataBase64: originalXlsx.current ?? null }),
+      );
     } catch {
       /* ignore quota */
     }
     // Debounced server sync so the same checklist appears in the extension.
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      saveCompanion({ fileName: name, rows: nextRows, baseUpdatedAt: serverUpdatedAt.current })
+      saveCompanion({
+        fileName: name,
+        rows: sheets[0]?.rows ?? null,
+        sheets,
+        baseUpdatedAt: serverUpdatedAt.current,
+      })
         .then((res) => {
           if (res?.conflict) {
-            // The other surface saved a newer copy — adopt it.
             serverUpdatedAt.current = res.updatedAt;
-            applyParsed(res.rows, res.fileName);
+            applyStages(stagesFromPayload(res), res.fileName);
             toast.info("Companion was updated elsewhere — loaded the latest.");
           } else if (res?.updatedAt) {
             serverUpdatedAt.current = res.updatedAt;
@@ -122,60 +173,83 @@ export function ChecklistPage() {
   const loadFile = async (file) => {
     try {
       const isExcel = /\.xlsx?$/i.test(file.name);
-      const parsed = isExcel ? await parseXlsxFile(file) : parseCsv(await file.text());
-      const type = classifyRows(parsed);
-      const a = analyzeChecklist(parsed);
-      if (!a) {
-        const where = DOC_TYPE_APP[type];
-        toast.error(
-          where
-            ? `This looks like a ${DOC_TYPE_LABEL[type]} — open it in ${where}.`
-            : "Couldn't find a Functional Group / Task / Status layout in that file.",
-        );
-        return;
+      let nextStages;
+      if (isExcel) {
+        const { sheets, dataBase64 } = await parseXlsxWorkbook(file);
+        originalXlsx.current = dataBase64;
+        nextStages = buildStages(sheets);
+        if (!nextStages.length) {
+          // No stage sheet matched — classify the first sheet for a helpful hint.
+          const type = classifyRows(sheets[0]?.rows ?? []);
+          const where = DOC_TYPE_APP[type];
+          toast.error(
+            where && type !== "companion"
+              ? `This looks like a ${DOC_TYPE_LABEL[type]} — open it in ${where}.`
+              : "Couldn't find a Functional Group / Task / Status layout in any sheet.",
+          );
+          return;
+        }
+      } else {
+        originalXlsx.current = null;
+        const rows = parseCsv(await file.text());
+        nextStages = buildStages([{ name: "Checklist", rows }]);
+        if (!nextStages.length) {
+          const type = classifyRows(rows);
+          const where = DOC_TYPE_APP[type];
+          toast.error(
+            where && type !== "companion"
+              ? `This looks like a ${DOC_TYPE_LABEL[type]} — open it in ${where}.`
+              : "Couldn't find a Functional Group / Task / Status layout in that file.",
+          );
+          return;
+        }
       }
-      setRows(parsed);
-      setAnalysis(a);
-      setFileName(file.name);
-      persist(parsed, file.name);
-      toast.success(`Imported Companion checklist — ${a.items.length} tasks`);
+      setActiveStage(0);
+      applyStages(nextStages, file.name);
+      persist(nextStages, file.name);
+      const total = nextStages.reduce((n, s) => n + s.analysis.items.length, 0);
+      toast.success(
+        nextStages.length > 1
+          ? `Imported Companion — ${nextStages.length} stages, ${total} tasks`
+          : `Imported Companion checklist — ${total} tasks`,
+      );
     } catch (error) {
-      toast.error(error.message || "Failed to read the CSV");
+      toast.error(error.message || "Failed to read the file");
     }
   };
 
-  const setItemStatus = (item, stateId) => {
-    if (!rows || !analysis) return;
-    const { cols } = analysis;
-    const r = rows[item.rowIndex];
+  const setItemStatus = (stage, item, stateId) => {
+    if (!stage) return;
+    const { cols } = stage.analysis;
+    const r = stage.rows[item.rowIndex];
     if (cols.status >= 0) r[cols.status] = STATUS_TEXT[stateId];
     if (cols.date >= 0) {
       if (stateId === "completed" && !r[cols.date]) r[cols.date] = todayIso();
       if (stateId === "not-started") r[cols.date] = "";
     }
-    // Keep the analysis items in sync (they reference the same row data).
     item.status = cols.status >= 0 ? r[cols.status] : item.status;
     item.date = cols.date >= 0 ? r[cols.date] : item.date;
-    persist(rows, fileName);
+    persist(stages, fileName);
     setTick((t) => t + 1);
   };
 
-  const groups = useMemo(
-    () => (analysis ? groupItems(analysis.items) : []),
-    [analysis, tick],
+  const stage = stages?.[activeStage] ?? null;
+  const allItems = useMemo(
+    () => (stages ? stages.flatMap((s) => s.analysis.items) : []),
+    [stages, tick],
   );
-  const overall = useMemo(
-    () => (analysis ? progressOf(analysis.items) : null),
-    [analysis, tick],
+  const groups = useMemo(() => (stage ? groupItems(stage.analysis.items) : []), [stage, tick]);
+  const overall = useMemo(() => (stages ? progressOf(allItems) : null), [stages, allItems, tick]);
+  const stageProgress = useMemo(
+    () => (stages ? stages.map((s) => progressOf(s.analysis.items)) : []),
+    [stages, tick],
   );
   const insights = useMemo(() => {
-    if (!analysis) return null;
-    const nextUp = analysis.items.filter((i) => statusState(i.status) === "not-started").slice(0, 6);
-    const inProgress = analysis.items
-      .filter((i) => statusState(i.status) === "in-progress")
-      .slice(0, 6);
+    if (!stages) return null;
+    const nextUp = allItems.filter((i) => statusState(i.status) === "not-started").slice(0, 6);
+    const inProgress = allItems.filter((i) => statusState(i.status) === "in-progress").slice(0, 6);
     return { nextUp, inProgress };
-  }, [analysis, tick]);
+  }, [stages, allItems, tick]);
 
   const handleDrop = (event) => {
     event.preventDefault();
@@ -185,11 +259,13 @@ export function ChecklistPage() {
   };
 
   const downloadCsv = () => {
-    const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+    // CSV is single-grid: export the active stage's grid.
+    const blob = new Blob([toCsv(stage.rows)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
+    const base = fileName.replace(/\.(csv|xlsx?)$/i, "");
     link.href = url;
-    link.download = fileName.replace(/\.csv$/i, "") + "-updated.csv";
+    link.download = `${base}${stages.length > 1 ? `-${stage.name}` : ""}-updated.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -198,23 +274,31 @@ export function ChecklistPage() {
 
   const downloadExcel = async () => {
     try {
-      // Keep the original layout: export the full grid (preamble + every column),
-      // with only the status/date cells updated. Empty columns = no styled header.
-      await downloadXlsxSpec({
-        title: fileName.replace(/\.csv$/i, "") || "Checklist",
-        sheets: [{ name: "Companion", columns: [], rows }],
-      });
+      const title = fileName.replace(/\.(csv|xlsx?)$/i, "") || "Checklist";
+      if (originalXlsx.current) {
+        // 1:1 export — re-emit the original workbook (every stage sheet),
+        // preserving styling, column widths, merges and formulas.
+        await downloadCompanionXlsx({
+          dataBase64: originalXlsx.current,
+          sheets: stages.map((s) => ({ name: s.name, rows: s.rows })),
+          title,
+        });
+      } else {
+        // Imported from CSV — build a plain workbook from the active grid.
+        await downloadXlsxSpec({ title, sheets: [{ name: "Companion", columns: [], rows: stage.rows }] });
+      }
     } catch (error) {
       toast.error(error.message || "Couldn't build the Excel file");
     }
   };
 
   const clearSession = () => {
-    setRows(null);
-    setAnalysis(null);
+    setStages(null);
+    setActiveStage(0);
     setFileName("");
+    originalXlsx.current = null;
     localStorage.removeItem(STORAGE_KEY);
-    saveCompanion({ fileName: "", rows: null }).catch(() => {});
+    saveCompanion({ fileName: "", rows: null, sheets: null }).catch(() => {});
   };
 
   return (
@@ -233,7 +317,7 @@ export function ChecklistPage() {
       <div className="cia-chk-header">
         <div>
           <h1>Companion</h1>
-          <p>Import an implementation companion CSV, track progress, and export it back.</p>
+          <p>Import an implementation/configuration companion, track progress, and export it back.</p>
         </div>
         <div className="cia-chk-actions">
           <input
@@ -248,9 +332,9 @@ export function ChecklistPage() {
             }}
           />
           <button type="button" className="cia-header-btn" onClick={() => fileInputRef.current?.click()}>
-            {rows ? "Import another" : "Import"}
+            {stages ? "Import another" : "Import"}
           </button>
-          {rows ? (
+          {stages ? (
             <>
               <button
                 type="button"
@@ -260,12 +344,47 @@ export function ChecklistPage() {
               >
                 Refresh
               </button>
-              <button type="button" className="cia-header-btn" onClick={downloadCsv}>
-                Download CSV
-              </button>
-              <button type="button" className="cia-header-btn" onClick={() => void downloadExcel()}>
-                Download Excel
-              </button>
+              <div className="cia-export-menu" ref={exportRef}>
+                <button
+                  type="button"
+                  className="cia-header-btn"
+                  aria-haspopup="menu"
+                  aria-expanded={exportOpen}
+                  onClick={() => setExportOpen((v) => !v)}
+                >
+                  Export ▾
+                </button>
+                {exportOpen ? (
+                  <div className="cia-export-pop" role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setExportOpen(false);
+                        void downloadExcel();
+                      }}
+                    >
+                      <span className="cia-export-ext">XLSX</span>
+                      <span className="cia-export-label">
+                        Excel — original template, only updated fields
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setExportOpen(false);
+                        downloadCsv();
+                      }}
+                    >
+                      <span className="cia-export-ext">CSV</span>
+                      <span className="cia-export-label">
+                        CSV — {stages.length > 1 ? `current stage (${stage.name})` : "flat grid"}
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <button type="button" className="cia-header-btn" onClick={clearSession}>
                 Clear
               </button>
@@ -274,13 +393,14 @@ export function ChecklistPage() {
         </div>
       </div>
 
-      {!rows ? (
+      {!stages ? (
         <div className="cia-chk-empty">
           <p>
-            <strong>Drag &amp; drop</strong> a companion checklist CSV here (or use Import CSV) — e.g.
-            the P&amp;R Transitions Implementation Companion. It detects the{" "}
-            <strong>Functional Group · Task Group · Task · Status</strong> layout, lets you tick tasks
-            off (auto-stamping the completion date), and exports the updated file.
+            <strong>Drag &amp; drop</strong> a companion here (CSV or multi-sheet Excel) — e.g. the
+            P&amp;R Transitions Configuration Companion. It detects the{" "}
+            <strong>Functional Group · Task Group · Task · Status</strong> layout across every stage
+            sheet, lets you tick tasks off (auto-stamping the completion date), and exports the updated
+            workbook in its original format.
           </p>
         </div>
       ) : (
@@ -295,6 +415,29 @@ export function ChecklistPage() {
             <ProgressBar pct={overall.pct} />
           </div>
 
+          {stages.length > 1 ? (
+            <div className="cia-chk-stages" role="tablist">
+              {stages.map((s, i) => {
+                const p = stageProgress[i];
+                return (
+                  <button
+                    key={s.name}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === activeStage}
+                    className={`cia-chk-stage-tab${i === activeStage ? " is-active" : ""}`}
+                    onClick={() => setActiveStage(i)}
+                  >
+                    <span className="cia-chk-stage-name">{s.name}</span>
+                    <span className="cia-chk-stage-meta">
+                      {p.completed}/{p.total} · {p.pct}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           {insights && (insights.nextUp.length || insights.inProgress.length) ? (
             <div className="cia-chk-insights">
               <div className="cia-chk-insight-card cia-chk-insight-next">
@@ -303,12 +446,14 @@ export function ChecklistPage() {
                     ▶
                   </span>
                   Up next
-                  <span className="cia-chk-insight-count">{overall.total - overall.completed - overall.inProgress}</span>
+                  <span className="cia-chk-insight-count">
+                    {overall.total - overall.completed - overall.inProgress}
+                  </span>
                 </h3>
                 {insights.nextUp.length ? (
                   <ol className="cia-chk-insight-list">
                     {insights.nextUp.map((i) => (
-                      <li key={i.rowIndex}>
+                      <li key={`${i.functionalGroup}-${i.rowIndex}-${i.task}`}>
                         <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
                         <span className="cia-chk-insight-task">{i.task}</span>
                       </li>
@@ -329,7 +474,7 @@ export function ChecklistPage() {
                 {insights.inProgress.length ? (
                   <ul className="cia-chk-insight-list">
                     {insights.inProgress.map((i) => (
-                      <li key={i.rowIndex}>
+                      <li key={`${i.functionalGroup}-${i.rowIndex}-${i.task}`}>
                         <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
                         <span className="cia-chk-insight-task">{i.task}</span>
                       </li>
@@ -368,7 +513,7 @@ export function ChecklistPage() {
                               type="checkbox"
                               checked={state === "completed"}
                               onChange={(event) =>
-                                setItemStatus(item, event.target.checked ? "completed" : "not-started")
+                                setItemStatus(stage, item, event.target.checked ? "completed" : "not-started")
                               }
                               aria-label={`Mark ${item.task} complete`}
                             />
@@ -377,12 +522,16 @@ export function ChecklistPage() {
                               role="button"
                               tabIndex={0}
                               onClick={() =>
-                                setItemStatus(item, state === "completed" ? "not-started" : "completed")
+                                setItemStatus(stage, item, state === "completed" ? "not-started" : "completed")
                               }
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
-                                  setItemStatus(item, state === "completed" ? "not-started" : "completed");
+                                  setItemStatus(
+                                    stage,
+                                    item,
+                                    state === "completed" ? "not-started" : "completed",
+                                  );
                                 }
                               }}
                             >
@@ -395,7 +544,7 @@ export function ChecklistPage() {
                             <select
                               className="cia-chk-status"
                               value={state}
-                              onChange={(event) => setItemStatus(item, event.target.value)}
+                              onChange={(event) => setItemStatus(stage, item, event.target.value)}
                             >
                               {STATUS_OPTIONS.map((o) => (
                                 <option key={o.id} value={o.id}>

@@ -451,10 +451,45 @@ export async function parseXlsxFile(file) {
   return rows;
 }
 
-export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
+/**
+ * Parse a whole .xlsx workbook: returns every sheet as its own grid plus the
+ * original base64 (so a later export can rebuild the workbook 1:1). One upload.
+ */
+export async function parseXlsxWorkbook(file) {
+  const dataBase64 = fileToBase64(await file.arrayBuffer());
+  const response = await apiFetch("/api/companion/parse-xlsx", {
+    method: "POST",
+    body: JSON.stringify({ dataBase64 }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't read the spreadsheet"));
+  const data = await response.json();
+  const sheets = data.sheets ?? (data.rows ? [{ name: "Sheet1", rows: data.rows }] : []);
+  return { sheets, dataBase64 };
+}
+
+/** Base64-encode a File/ArrayBuffer so callers can retain the original bytes. */
+export async function fileToBase64Async(file) {
+  return fileToBase64(await file.arrayBuffer());
+}
+
+/**
+ * Re-emit the original .xlsx with only changed cell text applied (styles, widths
+ * and formulas preserved), then download it. Pass `sheets` for multi-sheet
+ * workbooks, or `rows` for a single sheet. Needs the original file's base64.
+ */
+export async function downloadCompanionXlsx({ dataBase64, rows, sheets, edits, title = "Companion" }) {
+  const response = await apiFetch("/api/companion/export-xlsx", {
+    method: "POST",
+    body: JSON.stringify({ dataBase64, rows, sheets, edits }),
+  });
+  if (!response.ok) throw new Error(await readError(response, "Couldn't build the spreadsheet"));
+  await triggerBlobDownload(response, title, "xlsx");
+}
+
+export async function saveCompanion({ fileName, rows, sheets, baseUpdatedAt }) {
   const response = await apiFetch("/api/companion", {
     method: "PUT",
-    body: JSON.stringify({ fileName, rows, baseUpdatedAt }),
+    body: JSON.stringify({ fileName, rows, sheets, baseUpdatedAt }),
   });
   // 409 = another surface saved a newer copy; return it so the caller can adopt it.
   if (response.status === 409) return { conflict: true, ...(await response.json()) };

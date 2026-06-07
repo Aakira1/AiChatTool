@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { actionTypeLabel } from "../lib/bpa.js";
 
-const NODE_W = 200;
-const NODE_H = 54;
-const COL_W = 280;
-const ROW_H = 120;
+const NODE_W = 210;
+const NODE_H = 64;
+const HEAD_H = 24;
+const COL_W = 300;
+const ROW_H = 130;
 const PAD_TOP = 80;
 const PAD_LEFT = 30;
 const ICON = { start: "▶", end: "■", user: "👤" };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// A rounded-top / square-bottom rect path (blueprint node header).
+function topRoundedPath(w, h, r) {
+  return `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h} H 0 V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+}
 
 function layoutGraph(nodes, edges) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -190,31 +197,39 @@ export function BpaGraph({ graph }) {
         </div>
         <svg className="cia-bpa-svg" width="100%" height="100%">
           <defs>
-            <marker id="bpa-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0,0 L8,3 L0,6 Z" fill="#b9a9c8" />
+            <marker id="bpa-arrow" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#7e8bb0" />
             </marker>
-            <marker id="bpa-arrow-fwd" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0,0 L8,3 L0,6 Z" fill="#e4007c" />
+            <marker id="bpa-arrow-fwd" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#ff2d9b" />
             </marker>
-            <marker id="bpa-arrow-back" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0,0 L8,3 L0,6 Z" fill="#f7941d" />
+            <marker id="bpa-arrow-back" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6 Z" fill="#f7a93b" />
             </marker>
-            <pattern id="bpa-dots" width="22" height="22" patternUnits="userSpaceOnUse">
-              <circle cx="1.4" cy="1.4" r="1.4" fill="#efe9f5" />
+            <pattern id="bpa-grid" width="26" height="26" patternUnits="userSpaceOnUse">
+              <path d="M 26 0 L 0 0 0 26" fill="none" stroke="#223052" strokeWidth="0.6" />
+              <circle cx="0" cy="0" r="1.1" fill="#33436b" />
             </pattern>
-            <filter id="bpa-shadow" x="-20%" y="-20%" width="140%" height="160%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#2a1446" floodOpacity="0.12" />
+            <filter id="bpa-shadow" x="-40%" y="-40%" width="180%" height="200%">
+              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity="0.5" />
+            </filter>
+            <filter id="bpa-glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="2.4" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
             </filter>
           </defs>
 
-          <rect x="-2000" y="-2000" width="6000" height="6000" fill="url(#bpa-dots)" />
+          <rect x="-4000" y="-4000" width="10000" height="10000" fill="url(#bpa-grid)" />
 
           <g transform={`translate(${view.x}, ${view.y}) scale(${view.k})`}>
             {edges.map((e) => {
               const d = edgePath(e);
               const active = sel?.type === "edge" && sel.key === e.i;
               const lp = labelPos(e);
-              const stroke = active ? "#e4007c" : e.back ? "#f7941d" : "#c9bcd6";
+              const stroke = active ? "#ff2d9b" : e.back ? "#f7a93b" : "#5d6e9e";
               const marker = active ? "bpa-arrow-fwd" : e.back ? "bpa-arrow-back" : "bpa-arrow";
               return (
                 <g
@@ -223,15 +238,16 @@ export function BpaGraph({ graph }) {
                   onMouseDown={(ev) => ev.stopPropagation()}
                   onClick={() => setSel({ type: "edge", key: e.i })}
                 >
-                  <path d={d} fill="none" stroke="transparent" strokeWidth="16" />
+                  <path d={d} fill="none" stroke="transparent" strokeWidth="18" />
                   <path
                     className={active ? "cia-bpa-edge-active" : ""}
                     d={d}
                     fill="none"
                     stroke={stroke}
-                    strokeWidth={active ? 3 : 2}
+                    strokeWidth={active ? 3.5 : 2.4}
                     strokeLinecap="round"
                     markerEnd={`url(#${marker})`}
+                    filter={active || e.back ? "url(#bpa-glow)" : undefined}
                   />
                   {e.label ? (
                     <g transform={`translate(${lp.x}, ${lp.y})`}>
@@ -241,10 +257,17 @@ export function BpaGraph({ graph }) {
                         width={e.label.length * 6.8 + 18}
                         height="20"
                         rx="10"
-                        fill={active ? "#fde8f3" : "#ffffff"}
-                        stroke={active ? "#e4007c" : "#e8dff0"}
+                        fill={active ? "#3a1430" : "#1b2233"}
+                        stroke={active ? "#ff2d9b" : "#33436b"}
                       />
-                      <text x="0" y="4" fontSize="11" textAnchor="middle" fontWeight="600" fill={active ? "#e4007c" : "#6f5f82"}>
+                      <text
+                        x="0"
+                        y="4"
+                        fontSize="11"
+                        textAnchor="middle"
+                        fontWeight="600"
+                        fill={active ? "#ff7cc2" : "#9fb0d8"}
+                      >
                         {e.label}
                       </text>
                     </g>
@@ -259,7 +282,9 @@ export function BpaGraph({ graph }) {
               const isEnd = n.icon === "end";
               const isStart = n.icon === "start";
               const active = sel?.type === "node" && sel.key === n.id;
-              const accent = isStart ? "#16a34a" : isEnd ? "#64748b" : "#e4007c";
+              const accent = isStart ? "#39d98a" : isEnd ? "#8a93a6" : "#ff2d9b";
+              const kind = isStart ? "START" : isEnd ? "END" : "TASK";
+              const title = n.text || kind;
               return (
                 <g
                   key={n.id}
@@ -267,21 +292,34 @@ export function BpaGraph({ graph }) {
                   transform={`translate(${p.x}, ${p.y})`}
                   onMouseDown={(e) => onNodeDown(e, n)}
                   onMouseUp={(e) => onNodeUp(e, n)}
+                  filter="url(#bpa-shadow)"
                 >
+                  {/* body */}
                   <rect
                     width={NODE_W}
                     height={NODE_H}
-                    rx="14"
-                    fill={active ? "#fff5fa" : "#ffffff"}
-                    stroke={accent}
-                    strokeWidth={active ? 2.5 : 1.5}
-                    filter="url(#bpa-shadow)"
+                    rx="12"
+                    fill="#161d2c"
+                    stroke={active ? "#ffffff" : accent}
+                    strokeWidth={active ? 2.4 : 1.4}
                   />
-                  <rect width="5" height={NODE_H} rx="2.5" fill={accent} />
-                  <text x="16" y={NODE_H / 2 + 4.5} fontSize="13" fontWeight="600" fill="#2a1446">
+                  {/* coloured header */}
+                  <path d={topRoundedPath(NODE_W, HEAD_H, 12)} fill={accent} opacity={active ? 1 : 0.92} />
+                  <text x="12" y={HEAD_H / 2 + 4} fontSize="12.5" fontWeight="700" fill="#0c0f17">
                     <tspan>{ICON[n.icon] ?? "•"} </tspan>
-                    {n.text.length > 22 ? `${n.text.slice(0, 21)}…` : n.text}
+                    {title.length > 22 ? `${title.slice(0, 21)}…` : title}
                   </text>
+                  {/* body label */}
+                  <text x="14" y={HEAD_H + 24} fontSize="11" fontWeight="600" fill="#8ea0c8">
+                    {kind}
+                  </text>
+                  {/* connection pins */}
+                  {!isStart ? (
+                    <circle cx="0" cy={NODE_H / 2} r="5" fill="#0c0f17" stroke={accent} strokeWidth="2" />
+                  ) : null}
+                  {!isEnd ? (
+                    <circle cx={NODE_W} cy={NODE_H / 2} r="5" fill={accent} stroke="#0c0f17" strokeWidth="1.5" />
+                  ) : null}
                 </g>
               );
             })}
@@ -293,28 +331,52 @@ export function BpaGraph({ graph }) {
       <aside className="cia-bpa-graph-panel">
         {selEdge ? (
           <>
+            <div className="cia-bpa-graph-panel-title">Decision Actions</div>
             <div className="cia-bpa-graph-panel-head">
               <span className="cia-bpa-chip">{selEdge.label || "(decision)"}</span>
+              {selEdge.isDefault ? <span className="cia-bpa-graph-default">default</span> : null}
               {selEdge.expected ? <span className="cia-bpa-graph-expected">expected</span> : null}
             </div>
-            <p className="cia-bpa-graph-route">
-              {nodeById.get(selEdge.from)?.text} → {nodeById.get(selEdge.to)?.text}
-            </p>
-            <h4>
-              Actions in this decision{actions.length ? ` (${actions.length})` : ""}
-            </h4>
+            <dl className="cia-bpa-graph-meta">
+              <div>
+                <dt>Decision</dt>
+                <dd>{selEdge.label || "—"}</dd>
+              </div>
+              <div>
+                <dt>Route</dt>
+                <dd>
+                  {nodeById.get(selEdge.from)?.text} → {nodeById.get(selEdge.to)?.text}
+                </dd>
+              </div>
+              <div>
+                <dt>Decision Id</dt>
+                <dd className="cia-bpa-graph-mono">{selEdge.decisionId || "—"}</dd>
+              </div>
+            </dl>
+            <h4>Actions{actions.length ? ` (${actions.length})` : ""}</h4>
             {actions.length ? (
-              <ul className="cia-bpa-graph-actions">
+              <ol className="cia-bpa-graph-actions">
                 {actions.map((a, i) => (
-                  <li key={`${a.actionId}-${i}`}>
-                    <strong>{a.type || "Action"}</strong>
-                    <span>{a.description || a.decision}</span>
+                  <li key={`${a.actionId}-${i}`} className="cia-bpa-graph-action">
+                    <div className="cia-bpa-graph-action-top">
+                      <span className="cia-bpa-graph-seq">{a.sequence || (i + 1) * 10}</span>
+                      <span className="cia-bpa-graph-type" title={a.type}>
+                        {actionTypeLabel(a.type)}
+                      </span>
+                    </div>
+                    <div className="cia-bpa-graph-action-desc">
+                      {a.description || a.decision || "(no description)"}
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             ) : (
               <p className="cia-forum-muted">No action detail recorded for this connection.</p>
             )}
+            <p className="cia-bpa-graph-foot">
+              Actions run lowest → highest sequence. Per T1 guidance, Assignments sequence early and a
+              Trigger Task to an End task sequences last.
+            </p>
           </>
         ) : selNode ? (
           <>
@@ -326,7 +388,10 @@ export function BpaGraph({ graph }) {
               <ul className="cia-bpa-graph-actions">
                 {nodeEdges.map((e) => (
                   <li key={e.i} className="cia-bpa-graph-declink" onClick={() => setSel({ type: "edge", key: e.i })}>
-                    <strong>{e.label || "(decision)"}</strong>
+                    <strong>
+                      {e.label || "(decision)"}
+                      {e.isDefault ? <span className="cia-bpa-graph-default">default</span> : null}
+                    </strong>
                     <span>→ {nodeById.get(e.to)?.text}</span>
                   </li>
                 ))}

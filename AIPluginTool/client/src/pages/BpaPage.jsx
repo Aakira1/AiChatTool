@@ -29,7 +29,7 @@ export function BpaPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
   const [newItem, setNewItem] = useState({}); // taskRowIndex -> draft label
-  const [tab, setTab] = useState("editor"); // editor | diagram
+  const [helperOpen, setHelperOpen] = useState(false); // BPA Helper collapsible
 
   const analysis = useMemo(() => (rows ? analyzeBpa(rows) : null), [rows]);
   const graph = useMemo(
@@ -149,7 +149,7 @@ export function BpaPage() {
       <div className="cia-bpa-header">
         <div>
           <h1>BPA Helper</h1>
-          <p>Open a BPA process CSV, name tasks &amp; decisions with AI help, and add decision items.</p>
+          <p>Open a BPA process, design it with the diagram &amp; AI, and export it 1:1 for re-import.</p>
         </div>
         <div className="cia-bpa-actions">
           <input
@@ -167,25 +167,9 @@ export function BpaPage() {
             {rows ? "Import another" : "Import"}
           </button>
           {rows ? (
-            <>
-              <button
-                type="button"
-                className={`cia-header-btn${tab === "editor" ? " active" : ""}`}
-                onClick={() => setTab("editor")}
-              >
-                Editor
-              </button>
-              <button
-                type="button"
-                className={`cia-header-btn${tab === "diagram" ? " active" : ""}`}
-                onClick={() => setTab("diagram")}
-              >
-                Diagram
-              </button>
-              <button type="button" className="cia-header-btn" onClick={downloadCsv}>
-                Download CSV
-              </button>
-            </>
+            <button type="button" className="cia-header-btn" onClick={downloadCsv}>
+              Download CSV
+            </button>
           ) : null}
         </div>
       </div>
@@ -198,20 +182,13 @@ export function BpaPage() {
             with an AI prompt to suggest names and outcomes.
           </p>
         </div>
-      ) : tab === "diagram" ? (
-        graph && graph.nodes.length ? (
-          <BpaGraph graph={graph} />
-        ) : (
-          <p className="cia-forum-muted">
-            No diagram in this file (the process Definition has no nodes).
-          </p>
-        )
       ) : (
-        <>
-          {/* AI prompt field */}
-          <div className="cia-bpa-assist">
+        <div className="cia-bpa-layout">
+          {/* Prompt box (top) */}
+          <div className="cia-bpa-assist cia-bpa-prompt-top">
             <label className="cia-bpa-assist-label" htmlFor="bpa-prompt">
-              Describe the process or what you need — AI suggests task/decision names &amp; items
+              Describe the process or what you need — AI suggests tasks &amp; decisions, then generates
+              them into the diagram
             </label>
             <div className="cia-bpa-assist-row">
               <textarea
@@ -236,7 +213,7 @@ export function BpaPage() {
                 <div className="cia-bpa-suggest-top">
                   <h4>Proposed process ({suggestions.tasks.length} tasks)</h4>
                   <button type="button" className="cia-bpa-add" onClick={generateFromPlan}>
-                    + Generate into process
+                    + Generate into diagram
                   </button>
                 </div>
                 {suggestions.tasks.map((t, i) => (
@@ -254,61 +231,88 @@ export function BpaPage() {
                   </div>
                 ))}
                 <p className="cia-bpa-suggest-hint">
-                  "Generate into process" clones your file's task/decision rows for each item
-                  (names &amp; structure). Branch wiring is set up in TechnologyOne.
+                  "Generate into diagram" clones your file's task/decision rows for each item and adds
+                  matching nodes &amp; connections to the process Definition so they appear in the graph.
                 </p>
               </div>
             ) : null}
           </div>
 
-          {/* Tasks + decision items */}
-          <div className="cia-bpa-tasks">
-            {editableTasks.map((task) => (
-              <section key={task.rowIndex} className="cia-bpa-task">
-                <div className="cia-bpa-task-head">
-                  <span className="cia-bpa-task-type">{task.type}</span>
-                  <input
-                    className="cia-bpa-task-name"
-                    value={task.name}
-                    onChange={(e) => setCell(task.rowIndex, "TaskTaskName", e.target.value)}
-                  />
-                </div>
-                <div className="cia-bpa-items">
-                  {task.items.length === 0 ? (
-                    <p className="cia-forum-muted">No decision items.</p>
-                  ) : (
-                    task.items.map((item) => (
-                      <div key={item.rowIndex} className="cia-bpa-item">
+          {/* Graph + Config panel (middle) */}
+          {graph && graph.nodes.length ? (
+            <BpaGraph graph={graph} />
+          ) : (
+            <p className="cia-forum-muted">
+              No diagram in this file yet (the process Definition has no nodes). Use the prompt above to
+              generate tasks into the diagram.
+            </p>
+          )}
+
+          {/* BPA Helper (collapsible, bottom) */}
+          <section className={`cia-bpa-helper${helperOpen ? " is-open" : ""}`}>
+            <button
+              type="button"
+              className="cia-bpa-helper-toggle"
+              onClick={() => setHelperOpen((v) => !v)}
+              aria-expanded={helperOpen}
+            >
+              <span className="cia-bpa-helper-caret">{helperOpen ? "▾" : "▸"}</span>
+              BPA Helper — rename tasks &amp; edit decision items ({editableTasks.length})
+            </button>
+            {helperOpen ? (
+              <div className="cia-bpa-tasks">
+                {editableTasks.map((task) => (
+                  <section key={task.rowIndex} className="cia-bpa-task">
+                    <div className="cia-bpa-task-head">
+                      <span className="cia-bpa-task-type">{task.type}</span>
+                      <input
+                        className="cia-bpa-task-name"
+                        value={task.name}
+                        onChange={(e) => setCell(task.rowIndex, "TaskTaskName", e.target.value)}
+                      />
+                    </div>
+                    <div className="cia-bpa-items">
+                      {task.items.length === 0 ? (
+                        <p className="cia-forum-muted">No decision items.</p>
+                      ) : (
+                        task.items.map((item) => (
+                          <div key={item.rowIndex} className="cia-bpa-item">
+                            <input
+                              className="cia-bpa-item-label"
+                              value={item.decision}
+                              placeholder="Decision label"
+                              onChange={(e) =>
+                                setCell(item.rowIndex, "ActionDecision", e.target.value)
+                              }
+                            />
+                            <span className="cia-bpa-item-desc" title={item.description}>
+                              {item.type}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                      <div className="cia-bpa-additem">
                         <input
-                          className="cia-bpa-item-label"
-                          value={item.decision}
-                          placeholder="Decision label"
-                          onChange={(e) => setCell(item.rowIndex, "ActionDecision", e.target.value)}
+                          value={newItem[task.rowIndex] || ""}
+                          placeholder="New decision item (e.g. Reject)"
+                          onChange={(e) =>
+                            setNewItem((m) => ({ ...m, [task.rowIndex]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") addItem(task);
+                          }}
                         />
-                        <span className="cia-bpa-item-desc" title={item.description}>
-                          {item.type}
-                        </span>
+                        <button type="button" className="cia-bpa-add" onClick={() => addItem(task)}>
+                          + Add item
+                        </button>
                       </div>
-                    ))
-                  )}
-                  <div className="cia-bpa-additem">
-                    <input
-                      value={newItem[task.rowIndex] || ""}
-                      placeholder="New decision item (e.g. Reject)"
-                      onChange={(e) => setNewItem((m) => ({ ...m, [task.rowIndex]: e.target.value }))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addItem(task);
-                      }}
-                    />
-                    <button type="button" className="cia-bpa-add" onClick={() => addItem(task)}>
-                      + Add item
-                    </button>
-                  </div>
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </div>
       )}
     </div>
   );

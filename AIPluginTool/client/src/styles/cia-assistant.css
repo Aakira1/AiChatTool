@@ -1939,7 +1939,7 @@
 /* ---- BPA Helper ---- */
 .cia-bpa-page {
   padding: 24px 28px;
-  max-width: 1000px;
+  max-width: 1600px;
   margin: 0 auto;
   position: relative;
 }
@@ -2175,17 +2175,19 @@
 /* ---- BPA diagram ---- */
 .cia-bpa-graph {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 1fr 300px;
   gap: 14px;
   align-items: start;
 }
 
 .cia-bpa-graph-canvas {
   position: relative;
-  background: #fff;
-  border: 1px solid var(--t1-border, #e8dff0);
+  background:
+    radial-gradient(1200px 600px at 30% 0%, #1b2233 0%, #11151f 55%, #0c0f17 100%);
+  border: 1px solid #2a3550;
   border-radius: 14px;
-  height: 70vh;
+  height: 78vh;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   cursor: grab;
 }
@@ -2258,8 +2260,19 @@
   bottom: 8px;
   left: 12px;
   font-size: 11px;
-  color: var(--t1-gray, #9b8cab);
+  color: #7c89a8;
   pointer-events: none;
+}
+
+.cia-bpa-zoom button {
+  background: #1b2233 !important;
+  border-color: #2f3c5c !important;
+  color: #cdd6ea !important;
+}
+
+.cia-bpa-zoom button:hover {
+  border-color: #ff2d9b !important;
+  color: #ff2d9b !important;
 }
 
 .cia-bpa-graph-declink {
@@ -2299,6 +2312,27 @@
   padding: 1px 7px;
 }
 
+.cia-bpa-graph-default {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #8a5a00;
+  background: #fdecc8;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+
+.cia-bpa-graph-foot {
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--t1-muted, #6f5f82);
+  border-top: 1px dashed var(--t1-border, #e8dff0);
+  padding-top: 8px;
+}
+
 .cia-bpa-graph-route {
   font-size: 12px;
   color: var(--t1-muted, #6f5f82);
@@ -2336,6 +2370,133 @@
   color: var(--t1-body, #3b2a4d);
 }
 
+.cia-bpa-graph-panel-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t1-magenta, #e4007c);
+  margin-bottom: 8px;
+}
+
+.cia-bpa-graph-meta {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.cia-bpa-graph-meta > div {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.cia-bpa-graph-meta dt {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-bpa-graph-meta dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-bpa-graph-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px !important;
+  color: var(--t1-muted, #6f5f82) !important;
+  word-break: break-all;
+}
+
+.cia-bpa-graph-action {
+  gap: 4px !important;
+}
+
+.cia-bpa-graph-action-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cia-bpa-graph-seq {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--t1-muted, #6f5f82);
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 6px;
+  padding: 1px 6px;
+  min-width: 26px;
+  text-align: center;
+}
+
+.cia-bpa-graph-type {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--t1-magenta, #e4007c);
+  background: #fde8f3;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.cia-bpa-graph-action-desc {
+  font-size: 11.5px;
+  color: var(--t1-body, #3b2a4d);
+}
+
+/* BPA page layout: prompt (top) / graph + config (middle) / helper (bottom) */
+.cia-bpa-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cia-bpa-prompt-top {
+  margin: 0;
+}
+
+.cia-bpa-helper {
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cia-bpa-helper-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--t1-soft, #faf7fc);
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1-navy, #2a1446);
+  text-align: left;
+}
+
+.cia-bpa-helper-toggle:hover {
+  background: #f3ecf8;
+}
+
+.cia-bpa-helper-caret {
+  color: var(--t1-magenta, #e4007c);
+  font-size: 12px;
+}
+
+.cia-bpa-helper .cia-bpa-tasks {
+  padding: 14px 16px;
+}
+
 @media (max-width: 820px) {
   .cia-bpa-graph {
     grid-template-columns: 1fr;
@@ -2345,7 +2506,7 @@
 /* ---- Package Inspector ---- */
 .cia-pkg-page {
   padding: 24px 28px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   position: relative;
 }
@@ -2622,7 +2783,7 @@
 /* ---- Checklist Companion ---- */
 .cia-chk-page {
   padding: 24px 28px;
-  max-width: 1000px;
+  max-width: 1600px;
   margin: 0 auto;
   position: relative;
 }
@@ -2824,6 +2985,104 @@
   border-radius: 14px;
   padding: 14px 16px;
   margin-bottom: 18px;
+}
+
+/* Export popout menu (CSV / XLSX) */
+.cia-export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.cia-export-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 260px;
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(26, 11, 46, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cia-export-pop button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.cia-export-pop button:hover {
+  background: var(--t1-soft, #faf7fc);
+}
+
+.cia-export-ext {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--t1-magenta, #e4007c);
+  background: #fde8f3;
+  border-radius: 6px;
+  padding: 3px 7px;
+  min-width: 42px;
+  text-align: center;
+}
+
+.cia-export-label {
+  font-size: 12.5px;
+  color: var(--t1-navy, #2a1446);
+}
+
+/* Stage tabs (multi-sheet config companions) */
+.cia-chk-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.cia-chk-stage-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 8px 14px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 120px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.cia-chk-stage-tab:hover {
+  border-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-stage-tab.is-active {
+  border-color: var(--t1-magenta, #e4007c);
+  box-shadow: 0 0 0 2px rgba(228, 0, 124, 0.15);
+}
+
+.cia-chk-stage-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-chk-stage-meta {
+  font-size: 11px;
+  color: var(--t1-muted, #6f5f82);
 }
 
 .cia-chk-summary-head {

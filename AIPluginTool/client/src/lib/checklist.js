@@ -48,6 +48,11 @@ export function analyzeChecklist(rows) {
     const task = cols.task >= 0 ? r[cols.task] : "";
     if (!task || !task.trim()) continue;
     const at = (idx) => (idx >= 0 ? (r[idx] ?? "").trim() : "");
+    // Skip stage/section banner rows where Functional Group = Task Group = Task
+    // (e.g. "STAGE 1A - Ci Sync & Environment Set up") — these are headings.
+    const fgRaw = at(cols.functionalGroup);
+    const tgRaw = at(cols.taskGroup);
+    if (fgRaw && norm(task) === norm(fgRaw) && norm(task) === norm(tgRaw)) continue;
     items.push({
       rowIndex: i,
       functionalGroup: at(cols.functionalGroup),

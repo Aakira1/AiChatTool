@@ -405,10 +405,23 @@ export async function parseXlsxFile(file) {
   return rows;
 }
 
-export async function saveCompanion({ fileName, rows, baseUpdatedAt }) {
+// Parse a whole workbook into stage sheets (multi-sheet config companions).
+export async function parseXlsxWorkbook(file) {
+  const dataBase64 = fileToBase64(await file.arrayBuffer());
+  const response = await apiFetch("/api/companion/parse-xlsx", {
+    method: "POST",
+    body: JSON.stringify({ dataBase64 }),
+  });
+  if (!response.ok) throw new Error("Couldn't read the spreadsheet");
+  const data = await response.json();
+  const sheets = data.sheets ?? (data.rows ? [{ name: "Sheet1", rows: data.rows }] : []);
+  return { sheets, dataBase64 };
+}
+
+export async function saveCompanion({ fileName, rows, sheets, baseUpdatedAt }) {
   const response = await apiFetch("/api/companion", {
     method: "PUT",
-    body: JSON.stringify({ fileName, rows, baseUpdatedAt }),
+    body: JSON.stringify({ fileName, rows, sheets, baseUpdatedAt }),
   });
   if (response.status === 409) return { conflict: true, ...(await response.json()) };
   if (!response.ok) throw new Error("Couldn't save the checklist");

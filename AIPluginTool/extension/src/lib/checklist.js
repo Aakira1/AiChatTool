@@ -88,6 +88,10 @@ export function analyzeChecklist(rows) {
     const task = r[cols.task];
     if (!task || !task.trim()) continue;
     const at = (idx) => (idx >= 0 ? (r[idx] ?? "").trim() : "");
+    // Skip stage/section banner rows (Functional Group = Task Group = Task).
+    const fgRaw = at(cols.functionalGroup);
+    const tgRaw = at(cols.taskGroup);
+    if (fgRaw && norm(task) === norm(fgRaw) && norm(task) === norm(tgRaw)) continue;
     items.push({
       rowIndex: i,
       functionalGroup: at(cols.functionalGroup),

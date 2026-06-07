@@ -17,17 +17,31 @@ export function getCompanion(email) {
   const row = getStmt.get(email.trim().toLowerCase());
   if (!row) return null;
   let rows = null;
+  let sheets = null;
   try {
-    rows = row.data ? JSON.parse(row.data) : null;
+    const parsed = row.data ? JSON.parse(row.data) : null;
+    if (Array.isArray(parsed)) {
+      // Legacy format: the data column was a bare 2D rows array.
+      rows = parsed;
+    } else if (parsed && typeof parsed === "object") {
+      rows = parsed.rows ?? null;
+      sheets = parsed.sheets ?? null;
+    }
   } catch {
     rows = null;
   }
-  return { fileName: row.file_name || "", rows, updatedAt: row.updated_at };
+  return { fileName: row.file_name || "", rows, sheets, updatedAt: row.updated_at };
 }
 
-/** Save (upsert) a user's Companion checklist. */
-export function saveCompanion(email, fileName, rows) {
+/**
+ * Save (upsert) a user's Companion checklist. `data` may be a bare rows array
+ * (legacy) or an object { rows, sheets } for multi-sheet config companions.
+ */
+export function saveCompanion(email, fileName, data) {
   if (!email) return;
-  const data = rows && rows.length ? JSON.stringify(rows) : null;
-  upsertStmt.run(email.trim().toLowerCase(), fileName || "", data);
+  const rows = Array.isArray(data) ? data : (data?.rows ?? null);
+  const sheets = Array.isArray(data) ? null : (data?.sheets ?? null);
+  const hasContent = (rows && rows.length) || (sheets && sheets.length);
+  const serialized = hasContent ? JSON.stringify({ rows, sheets }) : null;
+  upsertStmt.run(email.trim().toLowerCase(), fileName || "", serialized);
 }

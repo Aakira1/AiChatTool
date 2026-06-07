@@ -546,6 +546,29 @@ button:disabled {
   color: var(--cia-muted);
 }
 
+.cia-ext-chk-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cia-ext-chk-stage-tab {
+  padding: 4px 9px;
+  border: 1px solid var(--cia-border, #e8dff0);
+  border-radius: 8px;
+  background: var(--cia-card, #fff);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--cia-text, #2a1446);
+}
+
+.cia-ext-chk-stage-tab.is-active {
+  border-color: var(--cia-magenta, #e4007c);
+  color: var(--cia-magenta, #e4007c);
+}
+
 .cia-ext-chk-bar {
   height: 6px;
   border-radius: 999px;
