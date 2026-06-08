@@ -2146,6 +2146,46 @@
   color: var(--t1-muted, #6f5f82);
 }
 
+/* Grouped decision (one row per decision, its actions as chips) */
+.cia-bpa-decision {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cia-bpa-decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: none;
+}
+
+.cia-bpa-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fde8f3;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.cia-bpa-action-chip-type {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--t1-magenta, #e4007c);
+}
+
+.cia-bpa-action-chip-more {
+  font-size: 9px;
+  font-weight: 700;
+  color: #8a5a00;
+  background: #fdecc8;
+  border-radius: 999px;
+  padding: 0 5px;
+}
+
 .cia-bpa-additem {
   display: flex;
   gap: 8px;
@@ -2173,11 +2213,589 @@
 }
 
 /* ---- BPA diagram ---- */
-.cia-bpa-graph {
+/* ── Blueprint editor (Process Mapper) ── */
+.cia-bp {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 14px;
-  align-items: start;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  height: 78vh;
+  border: 1px solid #d4d8e1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eaecf0;
+}
+
+.cia-bp.is-expanded {
+  position: fixed;
+  inset: 16px;
+  z-index: 900;
+  height: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.cia-bp-side {
+  background: #fff;
+  border-right: 1px solid #d4d8e1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px;
+  gap: 4px;
+}
+
+.cia-bp-side-h {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #aab0bf;
+  padding: 4px 4px 2px;
+}
+
+.cia-bp-pe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #e4e8f0;
+  border-radius: 6px;
+  background: #fafbff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.cia-bp-pe:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.cia-bp-pe:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cia-bp-pe:disabled:hover {
+  border-color: #e4e8f0;
+  background: #fafbff;
+}
+
+.cia-bp-pe.on {
+  border-color: #3b82f6;
+  background: #dbeafe;
+  box-shadow: 0 0 0 2px #bfdbfe;
+}
+
+.cia-bp-pe-ico {
+  width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cia-bp-pe-lbl {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.cia-bp-pe-sub {
+  display: block;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.cia-bp-hints {
+  margin-top: auto;
+  padding: 8px 4px;
+  border-top: 1px solid #eaecf0;
+  font-size: 10px;
+  color: #aeb4c2;
+  line-height: 1.9;
+}
+
+.cia-bp-hints b {
+  color: #6b7280;
+}
+
+.cia-bp-canvas {
+  position: relative;
+  overflow: hidden;
+  background: #eaecf0;
+}
+
+.cia-bp-svg {
+  display: block;
+  cursor: default;
+  touch-action: none;
+}
+
+.cia-bp-svg.placing {
+  cursor: crosshair;
+}
+
+.cia-bp-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cia-bp-toolbar button {
+  border: 1px solid #d4d8e1;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 9px;
+  cursor: pointer;
+  color: #555;
+}
+
+.cia-bp-toolbar button:hover {
+  border-color: #a0b4f0;
+  color: #2a4ab0;
+}
+
+.cia-bp-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid #d4d8e1;
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: #fff;
+  font-size: 11px;
+  color: #666;
+}
+
+.cia-bp-zoom button {
+  border: none;
+  padding: 0 4px;
+}
+
+.cia-bp-zoom span {
+  min-width: 34px;
+  text-align: center;
+}
+
+.cia-bp-led {
+  position: absolute;
+  z-index: 200;
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  color: #1e293b;
+}
+
+.cia-bp-props {
+  position: absolute;
+  right: 12px;
+  top: 52px;
+  width: 244px;
+  max-height: calc(100% - 64px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d4d8e1;
+  border-radius: 9px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+}
+
+/* Editable Decision Actions list */
+.cia-bp-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.cia-bp-act {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #e9edf4;
+  border-radius: 6px;
+  background: #fafbff;
+}
+
+.cia-bp-act-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cia-bp-act-seq {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: #fff;
+  border: 1px solid #e4e8f0;
+  border-radius: 5px;
+  padding: 1px 5px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.cia-bp-act-row select {
+  flex: 1;
+  font: inherit;
+  font-size: 11.5px;
+  border: 1px solid #e4e8f0;
+  border-radius: 5px;
+  padding: 3px 5px;
+  background: #fff;
+  color: #374151;
+}
+
+.cia-bp-act-x {
+  border: none;
+  background: transparent;
+  color: #b9c0cc;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.cia-bp-act-x:hover {
+  color: #dc2626;
+}
+
+.cia-bp-act-add {
+  border: 1px dashed #b9c8e8;
+  background: #fff;
+  color: #2563eb;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.cia-bp-act-add:hover {
+  background: #eff6ff;
+}
+
+.cia-bp-props-h {
+  padding: 8px 11px;
+  background: #f8faff;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cia-bp-props-x {
+  cursor: pointer;
+  color: #aaa;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.cia-bp-props-x:hover {
+  color: #555;
+}
+
+.cia-bp-pr {
+  padding: 7px 11px;
+  border-bottom: 1px solid #f5f6f8;
+}
+
+.cia-bp-pl {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 3px;
+}
+
+.cia-bp-pv {
+  font-size: 12px;
+  color: #374151;
+  text-transform: capitalize;
+}
+
+.cia-bp-pi {
+  border: 1px solid #e4e8f0;
+  border-radius: 4px;
+  padding: 4px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  color: #374151;
+}
+
+.cia-bp-pi:focus {
+  border-color: #3b82f6;
+}
+
+.cia-bp-del {
+  margin: 8px 11px;
+  padding: 6px;
+  background: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: #dc2626;
+  font-family: inherit;
+  width: calc(100% - 22px);
+}
+
+.cia-bp-del:hover {
+  background: #fee2e2;
+}
+
+.cia-bpa-graph {
+  position: relative;
+}
+
+/* Expanded — large in-page lightbox (within the page bounds) */
+.cia-bpa-graph.is-expanded {
+  position: fixed;
+  inset: 16px;
+  z-index: 900;
+}
+
+.cia-bpa-graph.is-expanded .cia-bpa-graph-canvas {
+  height: 100%;
+}
+
+/* Decision/task panel — overlaid inside the graph, top-right */
+.cia-bpa-inpanel {
+  position: absolute;
+  top: 52px;
+  right: 12px;
+  width: 330px;
+  max-height: calc(100% - 64px);
+  overflow: auto;
+  z-index: 6;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.cia-bpa-inpanel-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--t1-muted, #6f5f82);
+}
+
+/* Expand icon at the top-right corner of the graph */
+.cia-bpa-expand-corner {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #2f3c5c;
+  background: #1b2233;
+  color: #cdd6ea;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.cia-bpa-expand-corner:hover {
+  border-color: #ff2d9b;
+  color: #ff2d9b;
+}
+
+/* Zoom stack to the top-left so it clears the right-side panel */
+.cia-bpa-zoom {
+  top: 10px;
+  left: 10px;
+  right: auto;
+}
+
+/* Draggable output pin shows a crosshair grab cursor */
+.cia-bpa-pin-out {
+  cursor: crosshair;
+}
+
+/* Inline node rename input (in the coloured header) */
+.cia-bpa-node-edit {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 6px;
+  padding: 0 4px;
+  font: 700 12.5px inherit;
+  color: #0c0f17;
+  background: #ffd9ee;
+  outline: 2px solid #0c0f17;
+}
+
+/* Editable label/name in the panel head */
+.cia-bpa-panel-edit {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: 600 13px inherit;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-bpa-panel-edit:focus {
+  outline: none;
+  border-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-bpa-titlerow-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cia-bpa-panel-delete {
+  border: 1px solid #f1b3c8;
+  background: #fff;
+  color: #c01c52;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.cia-bpa-panel-delete:hover {
+  background: #fdebf1;
+}
+
+/* Action extra-detail layers (PTAD) */
+.cia-bpa-graph-action-details {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px dashed var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+}
+
+.cia-bpa-graph-action-details > div {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 6px;
+}
+
+.cia-bpa-graph-action-details dt {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-bpa-graph-action-details dd {
+  margin: 0;
+  font-size: 11px;
+  color: var(--t1-navy, #2a1446);
+  word-break: break-word;
+}
+
+.cia-bpa-graph-panel-titlerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cia-bpa-popout-btn {
+  border: 1px solid var(--t1-border, #e8dff0);
+  background: #fff;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t1-magenta, #e4007c);
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.cia-bpa-popout-btn:hover {
+  background: #fde8f3;
+}
+
+/* Add-action control */
+.cia-bpa-add-action {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+
+.cia-bpa-add-action select {
+  flex: 1;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+/* Decision Actions pop-out modal */
+.cia-bpa-popout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(12, 15, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.cia-bpa-popout {
+  background: #fff;
+  border-radius: 16px;
+  width: min(680px, 94vw);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.cia-bpa-popout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cia-bpa-popout-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-bpa-popout .cia-bpa-graph-actions li {
+  padding: 10px 12px;
 }
 
 .cia-bpa-graph-canvas {
@@ -3083,6 +3701,220 @@
 .cia-chk-stage-meta {
   font-size: 11px;
   color: var(--t1-muted, #6f5f82);
+}
+
+/* Command row: Up Next · Comments · Filters */
+.cia-chk-command {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.8fr;
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: stretch; /* all three boxes share the tallest height */
+}
+
+.cia-chk-panel {
+  background: #fff;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  height: 100%;
+}
+
+/* The comments textarea fills the panel so the box matches the others */
+.cia-chk-comments .cia-chk-comment-box {
+  flex: 1;
+}
+
+/* Up Next: whole card is clickable to complete, with a finish animation */
+.cia-chk-upnext .cia-chk-task.is-actionable {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.cia-chk-upnext .cia-chk-task.is-actionable:hover {
+  border-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-upnext .cia-chk-task.is-completing {
+  animation: cia-chk-complete 0.62s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes cia-chk-complete {
+  0% {
+    background: var(--t1-soft, #faf7fc);
+    transform: scale(1);
+  }
+  35% {
+    background: #d8f5e3;
+    border-color: #1d7044;
+    transform: scale(1.015);
+  }
+  100% {
+    background: #d8f5e3;
+    border-color: #1d7044;
+    transform: scale(0.98);
+    opacity: 0.35;
+  }
+}
+
+/* Green check sweep overlay shown while completing */
+.cia-chk-complete-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1d7044;
+  background: rgba(216, 245, 227, 0.6);
+  animation: cia-chk-badge-in 0.62s ease forwards;
+}
+
+.cia-chk-complete-badge .cia-chk-complete-tick {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #1d7044;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  animation: cia-chk-tick-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+
+@keyframes cia-chk-badge-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cia-chk-tick-pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.cia-chk-panel-titlerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cia-chk-panel-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-panel-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-panel-hint {
+  margin: auto 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--t1-muted, #6f5f82);
+}
+
+/* The task-group sub-label shown above a task title */
+.cia-chk-task-group {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t1-magenta, #e4007c);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cia-chk-task.is-actionable {
+  background: var(--t1-soft, #faf7fc);
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* Comments box */
+.cia-chk-comment-box {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--t1-navy, #2a1446);
+}
+
+.cia-chk-comment-box:focus {
+  outline: none;
+  border-color: var(--t1-magenta, #e4007c);
+  box-shadow: 0 0 0 2px rgba(228, 0, 124, 0.12);
+}
+
+/* Filter pick lists */
+.cia-chk-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t1-muted, #6f5f82);
+}
+
+.cia-chk-filter-field select {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--t1-navy, #2a1446);
+  border: 1px solid var(--t1-border, #e8dff0);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.cia-chk-filter-field select:focus {
+  outline: none;
+  border-color: var(--t1-magenta, #e4007c);
+}
+
+.cia-chk-filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--t1-magenta, #e4007c);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 1000px) {
+  .cia-chk-command {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cia-chk-summary-head {

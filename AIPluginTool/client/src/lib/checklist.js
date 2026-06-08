@@ -37,7 +37,8 @@ export function analyzeChecklist(rows) {
     status: find(/completed.*status|% completed|^status$/),
     date: find(/date completed/),
     responsible: find(/responsible/),
-    notes: find(/notes/),
+    scheduleResource: find(/investment schedule|schedule resource/),
+    notes: find(/notes|comment|direction/),
     links: find(/links/),
   };
   if (cols.task < 0) return null;
@@ -61,6 +62,7 @@ export function analyzeChecklist(rows) {
       status: cols.status >= 0 ? r[cols.status] ?? "" : "",
       date: at(cols.date),
       responsible: at(cols.responsible),
+      scheduleResource: at(cols.scheduleResource),
       notes: at(cols.notes),
       links: at(cols.links),
     });

@@ -56,6 +56,13 @@ export function ChecklistPage() {
   const [dragActive, setDragActive] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef(null);
+  const [completing, setCompleting] = useState(false); // Up Next finish animation
+  const [filters, setFilters] = useState({
+    status: "",
+    responsible: "",
+    scheduleResource: "",
+    functionalGroup: "",
+  });
 
   const saveTimer = useRef(null);
   const serverUpdatedAt = useRef(null);
@@ -126,6 +133,11 @@ export function ChecklistPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reset filters when the active stage changes (options differ per stage).
+  useEffect(() => {
+    setFilters({ status: "", responsible: "", scheduleResource: "", functionalGroup: "" });
+  }, [activeStage]);
 
   // Close the export menu when clicking outside it.
   useEffect(() => {
@@ -233,23 +245,79 @@ export function ChecklistPage() {
     setTick((t) => t + 1);
   };
 
+  // Write the Notes / Comments / Directions cell for an item.
+  const setItemNotes = (targetStage, item, value) => {
+    if (!targetStage) return;
+    const { cols } = targetStage.analysis;
+    if (cols.notes < 0) return;
+    targetStage.rows[item.rowIndex][cols.notes] = value;
+    item.notes = value;
+    persist(stages, fileName);
+    setTick((t) => t + 1);
+  };
+
   const stage = stages?.[activeStage] ?? null;
-  const allItems = useMemo(
-    () => (stages ? stages.flatMap((s) => s.analysis.items) : []),
-    [stages, tick],
+  const stageItems = stage ? stage.analysis.items : [];
+
+  // Pick-list options come from the active stage's actual values.
+  const filterOptions = useMemo(() => {
+    const uniq = (key) =>
+      [...new Set(stageItems.map((i) => i[key]).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b),
+      );
+    return {
+      responsible: uniq("responsible"),
+      scheduleResource: uniq("scheduleResource"),
+      functionalGroup: uniq("functionalGroup"),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, tick]);
+
+  const filteredItems = useMemo(
+    () =>
+      stageItems.filter((i) => {
+        if (filters.status && statusState(i.status) !== filters.status) return false;
+        if (filters.responsible && i.responsible !== filters.responsible) return false;
+        if (filters.scheduleResource && i.scheduleResource !== filters.scheduleResource) return false;
+        if (filters.functionalGroup && i.functionalGroup !== filters.functionalGroup) return false;
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stage, filters, tick],
   );
-  const groups = useMemo(() => (stage ? groupItems(stage.analysis.items) : []), [stage, tick]);
-  const overall = useMemo(() => (stages ? progressOf(allItems) : null), [stages, allItems, tick]);
+
+  const groups = useMemo(() => groupItems(filteredItems), [filteredItems]);
+  const progress = useMemo(() => progressOf(filteredItems), [filteredItems]);
   const stageProgress = useMemo(
     () => (stages ? stages.map((s) => progressOf(s.analysis.items)) : []),
     [stages, tick],
   );
-  const insights = useMemo(() => {
-    if (!stages) return null;
-    const nextUp = allItems.filter((i) => statusState(i.status) === "not-started").slice(0, 6);
-    const inProgress = allItems.filter((i) => statusState(i.status) === "in-progress").slice(0, 6);
-    return { nextUp, inProgress };
-  }, [stages, allItems, tick]);
+  // "Up Next" = the first incomplete item in the current filtered view.
+  const upNext = useMemo(
+    () => filteredItems.find((i) => statusState(i.status) !== "completed") || null,
+    [filteredItems],
+  );
+  const activeFilterCount =
+    (filters.status ? 1 : 0) +
+    (filters.responsible ? 1 : 0) +
+    (filters.scheduleResource ? 1 : 0) +
+    (filters.functionalGroup ? 1 : 0);
+  // Complete the Up Next item: play a quick finish animation, then advance.
+  const completeUpNext = () => {
+    if (!upNext || completing) return;
+    const item = upNext;
+    const label = item.task;
+    setCompleting(true);
+    setTimeout(() => {
+      setItemStatus(stage, item, "completed");
+      setCompleting(false);
+      toast.success(`Completed: ${label}`);
+    }, 620);
+  };
+
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
+  const clearFilters = () =>
+    setFilters({ status: "", responsible: "", scheduleResource: "", functionalGroup: "" });
 
   const handleDrop = (event) => {
     event.preventDefault();
@@ -405,16 +473,6 @@ export function ChecklistPage() {
         </div>
       ) : (
         <>
-          <div className="cia-chk-summary">
-            <div className="cia-chk-summary-head">
-              <strong>{fileName}</strong>
-              <span>
-                {overall.completed}/{overall.total} complete · {overall.inProgress} in progress
-              </span>
-            </div>
-            <ProgressBar pct={overall.pct} />
-          </div>
-
           {stages.length > 1 ? (
             <div className="cia-chk-stages" role="tablist">
               {stages.map((s, i) => {
@@ -438,55 +496,170 @@ export function ChecklistPage() {
             </div>
           ) : null}
 
-          {insights && (insights.nextUp.length || insights.inProgress.length) ? (
-            <div className="cia-chk-insights">
-              <div className="cia-chk-insight-card cia-chk-insight-next">
-                <h3>
-                  <span className="cia-chk-insight-dot" aria-hidden="true">
-                    ▶
-                  </span>
-                  Up next
-                  <span className="cia-chk-insight-count">
-                    {overall.total - overall.completed - overall.inProgress}
-                  </span>
-                </h3>
-                {insights.nextUp.length ? (
-                  <ol className="cia-chk-insight-list">
-                    {insights.nextUp.map((i) => (
-                      <li key={`${i.functionalGroup}-${i.rowIndex}-${i.task}`}>
-                        <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
-                        <span className="cia-chk-insight-task">{i.task}</span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="cia-chk-insight-empty">Nothing left to start 🎉</p>
-                )}
-              </div>
-              <div className="cia-chk-insight-card cia-chk-insight-prog">
-                <h3>
-                  <span className="cia-chk-insight-dot" aria-hidden="true">
-                    ⏳
-                  </span>
-                  In progress
-                  <span className="cia-chk-insight-count">{overall.inProgress}</span>
-                </h3>
-                {insights.inProgress.length ? (
-                  <ul className="cia-chk-insight-list">
-                    {insights.inProgress.map((i) => (
-                      <li key={`${i.functionalGroup}-${i.rowIndex}-${i.task}`}>
-                        <span className="cia-chk-insight-fg">{i.functionalGroup}</span>
-                        <span className="cia-chk-insight-task">{i.task}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="cia-chk-insight-empty">No tasks in progress.</p>
-                )}
-              </div>
+          {/* Progress bar — reflects the current filter */}
+          <div className="cia-chk-summary">
+            <div className="cia-chk-summary-head">
+              <strong>{fileName}</strong>
+              <span>
+                {progress.completed}/{progress.total} complete · {progress.inProgress} in progress
+                {activeFilterCount ? " · filtered" : ""}
+              </span>
             </div>
-          ) : null}
+            <ProgressBar pct={progress.pct} />
+          </div>
 
+          {/* Command row: Up Next · Comments · Filters */}
+          <div className="cia-chk-command">
+            <section className="cia-chk-panel cia-chk-upnext">
+              <h3 className="cia-chk-panel-title">Up next</h3>
+              {upNext ? (
+                <div
+                  className={`cia-chk-task is-actionable${completing ? " is-completing" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={completeUpNext}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      completeUpNext();
+                    }
+                  }}
+                >
+                  {completing ? (
+                    <div className="cia-chk-complete-badge">
+                      <span className="cia-chk-complete-tick">✓</span> Completed
+                    </div>
+                  ) : null}
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={completeUpNext}
+                    aria-label={`Complete ${upNext.task}`}
+                  />
+                  <div className="cia-chk-task-main">
+                    {upNext.taskGroup ? (
+                      <span className="cia-chk-task-group">{upNext.taskGroup}</span>
+                    ) : null}
+                    <span className="cia-chk-task-title">{upNext.task}</span>
+                    <span className="cia-chk-task-meta">
+                      {upNext.responsible ? <span>👤 {upNext.responsible}</span> : null}
+                      {upNext.scheduleResource ? <span>🗓 {upNext.scheduleResource}</span> : null}
+                    </span>
+                  </div>
+                  <select
+                    className="cia-chk-status"
+                    value={statusState(upNext.status)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setItemStatus(stage, upNext, e.target.value);
+                    }}
+                  >
+                    {STATUS_OPTIONS.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="cia-chk-panel-empty">
+                  {filteredItems.length ? "All done in this view 🎉" : "No tasks match the filter."}
+                </p>
+              )}
+              <p className="cia-chk-panel-hint">
+                Completing the item clears it from the queue and advances to the next — and updates the
+                setup list below.
+              </p>
+            </section>
+
+            <section className="cia-chk-panel cia-chk-comments">
+              <h3 className="cia-chk-panel-title">Comments</h3>
+              {upNext ? (
+                <>
+                  <span className="cia-chk-task-group">{upNext.task}</span>
+                  <textarea
+                    className="cia-chk-comment-box"
+                    placeholder="Notes / comments / directions for this item…"
+                    value={upNext.notes ?? ""}
+                    onChange={(e) => setItemNotes(stage, upNext, e.target.value)}
+                  />
+                </>
+              ) : (
+                <p className="cia-chk-panel-empty">Nothing to action right now.</p>
+              )}
+            </section>
+
+            <section className="cia-chk-panel cia-chk-filters">
+              <div className="cia-chk-panel-titlerow">
+                <h3 className="cia-chk-panel-title">Filter</h3>
+                {activeFilterCount ? (
+                  <button type="button" className="cia-chk-filter-clear" onClick={clearFilters}>
+                    Clear ({activeFilterCount})
+                  </button>
+                ) : null}
+              </div>
+              <label className="cia-chk-filter-field">
+                <span>State</span>
+                <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+                  <option value="">All</option>
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="cia-chk-filter-field">
+                <span>Functional group</span>
+                <select
+                  value={filters.functionalGroup}
+                  onChange={(e) => setFilter("functionalGroup", e.target.value)}
+                >
+                  <option value="">All</option>
+                  {filterOptions.functionalGroup.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="cia-chk-filter-field">
+                <span>Responsible person</span>
+                <select
+                  value={filters.responsible}
+                  onChange={(e) => setFilter("responsible", e.target.value)}
+                >
+                  <option value="">All</option>
+                  {filterOptions.responsible.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="cia-chk-filter-field">
+                <span>Schedule resource</span>
+                <select
+                  value={filters.scheduleResource}
+                  onChange={(e) => setFilter("scheduleResource", e.target.value)}
+                >
+                  <option value="">All</option>
+                  {filterOptions.scheduleResource.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          </div>
+
+          {/* Setup list (filtered) */}
+          {groups.length === 0 ? (
+            <p className="cia-forum-muted">No tasks match the current filter.</p>
+          ) : null}
           {groups.map((fg) => {
             const fgProgress = progressOf(fg.taskGroups.flatMap((tg) => tg.items));
             return (
