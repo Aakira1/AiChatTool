@@ -6,6 +6,7 @@ import {
   listConnectors,
 } from "../../lib/api.js";
 import { ConnectorProviderSetup } from "./ConnectorProviderSetup.jsx";
+import { ConnectorIcon } from "../../lib/ConnectorIcon.jsx";
 
 export function ConnectorsManager() {
   const [connectors, setConnectors] = useState([]);
@@ -89,7 +90,7 @@ export function ConnectorsManager() {
           {connectors.map((connector) => (
             <div key={connector.id} className="t1-connector-row">
               <span className="t1-connector-icon" aria-hidden="true">
-                {connector.icon ?? "🔌"}
+                <ConnectorIcon id={connector.icon} />
               </span>
               <div className="t1-connector-meta">
                 <strong>{connector.label}</strong>

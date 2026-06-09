@@ -1,0 +1,15 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1572 1572" width="1572" height="1572">
+	<title>T1_Favicon_Dark-svg</title>
+	<style>
+		.s0 { fill: #f9bd1b } 
+		.s1 { fill: #090e13 } 
+	</style>
+	<g id="Layer">
+		<path id="Layer" class="s0" d="m1571.8 683.7v888.3h-337.5v-888.3z"/>
+		<path id="Layer" class="s1" d="m840.6 731.4v-337.6c217.2 0 393.8-176.6 393.8-393.8h337.6c0 403.3-328.1 731.4-731.4 731.4z"/>
+	</g>
+	<g id="Layer">
+		<path id="Layer" class="s0" d="m693.5 393.8v337.6h-525.1v-337.6z"/>
+		<path id="Layer" class="s1" d="m708.8 1569.3c-390.8 0-708.8-317.9-708.8-708.8v-860.5h337.6v860.5c0 204.7 166.5 371.3 371.2 371.3z"/>
+	</g>
+</svg>

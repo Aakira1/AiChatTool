@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listConnectors } from "../../lib/api.js";
+import { ConnectorIcon } from "../../lib/ConnectorIcon.jsx";
 
 export function ConnectorSourcesPicker({ selected, onChange, disabled }) {
   const [open, setOpen] = useState(false);
@@ -65,7 +66,7 @@ export function ConnectorSourcesPicker({ selected, onChange, disabled }) {
                   checked={selected.includes(connector.id)}
                   onChange={() => toggle(connector.id)}
                 />
-                <span className="cia-sources-option-icon">{connector.icon ?? "🔌"}</span>
+                <span className="cia-sources-option-icon"><ConnectorIcon id={connector.icon} /></span>
                 {connector.label}
               </label>
             ))

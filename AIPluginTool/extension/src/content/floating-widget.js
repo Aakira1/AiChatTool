@@ -98,6 +98,9 @@ function initFloatingWidget() {
   styles.textContent = SHADOW_CSS;
   root.appendChild(styles);
 
+  const svgUrl = chrome.runtime.getURL("icons/TNE.AX.svg");
+  const svgHoverUrl = chrome.runtime.getURL("icons/TNE_icon.svg");
+
   const bubble = document.createElement("button");
   bubble.type = "button";
   bubble.className = "cia-fw-bubble";
@@ -105,7 +108,8 @@ function initFloatingWidget() {
   bubble.setAttribute("aria-label", "Open CiA Assistant");
   bubble.innerHTML = `
     <span class="cia-fw-bubble-glow" aria-hidden="true"></span>
-    <span class="cia-fw-bubble-mark" aria-hidden="true">T1</span>
+    <img src="${svgUrl}" class="cia-fw-bubble-mark" aria-hidden="true" alt="" />
+    <img src="${svgHoverUrl}" class="cia-fw-bubble-mark-hover" aria-hidden="true" alt="" />
   `;
   root.appendChild(bubble);
 
@@ -117,8 +121,8 @@ function initFloatingWidget() {
     <header class="cia-fw-header" data-drag-handle>
       <div class="cia-fw-handle-grip" aria-hidden="true"></div>
       <div class="cia-fw-title">
-        <span class="cia-fw-logo" aria-hidden="true">T1</span>
-        <span>CiA Assistant</span>
+        <img src="${svgUrl}" class="cia-fw-logo" aria-hidden="true" alt="" />
+        <span class="cia-fw-brand-name"><span class="cia-fw-brand-one">One</span>Chat</span>
       </div>
       <div class="cia-fw-actions">
         <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture visible page (screenshot + text)" aria-label="Capture visible page">👁</button>
@@ -537,24 +541,25 @@ const SHADOW_CSS = `
     border-radius: 50%;
     border: none;
     cursor: pointer;
-    background: linear-gradient(135deg, #e4007c 0%, #f7941d 100%);
+    background: white;
     color: white;
     font-weight: 700;
     font-size: 14px;
     box-shadow:
-      0 12px 28px rgba(228, 0, 124, 0.35),
-      0 4px 10px rgba(26, 11, 46, 0.18);
+      0 12px 28px rgba(0, 0, 0, 0.18),
+      0 4px 10px rgba(26, 11, 46, 0.12);
     display: grid;
     place-items: center;
-    transition: transform 200ms cubic-bezier(.4,1.4,.6,1), box-shadow 200ms ease, opacity 200ms ease;
+    transition: transform 200ms cubic-bezier(.4,1.4,.6,1), box-shadow 200ms ease, background 200ms ease, opacity 200ms ease;
     pointer-events: auto;
     z-index: 2;
   }
 
   .cia-fw-bubble:hover {
+    background: black;
     transform: translateY(-3px) scale(1.05);
     box-shadow:
-      0 16px 32px rgba(228, 0, 124, 0.45),
+      0 16px 32px rgba(0, 0, 0, 0.45),
       0 6px 14px rgba(26, 11, 46, 0.22);
   }
 
@@ -640,10 +645,31 @@ const SHADOW_CSS = `
     pointer-events: none;
   }
 
-  .cia-fw-bubble-mark {
-    position: relative;
+  .cia-fw-bubble-mark,
+  .cia-fw-bubble-mark-hover {
+    position: absolute;
     z-index: 1;
-    letter-spacing: 0.02em;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    display: block;
+    transition: opacity 200ms ease;
+  }
+
+  .cia-fw-bubble-mark {
+    opacity: 1;
+  }
+
+  .cia-fw-bubble-mark-hover {
+    opacity: 0;
+  }
+
+  .cia-fw-bubble:hover .cia-fw-bubble-mark {
+    opacity: 0;
+  }
+
+  .cia-fw-bubble:hover .cia-fw-bubble-mark-hover {
+    opacity: 1;
   }
 
   .cia-fw-panel {
@@ -703,20 +729,46 @@ const SHADOW_CSS = `
     display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 600;
-    font-size: 13px;
+    min-width: 0;
+  }
+
+  .cia-fw-brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .cia-fw-brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f1235;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cia-fw-brand-one {
+    color: #f9bd1c;
+  }
+
+  .cia-fw-brand-sub {
+    font-size: 10px;
+    font-weight: 500;
+    color: #6f5f82;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .cia-fw-logo {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border-radius: 7px;
-    color: white;
-    background: linear-gradient(135deg, #e4007c, #f7941d);
-    display: grid;
-    place-items: center;
-    font-size: 10px;
-    font-weight: 700;
+    display: block;
+    object-fit: contain;
+    background: white;
+    padding: 2px;
+    flex-shrink: 0;
   }
 
   .cia-fw-actions {

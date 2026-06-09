@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listConnectors } from "../../lib/api.js";
 import { TEMPLATES } from "../../lib/templates.js";
+import { ConnectorIcon } from "../../lib/ConnectorIcon.jsx";
 
 export const REASONING_MODES = [
   { id: "auto", label: "Let AI decide", description: "Picks reasoning for the job", icon: "✦" },
@@ -153,7 +154,7 @@ export function ComposerToolbar({
               connectable.map((connector) => (
                 <PickerRow
                   key={connector.id}
-                  icon={connector.icon ?? "🔌"}
+                  icon={<ConnectorIcon id={connector.icon} />}
                   label={connector.label}
                   selected={connectorSources.includes(connector.id)}
                   onClick={() => toggleSource(connector.id)}

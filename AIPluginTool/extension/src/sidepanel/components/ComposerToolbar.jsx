@@ -39,6 +39,7 @@ export function ComposerToolbar({
         <button
           type="button"
           className={`cia-ext-toolbar-btn ${activeSourceCount > 0 ? "is-active" : ""}`}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("sources")}
           title="Sources"
         >
@@ -63,6 +64,7 @@ export function ComposerToolbar({
         <button
           type="button"
           className={`cia-ext-toolbar-pill ${contextOn ? "is-active" : ""}`}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("context")}
           title="Page context"
           disabled={!pageContext}
@@ -88,6 +90,7 @@ export function ComposerToolbar({
         <button
           type="button"
           className="cia-ext-toolbar-pill"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("topics")}
           title="Hot topics"
           disabled={disabled}
@@ -104,6 +107,7 @@ export function ComposerToolbar({
         <button
           type="button"
           className={`cia-ext-toolbar-pill ${reasoning !== "auto" ? "is-active" : ""}`}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("reasoning")}
           title="Reasoning mode"
         >
@@ -119,6 +123,7 @@ export function ComposerToolbar({
         <button
           type="button"
           className={`cia-ext-toolbar-pill ${provider !== "server" ? "is-active" : ""}`}
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("model")}
           title="Model"
         >

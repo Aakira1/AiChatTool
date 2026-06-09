@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listConnectors } from "../../lib/api.js";
+import { ConnectorIcon } from "../../lib/ConnectorIcon.jsx";
 
 const SOURCES = [
   { id: "webSearch", label: "Include web results", icon: "🌐" },
@@ -56,7 +57,7 @@ export function SourcesPanel({ sources, onChange, connectorSources = [], onConne
           <div className="cia-ext-sources-header">Connected apps</div>
           {connectors.map((connector) => (
             <div key={connector.id} className="cia-ext-sources-row">
-              <span className="cia-ext-sources-icon">{connector.icon ?? "🔌"}</span>
+              <span className="cia-ext-sources-icon"><ConnectorIcon id={connector.icon} /></span>
               <span className="cia-ext-sources-label">{connector.label}</span>
               <button
                 type="button"
