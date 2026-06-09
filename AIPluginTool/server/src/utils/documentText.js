@@ -8,6 +8,13 @@ const MAX_ATTACHMENTS = 3;
 const MAX_FILE_CHARS = 200_000;
 const MAX_TOTAL_CHARS = 500_000;
 const MAX_BASE64_BYTES = 10_000_000;
+const MAX_IMAGE_BYTES = 8_000_000;
+
+function isImageAttachment(item) {
+  const type = String(item?.type ?? "").toLowerCase();
+  const name = String(item?.name ?? "").toLowerCase();
+  return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
+}
 
 export async function sanitizeAttachments(rawAttachments = []) {
   if (!Array.isArray(rawAttachments) || rawAttachments.length === 0) {
@@ -19,6 +26,25 @@ export async function sanitizeAttachments(rawAttachments = []) {
 
   for (const item of rawAttachments.slice(0, MAX_ATTACHMENTS)) {
     const name = String(item?.name ?? "document").slice(0, 200);
+
+    // Images are kept as base64 for the vision model (not text-extracted).
+    if (isImageAttachment(item)) {
+      const data = String(item?.content ?? "");
+      const bytes = Buffer.from(data, "base64").length;
+      if (bytes > MAX_IMAGE_BYTES) {
+        throw new Error(`"${name}" exceeds the 8MB image size limit`);
+      }
+      sanitized.push({
+        name,
+        type: String(item?.type ?? "image/png").slice(0, 100),
+        isImage: true,
+        data,
+        content: "",
+        size: bytes,
+      });
+      continue;
+    }
+
     if (!isSupportedDocument(name)) {
       throw new Error(
         `Unsupported file type: ${name}. Use .txt, .csv, .md, .json, .pdf, or .docx`,
@@ -72,11 +98,12 @@ function mimeForExtension(ext) {
 }
 
 export function buildAttachmentContext(attachments = []) {
-  if (!attachments.length) {
+  const docs = attachments.filter((a) => !a.isImage);
+  if (!docs.length) {
     return "";
   }
 
-  return attachments
+  return docs
     .map(
       (file, index) =>
         `### Attached document ${index + 1}: ${file.name}\n` +

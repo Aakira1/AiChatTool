@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { readDocumentFiles } from "../../lib/documents.js";
 import { ComposerToolbar } from "./ComposerToolbar.jsx";
 
@@ -22,22 +22,30 @@ export function ChatComposer({
   onSourcesChange,
 }) {
   const fileInputRef = useRef(null);
+  const [dragActive, setDragActive] = useState(false);
 
-  const handleAttach = async (event) => {
-    const files = event.target.files;
-    if (!files?.length) {
-      return;
-    }
-
+  const addFiles = async (files) => {
+    if (!files?.length) return;
     try {
       const parsed = await readDocumentFiles(files);
       onAttachmentsChange([...attachments, ...parsed].slice(0, 3));
       onError("");
     } catch (attachError) {
       onError(attachError.message);
-    } finally {
-      event.target.value = "";
     }
+  };
+
+  const handleAttach = async (event) => {
+    await addFiles(event.target.files);
+    event.target.value = "";
+  };
+
+  const handleDrop = async (event) => {
+    event.preventDefault();
+    setDragActive(false);
+    if (pending) return;
+    const files = event.dataTransfer?.files;
+    if (files?.length) await addFiles(files);
   };
 
   const removeAttachment = (name) => {
@@ -45,7 +53,22 @@ export function ChatComposer({
   };
 
   return (
-    <div className="cia-composer">
+    <div
+      className={`cia-composer${dragActive ? " is-drag" : ""}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes("Files")) {
+          e.preventDefault();
+          if (!pending) setDragActive(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDragActive(false);
+      }}
+      onDrop={(e) => void handleDrop(e)}
+    >
+      {dragActive ? (
+        <div className="cia-composer-dropmask">Drop images or documents to attach</div>
+      ) : null}
       <ComposerToolbar
         connectorSources={connectorSources}
         onConnectorSourcesChange={onConnectorSourcesChange}
@@ -63,8 +86,16 @@ export function ChatComposer({
       {attachments.length > 0 ? (
         <div className="cia-attachment-list">
           {attachments.map((file) => (
-            <span key={file.name} className="cia-attachment-chip">
-              <span>📎 {file.name}</span>
+            <span
+              key={file.name}
+              className={`cia-attachment-chip${file.kind === "image" ? " is-image" : ""}`}
+            >
+              {file.kind === "image" && file.dataUrl ? (
+                <img className="cia-attachment-thumb" src={file.dataUrl} alt={file.name} />
+              ) : null}
+              <span>
+                {file.kind === "image" ? "🖼" : "📎"} {file.name}
+              </span>
               <button
                 type="button"
                 aria-label={`Remove ${file.name}`}
@@ -88,7 +119,7 @@ export function ChatComposer({
         <button
           type="button"
           className="cia-attach-btn"
-          title="Attach .txt, .csv, .md, or .json"
+          title="Attach an image or document"
           onClick={() => fileInputRef.current?.click()}
           disabled={pending || attachments.length >= 3}
         >
@@ -98,14 +129,14 @@ export function ChatComposer({
           ref={fileInputRef}
           type="file"
           className="cia-file-input-hidden"
-          accept=".txt,.csv,.md,.json,.pdf,.docx,.html,.htm,.log,.xml,text/plain,text/csv,text/markdown,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,.png,.jpg,.jpeg,.gif,.webp,.bmp,.txt,.csv,.md,.json,.pdf,.docx,.html,.htm,.log,.xml,text/plain,text/csv,text/markdown,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           multiple
           onChange={(event) => void handleAttach(event)}
         />
         <input
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
-          placeholder="Ask about CiA terminology, processes, cases, or attach a document..."
+          placeholder="Ask a question, or drag & drop an image or document…"
           disabled={pending}
         />
         <button type="submit" className="cia-send-btn" disabled={pending}>
@@ -113,7 +144,8 @@ export function ChatComposer({
         </button>
       </form>
       <p className="cia-composer-hint">
-        Attach up to 3 documents (TXT, CSV, MD, JSON, PDF, DOCX) for AI analysis
+        Drag &amp; drop or attach up to 3 files — images (PNG/JPG, read by AI vision) or documents
+        (TXT, CSV, MD, JSON, PDF, DOCX)
       </p>
     </div>
   );

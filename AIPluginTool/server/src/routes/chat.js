@@ -389,8 +389,9 @@ chatRouter.post("/", async (request, response, next) => {
     setConversationTitle(parsed.data.conversationId, deriveConversationTitle(titleSource));
   }
 
-  if (attachments.length > 0) {
-    void ingestAttachments(parsed.data.conversationId, attachments).catch((error) => {
+  const textAttachments = attachments.filter((a) => !a.isImage);
+  if (textAttachments.length > 0) {
+    void ingestAttachments(parsed.data.conversationId, textAttachments).catch((error) => {
       console.warn("Attachment vector ingest failed:", error.message);
     });
   }

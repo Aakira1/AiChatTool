@@ -11,7 +11,7 @@ import { buildSystemPrompt } from "./promptBuilder.js";
 import { OpenAiCompatibleAdapter } from "./llm/openAiCompatibleAdapter.js";
 import { buildAttachmentContext } from "../utils/documentText.js";
 import { retrieveKnowledge } from "./ragService.js";
-import { describePageScreenshot } from "./visionService.js";
+import { describePageScreenshot, describeImage } from "./visionService.js";
 import { searchConnectors, buildConnectorContext } from "./connectorService.js";
 import { searchWeb, buildWebContext } from "./webSearchService.js";
 
@@ -104,6 +104,25 @@ export async function prepareAssistantMessages({
       ? `${fullAttachmentContext.slice(0, MAX_INLINE_ATTACHMENT_CHARS)}\n\n[Document(s) truncated for length — full content is searchable via retrieval. Ask about specific sections for more detail.]`
       : fullAttachmentContext;
 
+  // Attached images → read with the vision model and inline the descriptions so
+  // the assistant can "see" them (the chat model itself is text-only).
+  const imageAttachments = attachments.filter((a) => a.isImage);
+  let imageContext = "";
+  if (imageAttachments.length) {
+    const descriptions = await Promise.all(
+      imageAttachments.map(async (img, i) => {
+        const desc = await describeImage(img.data, {
+          name: img.name,
+          userPrompt: latestUserMessage,
+        });
+        return `### Attached image ${i + 1}: ${img.name}\n${
+          desc || "(this image could not be read — vision is unavailable or the image is too large)"
+        }`;
+      }),
+    );
+    imageContext = descriptions.join("\n\n");
+  }
+
   const connectorGroups =
     connectorSources.length > 0 && userEmail
       ? await searchConnectors(connectorSources, userEmail, latestUserMessage, { signal })
@@ -156,8 +175,9 @@ ${buildSystemPrompt({
     reasoningDirective(reasoning) ? `\n\n${reasoningDirective(reasoning)}` : ""
   }${reviewHints}`;
 
-  const userContent = attachmentContext
-    ? `${latestUserMessage}\n\n${attachmentContext}\n\nAnalyze the attached document(s) and relate findings to Ci/CiA transition context when relevant.`
+  const contextBlocks = [attachmentContext, imageContext].filter(Boolean).join("\n\n");
+  const userContent = contextBlocks
+    ? `${latestUserMessage}\n\n${contextBlocks}\n\nUse the attached document(s)/image(s) above to answer; relate findings to Ci/CiA transition context when relevant.`
     : latestUserMessage;
 
   const messages = [
