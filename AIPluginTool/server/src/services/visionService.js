@@ -46,7 +46,7 @@ export async function describePageScreenshot(screenshotDataUrl, { url, title } =
     `Page title: ${title || "Unknown"}`,
     `Page URL: ${url || "Unknown"}`,
     "Describe the visible page layout, headings, forms, tables, buttons, and any Ci/CiA or ERP-related content.",
-    "Be concise (under 200 words). Mention specific labels or data the user might ask about.",
+    "Be concise (under 10000 words). Mention specific labels or data the user might ask about.",
   ].join("\n");
 
   const response = await fetch(endpoint, {
@@ -74,7 +74,7 @@ export async function describePageScreenshot(screenshotDataUrl, { url, title } =
     payload.result?.response ??
     (typeof payload.result === "string" ? payload.result : null);
 
-  return description ? String(description).trim().slice(0, 4000) : null;
+  return description ? String(description).trim().slice(0, 10000) : null;
 }
 
 /**

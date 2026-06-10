@@ -46,8 +46,10 @@ export default defineManifest({
     },
   ],
   permissions: ["sidePanel", "storage", "contextMenus", "activeTab", "scripting", "tabs"],
-  host_permissions: ["http://localhost:3001/*", "http://localhost:5173/*"],
-  optional_host_permissions: ["https://*/*", "http://*/*"],
+  // Broad host access so page vision (captureVisibleTab) and the page-AI relay
+  // (scripting.executeScript) work on ALL pages without per-site prompts. The
+  // Privacy toggle in Settings disables page vision when the user wants it off.
+  host_permissions: ["http://*/*", "https://*/*"],
   web_accessible_resources: [
     {
       resources: ["icons/*", "src/sidepanel/index.html", "assets/*"],

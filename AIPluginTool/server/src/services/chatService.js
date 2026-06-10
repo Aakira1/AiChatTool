@@ -97,7 +97,7 @@ export async function prepareAssistantMessages({
   // store for RAG, but the model context window is small (~8K tokens for Workers
   // AI Llama). Cap what we inline into the prompt so large docs don't overflow it
   // and trigger an upstream 500. Retrieval (knowledgeChunks) surfaces the rest.
-  const MAX_INLINE_ATTACHMENT_CHARS = 16_000;
+  const MAX_INLINE_ATTACHMENT_CHARS = 100_000;
   const fullAttachmentContext = buildAttachmentContext(attachments);
   const attachmentContext =
     fullAttachmentContext.length > MAX_INLINE_ATTACHMENT_CHARS

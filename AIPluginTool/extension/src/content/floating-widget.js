@@ -103,9 +103,10 @@ function initFloatingWidget() {
   bubble.className = "cia-fw-bubble";
   bubble.title = "Open CiA Assistant";
   bubble.setAttribute("aria-label", "Open CiA Assistant");
+  const logoUrl = chrome.runtime.getURL("icons/icon-128.png");
   bubble.innerHTML = `
     <span class="cia-fw-bubble-glow" aria-hidden="true"></span>
-    <span class="cia-fw-bubble-mark" aria-hidden="true">T1</span>
+    <img class="cia-fw-bubble-logo" src="${logoUrl}" alt="" aria-hidden="true" />
   `;
   root.appendChild(bubble);
 
@@ -117,7 +118,7 @@ function initFloatingWidget() {
     <header class="cia-fw-header" data-drag-handle>
       <div class="cia-fw-handle-grip" aria-hidden="true"></div>
       <div class="cia-fw-title">
-        <span class="cia-fw-logo" aria-hidden="true">T1</span>
+        <span class="cia-fw-logo" aria-hidden="true"><img src="${chrome.runtime.getURL("icons/icon-128.png")}" alt="" /></span>
         <span>CiA Assistant</span>
       </div>
       <div class="cia-fw-actions">
@@ -210,8 +211,28 @@ function initFloatingWidget() {
   attachDrag(panel, dragHandle, widget);
   attachResize(panel, resizer, widget);
 
+  // If a side panel / popout is already open when this page loads, hide now.
+  chrome.runtime.sendMessage({ type: "CIA_GET_PANEL_PRESENCE" }, (res) => {
+    if (chrome.runtime.lastError) return;
+    if (res?.open) widget.setExternalPanelOpen(true);
+  });
+
+  // Hide the page-vision (capture) button when Privacy mode is on.
+  const applyPrivacy = (on) => {
+    captureBtn.style.display = on ? "none" : "";
+  };
+  chrome.storage?.local?.get?.(["ciaPrivacyMode"], (d) => applyPrivacy(Boolean(d?.ciaPrivacyMode)));
+  chrome.storage?.onChanged?.addListener?.((changes, area) => {
+    if (area === "local" && changes.ciaPrivacyMode) {
+      applyPrivacy(Boolean(changes.ciaPrivacyMode.newValue));
+    }
+  });
+
   chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === "CIA_TOGGLE_WIDGET") {
+    if (message?.type === "CIA_PANEL_PRESENCE") {
+      // Hide the bubble while the docked side panel / popout window is open.
+      widget.setExternalPanelOpen(Boolean(message.open));
+    } else if (message?.type === "CIA_TOGGLE_WIDGET") {
       widget.toggle();
     } else if (message?.type === "CIA_PREFILL_FROM_SELECTION") {
       widget.expand();
@@ -243,6 +264,7 @@ function createWidgetState(host, bubble, panel, iframe) {
   let state = {
     open: false,
     visible: true,
+    externalPanelOpen: false,
     x: null,
     y: null,
     width: 380,
@@ -282,10 +304,11 @@ function createWidgetState(host, bubble, panel, iframe) {
   };
 
   const apply = () => {
+    const bubbleHidden = state.open || !state.visible || state.externalPanelOpen;
     host.dataset.state = state.open ? "open" : state.visible ? "collapsed" : "hidden";
     panel.classList.toggle("is-open", state.open);
-    bubble.classList.toggle("is-hidden", state.open || !state.visible);
-    bubble.style.pointerEvents = state.open || !state.visible ? "none" : "auto";
+    bubble.classList.toggle("is-hidden", bubbleHidden);
+    bubble.style.pointerEvents = bubbleHidden ? "none" : "auto";
     panel.style.pointerEvents = state.open ? "auto" : "none";
 
     // Position the bubble. If the user has dragged it, honor the saved
@@ -361,6 +384,10 @@ function createWidgetState(host, bubble, panel, iframe) {
         bubbleX: x ?? state.bubbleX,
         bubbleY: y ?? state.bubbleY,
       };
+      apply();
+    },
+    setExternalPanelOpen(open) {
+      state = { ...state, externalPanelOpen: Boolean(open) };
       apply();
     },
     persist,
@@ -528,24 +555,25 @@ const SHADOW_CSS = `
     box-sizing: border-box;
   }
 
+  /* Squircle bubble (soft rounded-square edges, like the Rovo app icon) */
   .cia-fw-bubble {
     position: fixed;
     right: 24px;
     bottom: 24px;
     width: 56px;
     height: 56px;
-    border-radius: 50%;
+    border-radius: 30%;
     border: none;
+    padding: 0;
     cursor: pointer;
-    background: linear-gradient(135deg, #e4007c 0%, #f7941d 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f3f1f8 100%);
     color: white;
-    font-weight: 700;
-    font-size: 14px;
     box-shadow:
-      0 12px 28px rgba(228, 0, 124, 0.35),
-      0 4px 10px rgba(26, 11, 46, 0.18);
+      0 12px 28px rgba(228, 0, 124, 0.28),
+      0 4px 10px rgba(26, 11, 46, 0.2);
     display: grid;
     place-items: center;
+    overflow: hidden;
     transition: transform 200ms cubic-bezier(.4,1.4,.6,1), box-shadow 200ms ease, opacity 200ms ease;
     pointer-events: auto;
     z-index: 2;
@@ -633,17 +661,21 @@ const SHADOW_CSS = `
   .cia-fw-bubble-glow {
     position: absolute;
     inset: -3px;
-    border-radius: 50%;
-    background: radial-gradient(closest-side, rgba(255,255,255,0.35), transparent 70%);
-    opacity: 0.6;
+    border-radius: 30%;
+    background: radial-gradient(closest-side, rgba(228,0,124,0.18), transparent 72%);
+    opacity: 0.7;
     filter: blur(2px);
     pointer-events: none;
   }
 
-  .cia-fw-bubble-mark {
+  .cia-fw-bubble-logo {
     position: relative;
     z-index: 1;
-    letter-spacing: 0.02em;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 9px;
+    display: block;
   }
 
   .cia-fw-panel {
@@ -711,12 +743,18 @@ const SHADOW_CSS = `
     width: 24px;
     height: 24px;
     border-radius: 7px;
-    color: white;
-    background: linear-gradient(135deg, #e4007c, #f7941d);
+    background: #fff;
     display: grid;
     place-items: center;
-    font-size: 10px;
-    font-weight: 700;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.12);
+  }
+
+  .cia-fw-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 3px;
   }
 
   .cia-fw-actions {

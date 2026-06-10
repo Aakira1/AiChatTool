@@ -86,7 +86,44 @@ const DEFAULTS = {
   theme: "magenta",
   sources: { webSearch: false, companyKnowledge: true },
   connectorSources: [],
+  // Page vision (reading/screenshotting the page) is ON by default on all pages.
+  // Turning Privacy mode on disables it everywhere.
+  privacyMode: false,
+  // Debug: draw highlight boxes on the page showing what the relay AI is
+  // reading (input / reply / send / busy state).
+  debugHighlight: false,
+  // Debug: outline the WHOLE page whenever the AI reads it (entire-page vision).
+  wholePageVision: false,
 };
+
+// Mirror flags into chrome.storage.local so the background service worker and
+// content scripts (which can't see the side panel's localStorage) can read them.
+function syncPrivacyToChromeStorage(settings) {
+  try {
+    chrome?.storage?.local?.set?.({
+      ciaPrivacyMode: Boolean(settings?.privacyMode),
+      ciaDebugHighlight: Boolean(settings?.debugHighlight),
+      ciaWholePageVision: Boolean(settings?.wholePageVision),
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Whether page vision is allowed (i.e. Privacy mode is OFF). */
+export function isPageVisionAllowed() {
+  return getSettings().privacyMode !== true;
+}
+
+/** Whether to draw debug highlight boxes for what the relay AI sees. */
+export function isDebugHighlight() {
+  return getSettings().debugHighlight === true;
+}
+
+/** Whether to outline the whole page when the AI reads it. */
+export function isWholePageVision() {
+  return getSettings().wholePageVision === true;
+}
 
 function safeParse(raw) {
   if (!raw) return null;
@@ -107,6 +144,7 @@ export function saveSettings(updates) {
   if (typeof window === "undefined") return DEFAULTS;
   const next = { ...getSettings(), ...updates };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  syncPrivacyToChromeStorage(next);
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: next }));
   return next;
 }
@@ -130,4 +168,5 @@ export function applyTheme(themeId) {
 
 export function applySettings(settings = getSettings()) {
   applyTheme(settings.theme);
+  syncPrivacyToChromeStorage(settings);
 }

@@ -378,6 +378,53 @@ export async function rateMessage(messageId, rating) {
   return response.json().catch(() => ({}));
 }
 
+// Agentic relay controller: decide the next step of a conversation with an
+// on-page AI (e.g. Rovo). Returns { action:"ask", message } | { action:"done", final }.
+// (relayConclude is defined below near getCompanion)
+export async function relayPlanStep({ goal, transcript = [], turn = 1, maxTurns = 4, partnerName }) {
+  const response = await apiFetch("/api/relay/step", {
+    method: "POST",
+    body: JSON.stringify({ goal, transcript, turn, maxTurns, partnerName }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Relay planning failed");
+  }
+  return response.json();
+}
+
+// Send a screenshot (data URL or base64) to the vision model and get a text
+// description back — used to "read" an on-page AI reply when DOM text fails.
+export async function describeImageRemote({ dataUrl, prompt, name }) {
+  const imageBase64 = dataUrl?.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+  if (!imageBase64) return "";
+  try {
+    const response = await apiFetch("/api/vision/describe", {
+      method: "POST",
+      body: JSON.stringify({ imageBase64, prompt, name }),
+    });
+    if (!response.ok) return "";
+    const data = await response.json();
+    return data.text || "";
+  } catch {
+    return "";
+  }
+}
+
+// Final pass: synthesise the user-facing conclusion from the whole exchange.
+export async function relayConclude({ goal, transcript = [], partnerName }) {
+  const response = await apiFetch("/api/relay/conclude", {
+    method: "POST",
+    body: JSON.stringify({ goal, transcript, partnerName }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Conclusion failed");
+  }
+  const data = await response.json();
+  return data.final || "";
+}
+
 export async function getCompanion() {
   const response = await apiFetch("/api/companion");
   if (!response.ok) return null;

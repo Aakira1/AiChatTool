@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SessionExpiredError,
   createConversation,
+  deleteConversation,
   getAuthMe,
   getConversation,
   listConversations,
@@ -12,11 +13,21 @@ import {
   register,
   pingHealth,
   streamChat,
+  relayPlanStep,
+  relayConclude,
 } from "../lib/api.js";
 import { openWebApp, openPopoutWindow } from "../lib/storage.js";
 import { pickPageContextForApi } from "../lib/pageContextPayload.js";
 import { capturePageView, getPageContext } from "../lib/pageContext.js";
-import { getSettings, saveSettings, applySettings, applyTheme, subscribeSettings } from "../lib/settings.js";
+import { detectPageAi, relayToPageAi, flashPageVision } from "../lib/pageAiRelay.js";
+import {
+  getSettings,
+  saveSettings,
+  applySettings,
+  applyTheme,
+  subscribeSettings,
+  isPageVisionAllowed,
+} from "../lib/settings.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ConversationPicker } from "./components/ConversationPicker.jsx";
 import { MessageList } from "./components/MessageList.jsx";
@@ -72,6 +83,12 @@ export function SidePanelApp() {
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
   const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
   const [connectorSources, setConnectorSources] = useState(() => getSettings().connectorSources ?? []);
+  const [relay, setRelay] = useState({ mode: "off", target: null, busy: false, maxTurns: 4 }); // off | relay | agent
+  const [attachments, setAttachments] = useState([]);
+  const [visionLog, setVisionLog] = useState([]);
+  const [livePreview, setLivePreview] = useState(null); // { text, busy, phase, updatedAt }
+  const [wholePageVision, setWholePageVision] = useState(() => getSettings().wholePageVision === true);
+  const relayStopRef = useRef(false);
   const messagesRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -80,7 +97,21 @@ export function SidePanelApp() {
   const handleSourcesChange = (value) => { setSources(value); saveSettings({ sources: value }); };
   const handleConnectorSourcesChange = (value) => { setConnectorSources(value); saveSettings({ connectorSources: value }); };
 
+  const addVisionLog = useCallback((msg) => {
+    const time = new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setVisionLog((prev) => [...prev.slice(-49), { time, msg }]);
+  }, []);
+
+  const updateLivePreview = useCallback((snap) => {
+    setLivePreview({ ...snap, updatedAt: Date.now() });
+  }, []);
+
   const refreshPageContext = useCallback(async () => {
+    // Privacy mode: never read the page.
+    if (!isPageVisionAllowed()) {
+      setPageContext(null);
+      return;
+    }
     const ctx = await getPageContext({ includeExcerpt: includeContext });
     setPageContext((current) => ({
       ...ctx,
@@ -90,10 +121,15 @@ export function SidePanelApp() {
   }, [includeContext]);
 
   const handleCapturePage = useCallback(async () => {
+    if (!isPageVisionAllowed()) {
+      setError("Page vision is off — turn off Privacy mode in Settings to capture the page.");
+      return;
+    }
     setCapturingPage(true);
     setError("");
     try {
       const ctx = await capturePageView();
+      void flashPageVision();
       setPageContext(ctx);
       setIncludeContext(true);
       if (ctx.screenshot) {
@@ -175,6 +211,29 @@ export function SidePanelApp() {
       setAuthLoading(false);
     }
   }, [ensureConversation, loadConversation, loadThreads]);
+
+  // While this docked side panel / popout window is open, tell the background so
+  // it can hide the floating bubble on pages. The embedded floating-widget iframe
+  // (carries ?embedded=1 and runs inside a frame) must NOT count.
+  useEffect(() => {
+    let port;
+    try {
+      const embedded =
+        new URLSearchParams(window.location.search).has("embedded") || window.top !== window;
+      if (!embedded && chrome?.runtime?.connect) {
+        port = chrome.runtime.connect({ name: "cia-panel-presence" });
+      }
+    } catch {
+      /* ignore */
+    }
+    return () => {
+      try {
+        port?.disconnect();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
 
   useEffect(() => {
     void bootstrap();
@@ -297,9 +356,37 @@ export function SidePanelApp() {
     setError("");
   };
 
+  // Bulk delete from the manage overlay; keep the active conversation valid.
+  const handleBulkDeleteThreads = async (ids) => {
+    if (pending) {
+      setError("Wait for the current response to finish before deleting chats.");
+      return;
+    }
+    setError("");
+    for (const id of ids) {
+      try {
+        await deleteConversation(id);
+      } catch {
+        /* keep deleting the rest */
+      }
+    }
+    const refreshed = await loadThreads();
+    if (ids.includes(conversationId)) {
+      if (refreshed.length > 0) {
+        setConversationId(refreshed[0].id);
+        await loadConversation(refreshed[0].id);
+      } else {
+        setConversationId(null);
+        setMessages([WELCOME_MESSAGE]);
+      }
+    }
+  };
+
   const handleStop = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    relayStopRef.current = true; // halt an in-progress agent loop after the current turn
+    addVisionLog("🛑 Stop requested — bailing out of current operation…");
     setPending(false);
   };
 
@@ -404,9 +491,243 @@ export function SidePanelApp() {
     }
   };
 
+  // Detect a page AI and turn relay on (one-shot mode); click again to turn off.
+  const handleToggleRelay = async () => {
+    if (relay.mode !== "off") {
+      setRelay({ mode: "off", target: null, busy: false });
+      setVisionLog([]);
+      setLivePreview(null);
+      return;
+    }
+    setRelay((r) => ({ ...r, busy: true }));
+    try {
+      const target = await detectPageAi();
+      if (target) {
+        setRelay({ mode: "relay", target, busy: false });
+        setError("");
+      } else {
+        setRelay({ mode: "off", target: null, busy: false });
+        setError(
+          "No Rovo / Copilot / ChatGPT chat found in an open Chrome tab. Open it as a browser tab " +
+            "(e.g. m365.cloud.microsoft for Copilot) — the relay can't reach desktop apps like the " +
+            "Teams/Copilot or VS Code clients.",
+        );
+      }
+    } catch (e) {
+      setRelay({ mode: "off", target: null, busy: false });
+      setError(e.message || "Couldn't access the page to detect an AI chat.");
+    }
+  };
+
+  const ensureConvId = async () => {
+    if (conversationId) return conversationId;
+    const created = await createConversation("New chat");
+    setConversationId(created.id);
+    return created.id;
+  };
+
+  // One-shot: type the message into the page AI and bring back its reply.
+  const handleRelay = async (content) => {
+    await ensureConvId();
+    setError("");
+    setPending(true);
+    setInput("");
+    const userId = localId("local-user");
+    const assistantId = localId("local-assistant");
+    const viaName = relay.target?.name || "page AI";
+    setMessages((current) => [
+      ...current.filter((message) => message.id !== "welcome"),
+      { id: userId, role: "user", content, metadata: {} },
+      { id: assistantId, role: "assistant", content: `*Asking ${viaName} on the page…*`, metadata: {} },
+    ]);
+    const relayController = new AbortController();
+    abortRef.current = relayController;
+    try {
+      const { reply, via } = await relayToPageAi(content, {
+        signal: relayController.signal,
+        onStatus: addVisionLog,
+        onReply: updateLivePreview,
+      });
+      setMessages((current) =>
+        current.map((m) => (m.id === assistantId ? { ...m, content: `**↳ via ${via}**\n\n${reply}` } : m)),
+      );
+    } catch (e) {
+      if (e.name === "AbortError" || relayStopRef.current) {
+        setMessages((current) =>
+          current.map((m) => (m.id === assistantId ? { ...m, content: `_(Relay stopped by user.)_` } : m)),
+        );
+        addVisionLog("✋ Relay stopped");
+      } else {
+        setMessages((current) =>
+          current.map((m) => (m.id === assistantId ? { ...m, content: `⚠️ Relay failed: ${e.message}` } : m)),
+        );
+        setError(e.message || "Relay failed");
+      }
+    } finally {
+      if (abortRef.current === relayController) abortRef.current = null;
+      setPending(false);
+    }
+  };
+
+  // Agent: our AI holds a multi-turn conversation with the page AI to reach the goal.
+  const handleAgentRelay = async (goal) => {
+    await ensureConvId();
+    setError("");
+    setPending(true);
+    setInput("");
+    const userId = localId("local-user");
+    const assistantId = localId("local-assistant");
+    const partnerName = relay.target?.name || "the page AI";
+    const maxTurns = relay.maxTurns || 4;
+    relayStopRef.current = false;
+    // One AbortController for the whole agent run — Stop calls .abort() and
+    // every long-running await (planner stream + relayToPageAi polling) bails.
+    const agentController = new AbortController();
+    abortRef.current = agentController;
+    setMessages((current) => [
+      ...current.filter((message) => message.id !== "welcome"),
+      { id: userId, role: "user", content: goal, metadata: {} },
+      { id: assistantId, role: "assistant", content: `*Working with ${partnerName}…*`, metadata: {} },
+    ]);
+
+    const transcript = [];
+    const log = [];
+    const render = (status, final) => {
+      const steps = log
+        .map(
+          (s, i) =>
+            `**${i + 1}. Asked ${partnerName}:** ${s.q}\n\n> ${(s.a || "…").replace(/\n/g, "\n> ")}`,
+        )
+        .join("\n\n");
+      const head = final
+        ? `**↳ via ${partnerName}** (agent · ${log.length} turn${log.length === 1 ? "" : "s"})\n\n${final}`
+        : `*${status}*`;
+      return steps ? `${head}\n\n---\n\n**Exchange with ${partnerName}:**\n\n${steps}` : head;
+    };
+    const update = (status, final) =>
+      setMessages((current) =>
+        current.map((m) => (m.id === assistantId ? { ...m, content: render(status, final) } : m)),
+      );
+
+    // Always finish with a clean, synthesised conclusion (never raw JSON).
+    const conclude = async (note = "") => {
+      let final = "";
+      try {
+        final = await relayConclude({ goal, transcript, partnerName });
+      } catch {
+        final = "";
+      }
+      if (!final) {
+        final = transcript.length
+          ? `I couldn't synthesise a clean conclusion. Here's the latest from ${partnerName}:\n\n> ${
+              (transcript[transcript.length - 1]?.text || "(no reply)").replace(/\n/g, "\n> ")
+            }`
+          : `I couldn't get a usable answer from ${partnerName}.`;
+      }
+      return note ? `${note}\n\n${final}` : final;
+    };
+
+    // Two strings are "essentially the same question" if they overlap a lot
+    // after normalisation — used to halt agent loops that keep re-asking.
+    const isNearDuplicate = (a, b) => {
+      const n = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+      const na = n(a);
+      const nb = n(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      // Jaccard on word tokens — 0.85+ means it's effectively the same prompt.
+      const ta = new Set(na.split(" "));
+      const tb = new Set(nb.split(" "));
+      const inter = [...ta].filter((w) => tb.has(w)).length;
+      const union = new Set([...ta, ...tb]).size;
+      return union > 0 && inter / union >= 0.85;
+    };
+
+    try {
+      let final = "";
+      let duplicateStrikes = 0;
+      for (let turn = 1; turn <= maxTurns; turn += 1) {
+        if (relayStopRef.current) break;
+        update(`Planning step ${turn}…`);
+        const step = await relayPlanStep({ goal, transcript, turn, maxTurns, partnerName });
+        // A "done" with real content ends it; otherwise we synthesise below.
+        if (step.action === "done" && step.final && !step.needsConclusion) {
+          final = step.final;
+          break;
+        }
+        if (step.action === "done") break; // needs conclusion → synthesise after loop
+
+        // Loop guard: if the planner is re-asking a question it already asked,
+        // we're going in circles — bail out and synthesise from what we have.
+        const recentAsks = transcript.filter((t) => t.from === "agent").map((t) => t.text);
+        if (recentAsks.some((prev) => isNearDuplicate(prev, step.message))) {
+          duplicateStrikes += 1;
+          addVisionLog(`🔁 Duplicate question detected (strike ${duplicateStrikes}/2)`);
+          if (duplicateStrikes >= 2) {
+            addVisionLog("🛑 Halting loop — concluding from what we have");
+            update("Halting loop — building conclusion…");
+            final = await conclude(`_(${partnerName} answer was already covered — concluding from what it gave us.)_`);
+            break;
+          }
+        }
+
+        log.push({ q: step.message, a: "" });
+        update(`Asked ${partnerName} (turn ${turn}) — waiting for it to finish (can take a few minutes)…`);
+        const { reply, read, timedOut } = await relayToPageAi(step.message, {
+          signal: agentController.signal,
+          onStatus: addVisionLog,
+          onReply: updateLivePreview,
+        });
+        transcript.push({ from: "agent", text: step.message });
+        transcript.push({ from: "rovo", text: reply });
+        log[log.length - 1].a = read === "vision" ? `${reply}\n\n_(read visually 👁)_` : reply;
+        if (timedOut) {
+          update("Building conclusion…");
+          final = await conclude(
+            `_(${partnerName} didn't fully finish in time — conclusion is based on what it returned so far. Tip: try "Quick answers" mode.)_`,
+          );
+          break;
+        }
+        if (relayStopRef.current) break;
+        update(`Read ${partnerName}'s reply — checking it…`);
+      }
+      if (!final) {
+        update("Building conclusion…");
+        final = await conclude(relayStopRef.current ? "_(Stopped early.)_" : "");
+      }
+      update("", final);
+    } catch (e) {
+      // Clean stop, not a real failure — render a friendly "stopped" message
+      // instead of a scary error banner.
+      if (e.name === "AbortError" || relayStopRef.current) {
+        addVisionLog("✋ Agent run stopped");
+        update("", `_(Agent run stopped by user.)_${log.length ? `\n\n---\n\n**Exchange so far:**\n\n${log
+          .map((s, i) => `**${i + 1}. Asked ${partnerName}:** ${s.q}\n\n> ${(s.a || "(no reply)").replace(/\n/g, "\n> ")}`)
+          .join("\n\n")}` : ""}`);
+      } else {
+        update("", `⚠️ Agent run failed: ${e.message}`);
+        setError(e.message || "Agent run failed");
+      }
+    } finally {
+      if (abortRef.current === agentController) abortRef.current = null;
+      setPending(false);
+    }
+  };
+
   const handleSend = async () => {
     const content = input.trim();
-    if (!content || pending) return;
+    const sendAttachments = attachments;
+    if ((!content && sendAttachments.length === 0) || pending) return;
+
+    // Route through the on-page AI when relay mode is active (text only).
+    if (relay.mode === "agent" && relay.target && content) {
+      await handleAgentRelay(content);
+      return;
+    }
+    if (relay.mode === "relay" && relay.target && content) {
+      await handleRelay(content);
+      return;
+    }
 
     let activeId = conversationId;
     if (!activeId) {
@@ -418,13 +739,17 @@ export function SidePanelApp() {
     setError("");
     setPending(true);
     setInput("");
+    setAttachments([]);
 
     const userId = localId("local-user");
     const assistantId = localId("local-assistant");
 
+    const attachNote = sendAttachments.length
+      ? `\n\n📎 ${sendAttachments.map((a) => a.name).join(", ")}`
+      : "";
     setMessages((current) => [
       ...current.filter((message) => message.id !== "welcome"),
-      { id: userId, role: "user", content, metadata: {} },
+      { id: userId, role: "user", content: `${content}${attachNote}`, metadata: {} },
       { id: assistantId, role: "assistant", content: "", metadata: {} },
     ]);
 
@@ -433,16 +758,21 @@ export function SidePanelApp() {
 
     let streamed = "";
     try {
-      const rawCtx = includeContext
-        ? pageContext ?? (await getPageContext({ includeExcerpt: true }))
-        : pageContext?.screenshot
-          ? {
-              url: pageContext.url,
-              title: pageContext.title,
-              screenshot: pageContext.screenshot,
-            }
-          : null;
+      // Privacy mode: send no page context at all.
+      const rawCtx = !isPageVisionAllowed()
+        ? null
+        : includeContext
+          ? pageContext ?? (await getPageContext({ includeExcerpt: true }))
+          : pageContext?.screenshot
+            ? {
+                url: pageContext.url,
+                title: pageContext.title,
+                screenshot: pageContext.screenshot,
+              }
+            : null;
       const ctx = sanitizeContextForSend(rawCtx);
+      // Entire-page vision debug: flash a whole-page outline showing what we read.
+      if (ctx) void flashPageVision();
       if (
         rawCtx?.screenshot &&
         typeof rawCtx.screenshot === "string" &&
@@ -455,8 +785,13 @@ export function SidePanelApp() {
       }
       await streamChat({
         conversationId: activeId,
-        message: content,
-        attachments: [],
+        message: content || "(see attached)",
+        attachments: sendAttachments.map(({ name, type, encoding, content: c }) => ({
+          name,
+          type,
+          ...(encoding ? { encoding } : {}),
+          content: c,
+        })),
         pageContext: ctx,
         provider,
         reasoning,
@@ -572,6 +907,7 @@ export function SidePanelApp() {
         activeId={conversationId}
         onSelect={handleSelectThread}
         onNew={handleNewThread}
+        onBulkDelete={handleBulkDeleteThreads}
       />
 
       {fallbackHint ? (
@@ -613,13 +949,166 @@ export function SidePanelApp() {
         disabled={pending}
       />
 
+      {relay.mode !== "off" && livePreview ? (
+        <LivePreview snap={livePreview} target={relay.target?.name || "page AI"} />
+      ) : null}
+
+      {relay.mode !== "off" && visionLog.length > 0 ? (
+        <VisionLog entries={visionLog} />
+      ) : null}
+
+      <div className="cia-ext-relay-row">
+        <button
+          type="button"
+          className={`cia-ext-relay-btn${relay.mode !== "off" ? " is-on" : ""}`}
+          onClick={() => void handleToggleRelay()}
+          disabled={relay.busy || pending}
+          title="Use the AI chat already open on the page (Rovo / Copilot / ChatGPT)"
+        >
+          {relay.busy
+            ? "Detecting…"
+            : relay.mode !== "off"
+              ? `🔌 ${relay.target?.name}`
+              : "🔌 Use page AI"}
+        </button>
+        <button
+          type="button"
+          className={`cia-ext-relay-mode${wholePageVision ? " is-on" : ""}`}
+          onClick={() => {
+            const next = !wholePageVision;
+            setWholePageVision(next);
+            saveSettings({ wholePageVision: next });
+            if (next) void flashPageVision();
+          }}
+          disabled={pending}
+          title="Let AI Vision see the entire webpage (outlines what it reads). Useful while the agent watches the page AI."
+        >
+          👁 WebPage
+        </button>
+        {relay.mode !== "off" ? (
+          <div className="cia-ext-relay-modes">
+            <button
+              type="button"
+              className={`cia-ext-relay-mode${relay.mode === "relay" ? " is-on" : ""}`}
+              onClick={() => setRelay((r) => ({ ...r, mode: "relay" }))}
+              disabled={pending}
+              title="Type your message straight into the page AI and bring back its reply"
+            >
+              Relay
+            </button>
+            <button
+              type="button"
+              className={`cia-ext-relay-mode${relay.mode === "agent" ? " is-on" : ""}`}
+              onClick={() => setRelay((r) => ({ ...r, mode: "agent" }))}
+              disabled={pending}
+              title={`Our AI holds a multi-turn conversation with ${relay.target?.name} to reach your goal, then summarizes`}
+            >
+              Agent
+            </button>
+          </div>
+        ) : null}
+        {relay.mode === "agent" ? (
+          <label className="cia-ext-relay-turns" title="Max back-and-forth turns with the page AI">
+            <span>Turns</span>
+            <select
+              value={relay.maxTurns}
+              disabled={pending}
+              onChange={(e) => setRelay((r) => ({ ...r, maxTurns: Number(e.target.value) }))}
+            >
+              {[2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {pending && relay.mode !== "off" ? (
+          <button type="button" className="cia-ext-relay-stop" onClick={handleStop}>
+            Stop
+          </button>
+        ) : null}
+      </div>
+
       <Composer
         value={input}
         onChange={setInput}
         onSubmit={handleSend}
         onStop={handleStop}
         pending={pending}
+        attachments={attachments}
+        onAttachmentsChange={setAttachments}
+        onError={setError}
       />
+    </div>
+  );
+}
+
+function LivePreview({ snap, target }) {
+  const bodyRef = useRef(null);
+
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [snap?.text]);
+
+  const phaseLabel =
+    snap.phase === "waiting-idle"
+      ? `Waiting — ${target} is still thinking`
+      : snap.phase === "thinking"
+        ? `${target} is generating…`
+        : snap.phase === "reading"
+          ? `Reading ${target}'s reply (${snap.text.length} chars)`
+          : `Watching ${target}…`;
+
+  const phaseIcon = snap.busy ? "⏳" : snap.text ? "👁" : "👀";
+  const phaseClass = snap.busy ? "is-busy" : snap.text ? "is-reading" : "is-watching";
+
+  return (
+    <div className={`cia-ext-live-preview ${phaseClass}`} role="status" aria-live="polite">
+      <div className="cia-ext-live-preview-head">
+        <span className="cia-ext-live-preview-icon" aria-hidden="true">{phaseIcon}</span>
+        <span className="cia-ext-live-preview-title">{phaseLabel}</span>
+        <span className="cia-ext-live-preview-dot" aria-hidden="true" />
+      </div>
+      <div ref={bodyRef} className="cia-ext-live-preview-body">
+        {snap.text ? snap.text : <span className="cia-ext-live-preview-empty">(no reply yet — watching the page)</span>}
+      </div>
+    </div>
+  );
+}
+
+function VisionLog({ entries }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (!collapsed) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries, collapsed]);
+
+  return (
+    <div className="cia-ext-vision-log">
+      <div
+        className="cia-ext-vision-log-header"
+        onClick={() => setCollapsed((c) => !c)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+      >
+        <span>Vision log</span>
+        <span>{collapsed ? "▶" : "▼"}</span>
+      </div>
+      {!collapsed ? (
+        <div className="cia-ext-vision-log-entries">
+          {entries.map((entry, i) => (
+            <div key={i} className="cia-ext-vision-log-entry">
+              <span className="log-time">{entry.time}</span>
+              <span className="log-msg">{entry.msg}</span>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -121,6 +121,43 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdat
           </label>
         </section>
 
+        <section>
+          <h4>Page vision &amp; privacy</h4>
+          <label className="cia-ext-options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.privacyMode === true}
+              onChange={(event) => updateSetting({ privacyMode: event.target.checked })}
+            />
+            Privacy mode — never read or screenshot pages
+          </label>
+          <p className="cia-ext-options-help">
+            By default the assistant can see the current page (text + screenshots) on all sites to
+            answer about what you&apos;re viewing. Turn this on to disable page vision everywhere —
+            nothing is read or captured.
+          </p>
+          <label className="cia-ext-options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.debugHighlight === true}
+              onChange={(event) => updateSetting({ debugHighlight: event.target.checked })}
+            />
+            Highlight what the AI sees (debug)
+          </label>
+          <p className="cia-ext-options-help">
+            When relaying to a page AI (Rovo / Copilot), draw boxes on that page showing the chat
+            input, the reply being read, the send button, and the busy state.
+          </p>
+          <label className="cia-ext-options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.wholePageVision === true}
+              onChange={(event) => updateSetting({ wholePageVision: event.target.checked })}
+            />
+            Entire page vision — outline the whole page when the AI reads it
+          </label>
+        </section>
+
         {onOpenFullOptions ? (
           <button type="button" className="cia-ext-secondary-btn" onClick={onOpenFullOptions}>
             Open full settings page ↗

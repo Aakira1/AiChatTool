@@ -253,6 +253,42 @@ export function ChatPage() {
     }
   };
 
+  const handleBulkDeleteThreads = async (ids) => {
+    if (pending) {
+      setError("Wait for the current response to finish before deleting chats.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${ids.length} chat${ids.length === 1 ? "" : "s"}?\n\nThis removes them and all saved messages.`,
+    );
+    if (!confirmed) return;
+
+    setError("");
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await deleteConversation(id);
+      } catch {
+        failed += 1;
+      }
+    }
+    const refreshed = await loadThreads();
+    if (ids.includes(conversationId)) {
+      if (refreshed.length > 0) {
+        setConversationId(refreshed[0].id);
+        await loadConversation(refreshed[0].id);
+      } else {
+        const created = await createConversation("New chat");
+        await loadThreads();
+        setConversationId(created.id);
+        setMessages([WELCOME_MESSAGE]);
+        setInsights(null);
+      }
+    }
+    if (failed) toast.error(`${failed} chat${failed === 1 ? "" : "s"} couldn't be deleted`);
+    else toast.success(`Deleted ${ids.length} chat${ids.length === 1 ? "" : "s"}`);
+  };
+
   const handleRenameThread = async (thread, nextTitle) => {
     const trimmed = nextTitle?.trim();
     if (!trimmed || trimmed === thread.title) {
@@ -448,6 +484,7 @@ export function ChatPage() {
         onRename={handleRenameThread}
         onPin={handlePinThread}
         onArchive={handleArchiveThread}
+        onBulkDelete={handleBulkDeleteThreads}
       />
 
       <section className={`cia-chat-panel${pending ? " is-thinking" : ""}`}>

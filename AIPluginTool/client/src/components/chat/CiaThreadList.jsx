@@ -13,11 +13,36 @@ export function CiaThreadList({
   onRename,
   onPin,
   onArchive,
+  onBulkDelete,
   collapsed = false,
   onToggleCollapsed,
 }) {
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+
+  const toggleSelected = (id) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const allVisible = [...threads, ...(showArchived ? archivedThreads : [])];
+
+  const handleBulkDelete = async () => {
+    if (!selected.size) return;
+    await onBulkDelete?.([...selected]);
+    exitSelectMode();
+  };
 
   const startRename = (thread) => {
     setRenamingId(thread.id);
@@ -52,9 +77,26 @@ export function CiaThreadList({
   const renderThread = (thread) => (
     <div
       key={thread.id}
-      className={`cia-thread-item ${thread.id === activeId ? "active" : ""} ${thread.archived ? "archived" : ""}`}
+      className={`cia-thread-item ${thread.id === activeId ? "active" : ""} ${thread.archived ? "archived" : ""}${
+        selectMode && selected.has(thread.id) ? " is-selected" : ""
+      }`}
     >
-      {renamingId === thread.id ? (
+      {selectMode ? (
+        <label className="cia-thread-checkrow">
+          <input
+            type="checkbox"
+            checked={selected.has(thread.id)}
+            onChange={() => toggleSelected(thread.id)}
+          />
+          <span className="cia-thread-title">
+            {thread.pinned ? "📌 " : ""}
+            {thread.title}
+          </span>
+          <span className="cia-thread-date">
+            {thread.createdAt ? new Date(thread.createdAt).toLocaleDateString() : ""}
+          </span>
+        </label>
+      ) : renamingId === thread.id ? (
         <input
           type="text"
           className="cia-thread-rename-input"
@@ -87,6 +129,7 @@ export function CiaThreadList({
           </span>
         </button>
       )}
+      {selectMode ? null : (
       <div className="cia-thread-actions">
         <button
           type="button"
@@ -135,6 +178,7 @@ export function CiaThreadList({
           {deletingId === thread.id ? "…" : "🗑"}
         </button>
       </div>
+      )}
     </div>
   );
 
@@ -143,18 +187,59 @@ export function CiaThreadList({
       <div className="cia-threads-header">
         <h2>Chats</h2>
         <div className="cia-threads-header-actions">
-          <button type="button" className="cia-threads-new" onClick={onCreate}>
-            + New
-          </button>
-          <button
-            type="button"
-            className="cia-collapse-btn"
-            onClick={onToggleCollapsed}
-            title="Collapse chats"
-            aria-label="Collapse chats"
-          >
-            «
-          </button>
+          {selectMode ? (
+            <>
+              <button
+                type="button"
+                className="cia-threads-new"
+                onClick={() =>
+                  setSelected((cur) =>
+                    cur.size === allVisible.length
+                      ? new Set()
+                      : new Set(allVisible.map((t) => t.id)),
+                  )
+                }
+              >
+                {selected.size === allVisible.length ? "None" : "All"}
+              </button>
+              <button
+                type="button"
+                className="cia-threads-bulk-delete"
+                onClick={() => void handleBulkDelete()}
+                disabled={selected.size === 0}
+              >
+                Delete ({selected.size})
+              </button>
+              <button type="button" className="cia-threads-new" onClick={exitSelectMode}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="cia-threads-new" onClick={onCreate}>
+                + New
+              </button>
+              {onBulkDelete && (threads.length > 0 || archivedThreads.length > 0) ? (
+                <button
+                  type="button"
+                  className="cia-threads-new"
+                  onClick={() => setSelectMode(true)}
+                  title="Select chats to delete"
+                >
+                  Select
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="cia-collapse-btn"
+                onClick={onToggleCollapsed}
+                title="Collapse chats"
+                aria-label="Collapse chats"
+              >
+                «
+              </button>
+            </>
+          )}
         </div>
       </div>
 

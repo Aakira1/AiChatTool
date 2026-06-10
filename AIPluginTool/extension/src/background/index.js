@@ -161,6 +161,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "CIA_CAPTURE_SCREENSHOT") {
     void (async () => {
+      // Respect Privacy mode — no page screenshots when it's on.
+      const { ciaPrivacyMode } = await chrome.storage.local.get(["ciaPrivacyMode"]);
+      if (ciaPrivacyMode) {
+        sendResponse({ ok: false, error: "Page vision is off (Privacy mode is on in Settings)." });
+        return;
+      }
       let windowId = sender?.tab?.windowId;
       if (windowId == null) {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -196,5 +202,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  return false;
+});
+
+// ── Side-panel / popout presence ──────────────────────────────────────────
+// The docked side panel and the popout window connect a long-lived port while
+// they're open. We broadcast their presence to content scripts so the floating
+// bubble can hide itself until they close (and reappear when the last one goes).
+const ciaPanelPorts = new Set();
+
+function broadcastPanelPresence() {
+  const open = ciaPanelPorts.size > 0;
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (tab.id == null) continue;
+      chrome.tabs.sendMessage(tab.id, { type: "CIA_PANEL_PRESENCE", open }).catch(() => {});
+    }
+  });
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "cia-panel-presence") return;
+  ciaPanelPorts.add(port);
+  broadcastPanelPresence();
+  port.onDisconnect.addListener(() => {
+    ciaPanelPorts.delete(port);
+    broadcastPanelPresence();
+  });
+});
+
+// Let a freshly-loaded content script ask whether a panel is currently open.
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "CIA_GET_PANEL_PRESENCE") {
+    sendResponse({ open: ciaPanelPorts.size > 0 });
+    return false;
+  }
   return false;
 });

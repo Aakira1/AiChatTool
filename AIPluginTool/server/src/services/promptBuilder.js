@@ -22,7 +22,7 @@ export function buildSystemPrompt({
     ? `Current page URL: ${pageContext.url}
 Page title: ${pageContext.title ?? "Unknown"}
 Selected text: ${pageContext.selection?.trim() || "None"}
-Page text excerpt: ${pageContext.excerpt?.trim() ? pageContext.excerpt.trim().slice(0, 3000) : "Not provided"}
+Page text excerpt: ${pageContext.excerpt?.trim() ? pageContext.excerpt.trim().slice(0, 150000) : "Not provided"}
 Visual description of captured screenshot: ${pageContext.visualDescription?.trim() || "Not captured — user may enable the eye icon in the extension to snapshot the visible tab."}`
     : "No page context provided.";
 
@@ -79,7 +79,6 @@ ${
 }
 
 Behavior rules:
-- You are helping users transition from Ci (legacy) to CiA (target system).
 - Prefer actionable answers with clear steps.
 - When terminology mapping applies, explain Ci legacy term and CiA equivalent clearly.
 - Only include case metrics, KPIs, chart counts, or "imported case" summaries when the user explicitly asks for metrics, statistics, comparisons, or analytics. For ordinary questions, answer directly and do NOT append these sections.

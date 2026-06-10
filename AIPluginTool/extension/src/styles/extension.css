@@ -81,6 +81,10 @@ button:disabled {
   border-bottom: 1px solid var(--cia-border);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: saturate(140%) blur(6px);
+  /* backdrop-filter creates a stacking context — give it an explicit z-index so
+     the app-launcher dropdown renders above all subsequent flex siblings. */
+  position: relative;
+  z-index: 20;
 }
 
 .cia-ext-brand {
@@ -667,10 +671,7 @@ button:disabled {
 }
 
 .cia-ext-launcher-pop {
-  position: fixed;
-  top: 54px;
-  right: 12px;
-  z-index: 60;
+  /* position/top/right/z-index are set via inline style (React portal) */
   width: min(240px, calc(100vw - 24px));
   max-height: calc(100vh - 70px);
   overflow-y: auto;
@@ -710,6 +711,7 @@ button:disabled {
   color: var(--cia-body);
   cursor: pointer;
   transition: transform 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  z-index: 9999;
 }
 
 .cia-ext-launcher-app:hover {
@@ -742,7 +744,7 @@ button:disabled {
   position: absolute;
   bottom: calc(100% + 4px);
   left: 0;
-  z-index: 30;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   min-width: 140px;
@@ -770,6 +772,142 @@ button:disabled {
 
 .cia-ext-file-download:hover:not(:disabled) {
   background: var(--cia-magenta-dark);
+}
+
+/* Live preview — shows the text the relay is currently reading off the page */
+.cia-ext-live-preview {
+  margin: 0 8px 4px;
+  border: 1px solid var(--cia-border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.06), rgba(124, 58, 237, 0.02));
+  overflow: hidden;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.cia-ext-live-preview.is-busy {
+  border-color: rgba(124, 58, 237, 0.45);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.10), rgba(124, 58, 237, 0.04));
+}
+
+.cia-ext-live-preview.is-reading {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.10), rgba(37, 99, 235, 0.03));
+}
+
+.cia-ext-live-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--cia-body);
+  border-bottom: 1px solid var(--cia-border);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.cia-ext-live-preview-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.cia-ext-live-preview-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cia-ext-live-preview-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cia-purple);
+  animation: cia-ext-live-pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.cia-ext-live-preview.is-reading .cia-ext-live-preview-dot {
+  background: #2563eb;
+}
+
+@keyframes cia-ext-live-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.1); }
+}
+
+.cia-ext-live-preview-body {
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--cia-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.cia-ext-live-preview-empty {
+  color: var(--cia-muted);
+  font-style: italic;
+  font-family: inherit;
+}
+
+/* Vision log — real-time relay polling status */
+.cia-ext-vision-log {
+  margin: 0 8px 4px;
+  border: 1px solid var(--cia-border);
+  border-radius: var(--radius-sm);
+  background: rgba(26, 15, 61, 0.03);
+  overflow: hidden;
+}
+
+.cia-ext-vision-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cia-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cia-ext-vision-log-header:hover {
+  background: rgba(124, 58, 237, 0.05);
+}
+
+.cia-ext-vision-log-entries {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 4px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cia-ext-vision-log-entry {
+  display: flex;
+  gap: 6px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--cia-body);
+}
+
+.cia-ext-vision-log-entry .log-time {
+  flex-shrink: 0;
+  color: var(--cia-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cia-ext-vision-log-entry .log-msg {
+  word-break: break-word;
 }
 
 .cia-ext-file-download:disabled {
@@ -990,6 +1128,266 @@ button:disabled {
   padding: 10px 12px 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.85) 30%);
   border-top: 1px solid var(--cia-border);
+}
+
+/* Pasted attachments (Ctrl+V) */
+.cia-ext-attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px 0;
+}
+
+.cia-ext-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--cia-border, #e8dff0);
+  background: var(--cia-card, #fff);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--cia-body, #1f1235);
+  max-width: 100%;
+}
+
+.cia-ext-attach-thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--cia-border, #e8dff0);
+}
+
+.cia-ext-attach-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cia-ext-attach-chip button {
+  border: none;
+  background: transparent;
+  color: var(--cia-muted, #6b6285);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.cia-ext-attach-chip button:hover {
+  color: #dc2626;
+}
+
+/* Manage (bulk delete) chats */
+.cia-ext-manage-btn {
+  border: 1px solid var(--cia-border, #e8dff0);
+  background: var(--cia-card, #fff);
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.cia-ext-manage-btn:hover {
+  border-color: #f1b3c8;
+}
+
+.cia-ext-manage-overlay {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  z-index: 10;
+  background: var(--cia-card, #fff);
+  border: 1px solid var(--cia-border, #e8dff0);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(26, 11, 46, 0.22);
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow: hidden;
+}
+
+.cia-ext-threadbar {
+  position: relative;
+  z-index: 1;
+}
+
+.cia-ext-manage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cia-border, #e8dff0);
+  font-size: 13px;
+}
+
+.cia-ext-manage-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cia-ext-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.cia-ext-manage-row:hover {
+  background: var(--cia-soft, #f4eefb);
+}
+
+.cia-ext-manage-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cia-ext-manage-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--cia-border, #e8dff0);
+}
+
+.cia-ext-danger-btn {
+  border: 1px solid #f1b3c8;
+  background: #fff;
+  color: #c01c52;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.cia-ext-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cia-ext-danger-btn:hover:not(:disabled) {
+  background: #fdebf1;
+}
+
+/* Page-AI relay control */
+.cia-ext-relay-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 2px;
+  border-top: 1px solid var(--cia-border, #eee);
+  margin-top: 4px;
+}
+
+.cia-ext-relay-btn {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--cia-border, #e8dff0);
+  background: var(--cia-card, #fff);
+  color: var(--cia-text, #2a1446);
+  border-radius: 999px;
+  padding: 3px 11px;
+  cursor: pointer;
+}
+
+.cia-ext-relay-btn:hover {
+  border-color: var(--cia-magenta, #e4007c);
+}
+
+.cia-ext-relay-btn.is-on {
+  background: #fde8f3;
+  border-color: var(--cia-magenta, #e4007c);
+  color: var(--cia-magenta, #e4007c);
+}
+
+.cia-ext-relay-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cia-ext-relay-hint {
+  font-size: 10.5px;
+  color: var(--cia-muted, #9b8cab);
+}
+
+.cia-ext-relay-modes {
+  display: inline-flex;
+  border: 1px solid var(--cia-border, #e8dff0);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cia-ext-relay-mode {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--cia-muted, #6f5f82);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.cia-ext-relay-mode.is-on {
+  background: var(--cia-magenta, #e4007c);
+  color: #fff;
+}
+
+.cia-ext-relay-mode:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cia-ext-relay-turns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--cia-muted, #6f5f82);
+}
+
+.cia-ext-relay-turns select {
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--cia-border, #e8dff0);
+  border-radius: 6px;
+  padding: 2px 4px;
+  background: var(--cia-card, #fff);
+  color: var(--cia-text, #2a1446);
+}
+
+.cia-ext-relay-stop {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #f1b3c8;
+  background: #fff;
+  color: #c01c52;
+  border-radius: 999px;
+  padding: 3px 11px;
+  cursor: pointer;
+}
+
+.cia-ext-relay-stop:hover {
+  background: #fdebf1;
 }
 
 .cia-ext-textarea {
@@ -1479,28 +1877,24 @@ body.cia-ext-options-page {
 }
 
 /* ── Shared picker panel ─────────────────────────────────── */
+/* Position/coords come from PortalPopover (position: fixed wrapper). The panel
+   itself is just a visual card inside that portal — no absolute positioning. */
 .cia-ext-picker-panel,
 .cia-ext-sources-panel {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  right: 0;
   width: 230px;
-  max-width: calc(100vw - 24px);
+  max-width: 100%;
   max-height: 320px;
   overflow-y: auto;
   background: white;
   border: 1px solid var(--cia-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  z-index: 100;
   animation: cia-ext-pop 120ms ease;
 }
 
-/* Pills on the left edge open their panel rightward so it stays on screen. */
-.cia-ext-align-left .cia-ext-picker-panel,
-.cia-ext-align-left .cia-ext-sources-panel {
-  left: 0;
-  right: auto;
+/* Portal popover wrapper — escapes every parent stacking context. */
+.cia-ext-portal-popover {
+  /* position/top/right/left/zIndex set inline by PortalPopover */
 }
 
 .cia-ext-picker-empty {

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { PortalPopover } from "./PortalPopover.jsx";
 
 /** Close the side panel. Chrome lets a panel page close itself via window.close(). */
 function closeSidePanel() {
@@ -7,22 +8,14 @@ function closeSidePanel() {
 
 function AppLauncher({ items }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (event) => {
-      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const btnRef = useRef(null);
 
   if (!items.length) return null;
 
   return (
-    <div className="cia-ext-launcher" ref={ref}>
+    <div className="cia-ext-launcher">
       <button
+        ref={btnRef}
         type="button"
         className={`cia-ext-icon-btn${open ? " is-active" : ""}`}
         onClick={() => setOpen((o) => !o)}
@@ -36,7 +29,13 @@ function AppLauncher({ items }) {
           <i /><i /><i />
         </span>
       </button>
-      {open ? (
+      <PortalPopover
+        anchorRef={btnRef}
+        open={open}
+        placement="below"
+        align="end"
+        onClose={() => setOpen(false)}
+      >
         <div className="cia-ext-launcher-pop" role="menu">
           <p className="cia-ext-launcher-title">Apps</p>
           <div className="cia-ext-launcher-apps">
@@ -58,7 +57,7 @@ function AppLauncher({ items }) {
             ))}
           </div>
         </div>
-      ) : null}
+      </PortalPopover>
     </div>
   );
 }

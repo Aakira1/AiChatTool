@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { PortalPopover } from "./PortalPopover.jsx";
 import { SourcesPanel } from "./SourcesPanel.jsx";
 import { ReasoningPicker, reasoningLabel } from "./ReasoningPicker.jsx";
 import { ModelPicker, providerLabel } from "./ModelPicker.jsx";
@@ -28,6 +29,12 @@ export function ComposerToolbar({
   const toggle = (id) => setOpen((cur) => (cur === id ? null : id));
   const close = () => setOpen(null);
 
+  const sourcesBtn = useRef(null);
+  const contextBtn = useRef(null);
+  const topicsBtn = useRef(null);
+  const reasoningBtn = useRef(null);
+  const modelBtn = useRef(null);
+
   const activeSourceCount =
     Object.values(sources).filter(Boolean).length + connectorSources.length;
   const contextOn = pageContext && !pageContext.restricted && includeContext;
@@ -35,8 +42,9 @@ export function ComposerToolbar({
   return (
     <div className="cia-ext-toolbar">
       {/* Sources */}
-      <div className="cia-ext-toolbar-popover-wrap cia-ext-align-left">
+      <div className="cia-ext-toolbar-popover-wrap">
         <button
+          ref={sourcesBtn}
           type="button"
           className={`cia-ext-toolbar-btn ${activeSourceCount > 0 ? "is-active" : ""}`}
           onClick={() => toggle("sources")}
@@ -47,7 +55,13 @@ export function ComposerToolbar({
             <span className="cia-ext-toolbar-badge">{activeSourceCount}</span>
           )}
         </button>
-        {open === "sources" && (
+        <PortalPopover
+          anchorRef={sourcesBtn}
+          open={open === "sources"}
+          placement="above"
+          align="start"
+          onClose={close}
+        >
           <SourcesPanel
             sources={sources}
             onChange={onSourcesChange}
@@ -55,12 +69,13 @@ export function ComposerToolbar({
             onConnectorsChange={onConnectorSourcesChange}
             onClose={close}
           />
-        )}
+        </PortalPopover>
       </div>
 
       {/* Page context */}
-      <div className="cia-ext-toolbar-popover-wrap cia-ext-align-left">
+      <div className="cia-ext-toolbar-popover-wrap">
         <button
+          ref={contextBtn}
           type="button"
           className={`cia-ext-toolbar-pill ${contextOn ? "is-active" : ""}`}
           onClick={() => toggle("context")}
@@ -69,7 +84,13 @@ export function ComposerToolbar({
         >
           🌐 Page
         </button>
-        {open === "context" && (
+        <PortalPopover
+          anchorRef={contextBtn}
+          open={open === "context"}
+          placement="above"
+          align="start"
+          onClose={close}
+        >
           <PageContextPopup
             context={pageContext}
             included={includeContext}
@@ -80,12 +101,13 @@ export function ComposerToolbar({
             onClearScreenshot={onClearScreenshot}
             onClose={close}
           />
-        )}
+        </PortalPopover>
       </div>
 
       {/* Hot topics */}
-      <div className="cia-ext-toolbar-popover-wrap cia-ext-align-left">
+      <div className="cia-ext-toolbar-popover-wrap">
         <button
+          ref={topicsBtn}
           type="button"
           className="cia-ext-toolbar-pill"
           onClick={() => toggle("topics")}
@@ -94,14 +116,21 @@ export function ComposerToolbar({
         >
           ✨ Topics
         </button>
-        {open === "topics" && (
+        <PortalPopover
+          anchorRef={topicsBtn}
+          open={open === "topics"}
+          placement="above"
+          align="start"
+          onClose={close}
+        >
           <HotTopicsPopup onSelect={onTopicSelect} onClose={close} />
-        )}
+        </PortalPopover>
       </div>
 
       {/* Reasoning */}
       <div className="cia-ext-toolbar-popover-wrap">
         <button
+          ref={reasoningBtn}
           type="button"
           className={`cia-ext-toolbar-pill ${reasoning !== "auto" ? "is-active" : ""}`}
           onClick={() => toggle("reasoning")}
@@ -109,14 +138,21 @@ export function ComposerToolbar({
         >
           ⚙ {reasoningLabel(reasoning)}
         </button>
-        {open === "reasoning" && (
+        <PortalPopover
+          anchorRef={reasoningBtn}
+          open={open === "reasoning"}
+          placement="above"
+          align="end"
+          onClose={close}
+        >
           <ReasoningPicker value={reasoning} onChange={onReasoningChange} onClose={close} />
-        )}
+        </PortalPopover>
       </div>
 
       {/* Model / provider */}
       <div className="cia-ext-toolbar-popover-wrap">
         <button
+          ref={modelBtn}
           type="button"
           className={`cia-ext-toolbar-pill ${provider !== "server" ? "is-active" : ""}`}
           onClick={() => toggle("model")}
@@ -124,9 +160,15 @@ export function ComposerToolbar({
         >
           {providerLabel(provider)}
         </button>
-        {open === "model" && (
+        <PortalPopover
+          anchorRef={modelBtn}
+          open={open === "model"}
+          placement="above"
+          align="end"
+          onClose={close}
+        >
           <ModelPicker value={provider} onChange={onProviderChange} onClose={close} />
-        )}
+        </PortalPopover>
       </div>
     </div>
   );

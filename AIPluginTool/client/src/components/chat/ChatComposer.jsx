@@ -48,6 +48,23 @@ export function ChatComposer({
     if (files?.length) await addFiles(files);
   };
 
+  // Ctrl+V: attach pasted images/files (e.g. a screenshot on the clipboard).
+  const handlePaste = async (event) => {
+    if (pending) return;
+    const files = [...(event.clipboardData?.files ?? [])];
+    if (!files.length) return; // plain text paste — let it through
+    event.preventDefault();
+    // Clipboard images all arrive named "image.png" — make names unique so
+    // chips/removal (keyed by name) don't collide.
+    const named = files.map((f, i) => {
+      const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      return f.name && f.name !== "image.png"
+        ? f
+        : new File([f], `pasted-${Date.now()}-${i + 1}.${ext}`, { type: f.type });
+    });
+    await addFiles(named);
+  };
+
   const removeAttachment = (name) => {
     onAttachmentsChange(attachments.filter((file) => file.name !== name));
   };
@@ -65,6 +82,7 @@ export function ChatComposer({
         if (e.currentTarget === e.target) setDragActive(false);
       }}
       onDrop={(e) => void handleDrop(e)}
+      onPaste={(e) => void handlePaste(e)}
     >
       {dragActive ? (
         <div className="cia-composer-dropmask">Drop images or documents to attach</div>

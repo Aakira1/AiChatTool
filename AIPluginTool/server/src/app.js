@@ -22,6 +22,8 @@ import { adminRouter } from "./routes/admin.js";
 import { exportRouter } from "./routes/export.js";
 import { companionRouter } from "./routes/companion.js";
 import { bpaRouter } from "./routes/bpa.js";
+import { relayRouter } from "./routes/relay.js";
+import { visionRouter } from "./routes/vision.js";
 
 export function createApp() {
   const app = express();
@@ -95,6 +97,8 @@ export function createApp() {
   app.use("/api/export", exportRouter);
   app.use("/api/companion", companionRouter);
   app.use("/api/bpa", bpaRouter);
+  app.use("/api/relay", relayRouter);
+  app.use("/api/vision", visionRouter);
 
   if (env.serveClient) {
     attachClientApp(app);

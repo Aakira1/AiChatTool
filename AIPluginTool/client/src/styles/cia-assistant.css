@@ -1952,6 +1952,48 @@
   pointer-events: none;
 }
 
+/* Bulk-select chats */
+.cia-thread-checkrow {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cia-thread-checkrow .cia-thread-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cia-thread-item.is-selected {
+  background: rgba(228, 0, 124, 0.08);
+}
+
+.cia-threads-bulk-delete {
+  border: 1px solid #f1b3c8;
+  background: #fff;
+  color: #c01c52;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.cia-threads-bulk-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cia-threads-bulk-delete:hover:not(:disabled) {
+  background: #fdebf1;
+}
+
 .cia-attachment-thumb {
   width: 26px;
   height: 26px;

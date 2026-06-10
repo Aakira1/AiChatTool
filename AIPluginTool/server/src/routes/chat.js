@@ -113,7 +113,7 @@ const copilotFields = {
 const chatSchema = z
   .object({
     conversationId: z.string().min(1),
-    message: z.string().trim().max(12_000),
+    message: z.string().trim().max(100_000),
     pageContext: pageContextSchema,
     attachments: z.array(attachmentSchema).max(3).optional(),
     aiProvider: z.enum(["default", "copilot-studio"]).optional(),
