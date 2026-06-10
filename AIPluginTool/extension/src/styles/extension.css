@@ -122,26 +122,50 @@ button:disabled {
 .cia-ext-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 100px;
+  border: 1px solid rgba(100, 100, 100, 0.3);
+  background: rgba(100, 100, 100, 0.08);
   color: var(--cia-muted);
 }
 
-.cia-ext-status-dot {
+.cia-ext-status::before {
+  content: "";
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--cia-muted);
+  flex-shrink: 0;
 }
 
-.cia-ext-status-online .cia-ext-status-dot {
-  background: var(--cia-online);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+.cia-ext-status-online {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #15803d;
 }
 
-.cia-ext-status-offline .cia-ext-status-dot {
+.cia-ext-status-online::before {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: cia-ext-pulse-green 2s ease-in-out infinite;
+}
+
+.cia-ext-status-offline {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #b91c1c;
+}
+
+.cia-ext-status-offline::before {
   background: var(--cia-offline);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
+@keyframes cia-ext-pulse-green {
+  0%, 100% { box-shadow: 0 0 4px #22c55e; }
+  50%       { box-shadow: 0 0 10px #22c55e; }
 }
 
 .cia-ext-topbar-actions {

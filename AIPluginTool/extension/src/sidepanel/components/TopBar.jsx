@@ -65,20 +65,16 @@ function AppLauncher({ items }) {
 export function TopBar({ healthState, user, apps = [] }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
-    status === "online" ? "Connected" : status === "offline" ? "Offline" : "Checking…";
+    status === "online" ? "Connected" : status === "offline" ? "Disconnected" : "Checking…";
 
   const launcherItems = apps;
 
   return (
     <header className="cia-ext-topbar">
       <div className="cia-ext-brand">
-        <div className="cia-ext-logo" aria-hidden="true">
-          T1
-        </div>
-        <div className="cia-ext-brand-text">
-          <strong>OneChat Assistant</strong>
+<div className="cia-ext-brand-text">
           <span className={`cia-ext-status cia-ext-status-${status}`}>
-            <span className="cia-ext-status-dot" /> {statusLabel}
+            {statusLabel}
           </span>
         </div>
       </div>

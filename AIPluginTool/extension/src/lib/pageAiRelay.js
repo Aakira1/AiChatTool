@@ -393,47 +393,60 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
   //   3. Text-density scan: ANY visible block in the chat panel that holds
   //      substantial prose — this is the catch-all when the page AI rolls a
   //      new UI version that none of the above selectors match. ----
+  // Walk a tree (including open shadow DOMs) and collect matching elements.
+  const queryAllDeep = (root, selector) => {
+    if (!root || !root.querySelectorAll) return [];
+    const result = [...root.querySelectorAll(selector)];
+    // Crawl any open shadow roots for elements we'd miss otherwise.
+    const allEls = root.querySelectorAll("*");
+    let crawled = 0;
+    for (const node of allEls) {
+      if (crawled++ > 3000) break;
+      if (node.shadowRoot) {
+        result.push(...queryAllDeep(node.shadowRoot, selector));
+      }
+    }
+    return result;
+  };
+
   const replyCandidates = () => {
-    const root = chatRoot.querySelectorAll ? chatRoot : document;
-    let nodes = [];
-    if (adapter.replySel) nodes = [...root.querySelectorAll(adapter.replySel)];
-    if (!nodes.length) {
-      nodes = [
-        ...root.querySelectorAll(
-          '[data-message-author-role], [role="article"], [data-testid*="message" i], [data-tid*="message" i], [data-testid*="response" i], [data-testid*="answer" i], [data-testid*="result" i], [data-testid*="conversation" i], [data-renderer-document], [class*="message" i], [class*="bubble" i], [class*="response" i], [class*="answer" i]',
-        ),
-      ];
+    // Try chatRoot first; if empty, expand to the whole document. Some chat
+    // widgets render messages in a sibling subtree the chatRoot heuristic
+    // doesn't reach (especially when Atlaskit wraps things in extra layers).
+    const scopes = [];
+    if (chatRoot && chatRoot.querySelectorAll) scopes.push(chatRoot);
+    if (document.body && !scopes.includes(document.body)) scopes.push(document.body);
+
+    const selectorPrimary = adapter.replySel || "";
+    const selectorBroad =
+      '[data-message-author-role], [role="article"], [data-testid*="message" i], [data-tid*="message" i], [data-testid*="response" i], [data-testid*="answer" i], [data-testid*="result" i], [data-testid*="conversation" i], [data-renderer-document], [class*="message" i], [class*="bubble" i], [class*="response" i], [class*="answer" i]';
+    const selectorDensity = "p, li, blockquote, article, section, div";
+
+    const accept = (n) => visible(n) && !composer.contains(n) && !n.contains(el) && n !== el;
+
+    for (const scope of scopes) {
+      let nodes = [];
+      if (selectorPrimary) nodes = queryAllDeep(scope, selectorPrimary);
+      if (!nodes.length) nodes = queryAllDeep(scope, selectorBroad);
+      let filtered = nodes.filter(accept);
+
+      // Text-density fallback — broad sweep for any visible prose block.
+      if (filtered.length === 0) {
+        const all = queryAllDeep(scope, selectorDensity);
+        filtered = all.filter((n) => {
+          if (!accept(n)) return false;
+          const r = n.getBoundingClientRect();
+          if (r.height > window.innerHeight * 1.5) return false;
+          const direct = (n.innerText || n.textContent || "").trim();
+          if (direct.length < MIN_REPLY_LEN) return false;
+          if (sent && (direct === sent || (direct.length < sent.length * 1.3 && direct.includes(sent)))) return false;
+          return true;
+        });
+      }
+
+      if (filtered.length > 0) return filtered;
     }
-
-    let filtered = nodes.filter(
-      (n) => visible(n) && !composer.contains(n) && !n.contains(el) && n !== el,
-    );
-
-    // Fallback: text-density scan. Walk all visible block-ish elements in the
-    // chat panel and pick those with substantial direct prose. This handles
-    // page AIs that don't use any recognizable selector pattern.
-    if (filtered.length === 0) {
-      const all = root.querySelectorAll
-        ? [...root.querySelectorAll("p, li, blockquote, article, section, div")]
-        : [];
-      filtered = all.filter((n) => {
-        if (!visible(n) || composer.contains(n) || n.contains(el) || n === el) return false;
-        // Skip huge wrappers — we want leaf-ish prose containers, not the whole
-        // chat scroll region.
-        const r = n.getBoundingClientRect();
-        if (r.height > window.innerHeight * 1.5) return false;
-        // Must have direct text (not just child elements).
-        const direct = (n.innerText || n.textContent || "").trim();
-        if (direct.length < MIN_REPLY_LEN) return false;
-        // Skip the user's own message bubble — its direct text IS the prompt
-        // verbatim. Use exact match (or near-exact) so we don't accidentally
-        // drop a reply that quotes the question.
-        if (sent && (direct === sent || (direct.length < sent.length * 1.3 && direct.includes(sent)))) return false;
-        return true;
-      });
-    }
-
-    return filtered;
+    return [];
   };
   // Whole-string status/progress labels that are NOT answers (step names,
   // suggestion chips, "Resuming response", etc.).
@@ -1190,32 +1203,88 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
 
   // 2) Poll back every few seconds and check if the page AI has returned. We
   //    settle once it is no longer busy AND its reply has been stable for a
-  //    quiet window (long answers stream in chunks, so be patient).
+  //    quiet window. Long answers stream in chunks AND can have a beat between
+  //    "thinking" markers being removed and the actual answer appearing —
+  //    paced like a human reading the page, not a tight loop.
   const deadline = Date.now() + timeoutMs;
-  const STABLE_MS = 5000;
+  const STABLE_MS = 8000; // reply must be unchanged for 8s before we trust it
+  const IDLE_CONFIRMS_NEEDED = 3; // need 3 consecutive idle polls (~12s) to call it done
   let lastReply = "";
   let stableSince = Date.now();
   let sawReply = false;
   let sawBusy = false;
   let timedOut = false;
   let pollCount = 0;
-  await abortableSleep(1500);
+  let idleStreak = 0; // consecutive non-busy polls
+  await abortableSleep(3000); // human-paced first look — let Rovo start typing
+  let visionReadAttempts = 0;
+  let domEmptyStreak = 0; // consecutive idle-but-empty polls
   while (true) {
     checkAbort();
     const r = await runInFrames(tabId, ["read", String(text), 0, debug, whole]);
     const busy = Boolean(r?.busy);
-    const reply = r?.reply || "";
+    let reply = r?.reply || "";
     pollCount += 1;
-    if (busy) sawBusy = true;
-    if (reply && reply !== lastReply) {
-      lastReply = reply;
-      sawReply = true;
-      stableSince = Date.now();
+    if (busy) {
+      sawBusy = true;
+      idleStreak = 0;
+      domEmptyStreak = 0;
+    } else {
+      idleStreak += 1;
+      if (!reply) domEmptyStreak += 1;
+      else domEmptyStreak = 0;
     }
+
+    // If Rovo looks idle but the DOM scraper keeps returning nothing, USE
+    // VISION to read what's on the page — exactly what a human would do. Try
+    // every 4 idle-empty polls (~16s), and only while privacy mode is off.
+    if (
+      !busy &&
+      !reply &&
+      domEmptyStreak >= 4 &&
+      visionReadAttempts < 3 &&
+      isPageVisionAllowed()
+    ) {
+      visionReadAttempts += 1;
+      onStatus?.(`👁 DOM came back empty ${domEmptyStreak}×. Reading the page visually (vision attempt ${visionReadAttempts}/3)…`);
+      try {
+        const shot = await captureAiTab(tabId);
+        if (shot) {
+          const seen = await describeImageRemote({
+            dataUrl: shot,
+            name: `${via} chat`,
+            prompt:
+              `This is a screenshot of the ${via} AI chat. Transcribe the most recent assistant/AI reply ` +
+              `shown — the LATEST answer text, including paragraphs, lists, headings, and any numbered ` +
+              `or bulleted points. Do NOT include the user's question, the input box placeholder, ` +
+              `buttons, source chips, or UI chrome. Return ONLY the reply text, fully and verbatim. ` +
+              `If the assistant hasn't started replying yet, return exactly the word "EMPTY".`,
+          });
+          const cleaned = (seen || "").trim();
+          if (cleaned && !/^empty$/i.test(cleaned) && cleaned.length >= 40) {
+            reply = cleaned;
+            if (reply !== lastReply) {
+              lastReply = reply;
+              sawReply = true;
+              stableSince = Date.now();
+            }
+            onStatus?.(`👁 Vision read ${reply.length} chars — using that`);
+          } else {
+            onStatus?.(`👁 Vision saw no reply yet — keep watching`);
+          }
+        }
+      } catch (visionErr) {
+        onStatus?.(`👁 Vision read failed: ${visionErr.message || "?"}`);
+      }
+    }
+
     // Stream the live reply text to the side panel so the user can SEE what
     // the AI is reading from the page in real time — full text, not truncated.
-    const phaseKey = busy ? "thinking" : sawReply ? "reading" : "watching";
-    onReply?.({ text: reply, busy, phase: phaseKey });
+    // Fall back to lastReply so a flicker of DOM-empty mid-stream doesn't
+    // blank the preview (especially when vision provided the text earlier).
+    const displayText = reply || lastReply;
+    const phaseKey = busy ? "thinking" : displayText ? "reading" : "watching";
+    onReply?.({ text: displayText, busy, phase: phaseKey });
 
     // Short status line for the vision log.
     const preview = reply
@@ -1223,23 +1292,31 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
       : "";
     const candDiag =
       !busy && !reply && r?.candidatesFound !== undefined
-        ? ` · scanned ${r.candidatesFound} blocks, none qualified`
+        ? ` · scanned ${r.candidatesFound} blocks`
+        : "";
+    const idleNote =
+      !busy && sawReply
+        ? ` · idle ${idleStreak}/${IDLE_CONFIRMS_NEEDED}`
         : "";
     const phase = busy
       ? "⏳ thinking"
       : sawReply
-        ? `✓ reading ${reply.length} chars${preview}${Date.now() - stableSince > 2000 ? " · settling…" : ""}`
+        ? `✓ reading ${reply.length} chars${preview}${idleNote}${Date.now() - stableSince > 2000 ? " · settling…" : ""}`
         : `👀 watching${candDiag}…`;
     onStatus?.(`🔄 Poll ${pollCount} · ${phase}`);
+
     const stable = Date.now() - stableSince > STABLE_MS;
-    // Done when idle + a stable, non-empty answer that's appeared after we sent.
-    if (sawReply && !busy && stable && lastReply) break;
+    // Done when: we've seen a reply + Rovo has been idle for ≥N consecutive
+    // polls + the reply text has been stable for the quiet window. The
+    // idle-streak requirement is the "give Rovo time like a human" guard —
+    // a single idle blip mid-generation no longer settles the answer.
+    if (sawReply && !busy && idleStreak >= IDLE_CONFIRMS_NEEDED && stable && lastReply) break;
     if (Date.now() > deadline) {
       timedOut = !lastReply || (sawBusy && !stable);
       onStatus?.("⏱️ Timed out — returning partial reply");
       break;
     }
-    await abortableSleep(2500);
+    await abortableSleep(4000); // slower, more human cadence
   }
 
   let reply = lastReply;

@@ -1,4 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+function ConfidenceDisplay({ value }) {
+  const [count, setCount] = useState(0);
+  const [barWidth, setBarWidth] = useState(0);
+
+  useEffect(() => {
+    // Kick off bar transition after one frame so CSS picks it up
+    const frameId = requestAnimationFrame(() => setBarWidth(value));
+
+    // Count up from 0 to value over 800ms with ease-out cubic
+    const duration = 800;
+    const start = performance.now();
+    let rafId;
+    const tick = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - (1 - t) ** 3;
+      setCount(Math.round(value * eased));
+      if (t < 1) rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(rafId);
+    };
+  }, [value]);
+
+  return (
+    <>
+      <p className="cia-confidence">{count}%</p>
+      <p className="text-xs text-[var(--t1-muted)]">How well sources matched this answer</p>
+      <div className="cia-confidence-bar mt-2">
+        <div className="cia-confidence-fill" style={{ width: `${barWidth}%` }} />
+      </div>
+    </>
+  );
+}
 
 function CollapsibleSection({ title, badge, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -70,12 +107,8 @@ export function CiaInsightsPanel({ insights, artifacts, embedded = false }) {
       ) : null}
 
       {insights ? (
-        <CollapsibleSection title="Confidence" defaultOpen={false}>
-          <p className="cia-confidence">{insights.confidence}%</p>
-          <p className="text-xs text-[var(--t1-muted)]">How well sources matched this answer</p>
-          <div className="cia-confidence-bar mt-2">
-            <div className="cia-confidence-fill" style={{ width: `${insights.confidence}%` }} />
-          </div>
+        <CollapsibleSection title="Confidence" badge={`${insights.confidence}%`} defaultOpen={false}>
+          <ConfidenceDisplay value={insights.confidence} />
         </CollapsibleSection>
       ) : null}
 

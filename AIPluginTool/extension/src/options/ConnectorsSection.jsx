@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ConnectorIcon } from "../lib/ConnectorIcon.jsx";
 import {
   disconnectConnector,
   getConnectorConnectUrl,
@@ -86,7 +87,7 @@ export function ConnectorsSection() {
         <div className="cia-ext-connector-list">
           {connectors.map((connector) => (
             <div key={connector.id} className="cia-ext-connector-row">
-              <span className="cia-ext-connector-icon">{connector.icon ?? "🔌"}</span>
+              <span className="cia-ext-connector-icon"><ConnectorIcon id={connector.icon} /></span>
               <div className="cia-ext-connector-meta">
                 <strong>{connector.label}</strong>
                 <small>{connector.description}</small>
