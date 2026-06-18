@@ -98,8 +98,10 @@ function initFloatingWidget() {
   styles.textContent = SHADOW_CSS;
   root.appendChild(styles);
 
-  const svgUrl = chrome.runtime.getURL("icons/TNE.AX.svg");
-  const svgHoverUrl = chrome.runtime.getURL("icons/TNE_icon.svg");
+  // Use the bundled PNG icon (the previous TNE.AX.svg / TNE_icon.svg files were
+  // never shipped, which left a broken image in the bubble and header).
+  const svgUrl = chrome.runtime.getURL("icons/icon-128.png");
+  const svgHoverUrl = chrome.runtime.getURL("icons/icon-128.png");
 
   const bubble = document.createElement("button");
   bubble.type = "button";
@@ -127,8 +129,8 @@ function initFloatingWidget() {
       </div>
       <div class="cia-fw-actions">
         <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture visible page (screenshot + text)" aria-label="Capture visible page">👁</button>
-        <button type="button" class="cia-fw-icon-btn" data-action="webapp" title="Open the full web app">↗</button>
         <button type="button" class="cia-fw-icon-btn" data-action="dock" title="Open in browser side panel">⇲</button>
+        <button type="button" class="cia-fw-icon-btn" data-action="popout" title="Pop out into its own window" aria-label="Pop out">⤢</button>
         <button type="button" class="cia-fw-icon-btn" data-action="minimize" title="Minimize">—</button>
         <button type="button" class="cia-fw-icon-btn" data-action="close" title="Close">×</button>
       </div>
@@ -143,7 +145,7 @@ function initFloatingWidget() {
   const iframe = panel.querySelector(".cia-fw-iframe");
   const captureBtn = panel.querySelector('[data-action="capture"]');
   const dockBtn = panel.querySelector('[data-action="dock"]');
-  const webappBtn = panel.querySelector('[data-action="webapp"]');
+  const popoutBtn = panel.querySelector('[data-action="popout"]');
   const minimizeBtn = panel.querySelector('[data-action="minimize"]');
   const closeBtn = panel.querySelector('[data-action="close"]');
   const dragHandle = panel.querySelector("[data-drag-handle]");
@@ -208,8 +210,9 @@ function initFloatingWidget() {
     chrome.runtime.sendMessage({ type: "CIA_OPEN_SIDE_PANEL" }).catch(() => {});
     widget.collapse();
   });
-  webappBtn.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "CIA_OPEN_WEB_APP" }).catch(() => {});
+  popoutBtn.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "CIA_OPEN_POPOUT" }).catch(() => {});
+    widget.collapse();
   });
 
   attachDrag(panel, dragHandle, widget);

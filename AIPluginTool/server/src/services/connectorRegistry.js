@@ -26,6 +26,12 @@ export const PROVIDER_AUTH = {
   },
 };
 
+export const BASIC_AUTH_PROVIDERS = {};
+
+export function isBasicAuthProvider(provider) {
+  return Boolean(BASIC_AUTH_PROVIDERS[provider]);
+}
+
 export const CONNECTORS = [
   { id: "google-drive", label: "Google Drive", provider: "google", icon: "drive", description: "Search Docs, Sheets and files in Drive." },
   { id: "onedrive", label: "OneDrive", provider: "microsoft", icon: "onedrive", description: "Search your personal OneDrive files." },

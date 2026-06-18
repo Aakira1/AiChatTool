@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
-import { CONNECTORS, PROVIDER_AUTH, getConnector, connectorsForProvider } from "../services/connectorRegistry.js";
+import { CONNECTORS, PROVIDER_AUTH, BASIC_AUTH_PROVIDERS, isBasicAuthProvider, getConnector, connectorsForProvider } from "../services/connectorRegistry.js";
 import {
   buildAuthorizeUrl,
   createOAuthState,
@@ -9,6 +9,8 @@ import {
   exchangeCodeForToken,
   isOAuthProviderConfigured,
   resolveProviderCreds,
+  resolveBasicAuthCreds,
+  saveBasicAuthToken,
 } from "../services/oauthService.js";
 import { searchConnectors } from "../services/connectorService.js";
 import { deleteOAuthToken, listConnectedProviders } from "../db/repositories/oauthRepo.js";
@@ -52,15 +54,16 @@ connectorsRouter.get("/", (request, response) => {
   });
 });
 
-// GET /api/connectors/providers — OAuth app credential status per provider.
+// GET /api/connectors/providers — credential status per provider.
 connectorsRouter.get("/providers", (_request, response) => {
-  const providers = Object.keys(PROVIDER_AUTH).map((provider) => {
+  const oauthProviders = Object.keys(PROVIDER_AUTH).map((provider) => {
     const row = getProviderConfig(provider);
     const creds = resolveProviderCreds(provider);
     const envCreds = env.oauthProviders[provider];
     const fromEnv = Boolean(envCreds?.clientId && envCreds?.clientSecret) && !row;
     return {
       provider,
+      authType: "oauth",
       configured: isOAuthProviderConfigured(provider),
       fromEnv,
       clientId: creds?.clientId ?? "",
@@ -71,21 +74,35 @@ connectorsRouter.get("/providers", (_request, response) => {
       connectors: connectorsForProvider(provider).map((c) => ({ id: c.id, label: c.label })),
     };
   });
-  response.json({ providers });
+
+  const basicProviders = Object.keys(BASIC_AUTH_PROVIDERS).map((provider) => {
+    const creds = resolveBasicAuthCreds(provider);
+    return {
+      provider,
+      authType: "basic",
+      configured: isOAuthProviderConfigured(provider),
+      fromEnv: false,
+      email: creds?.email ?? "",
+      siteUrl: creds?.siteUrl ?? "",
+      hasToken: Boolean(creds?.apiToken),
+      connectors: connectorsForProvider(provider).map((c) => ({ id: c.id, label: c.label })),
+    };
+  });
+
+  response.json({ providers: [...oauthProviders, ...basicProviders] });
 });
 
 const providerConfigSchema = z.object({
   clientId: z.string().trim().max(400),
-  // Empty string means "keep the existing stored secret".
   clientSecret: z.string().max(800).optional(),
   tenant: z.string().trim().max(200).optional(),
   redirectUri: z.string().trim().max(600).optional(),
 });
 
-// PUT /api/connectors/providers/:provider — save OAuth app credentials.
+// PUT /api/connectors/providers/:provider — save credentials (OAuth or Basic Auth).
 connectorsRouter.put("/providers/:provider", (request, response) => {
   const { provider } = request.params;
-  if (!PROVIDER_AUTH[provider]) {
+  if (!PROVIDER_AUTH[provider] && !isBasicAuthProvider(provider)) {
     response.status(404).json({ error: "Unknown provider" });
     return;
   }
@@ -96,22 +113,30 @@ connectorsRouter.put("/providers/:provider", (request, response) => {
   }
   saveProviderConfig(provider, {
     clientId: parsed.data.clientId,
-    // Treat blank secret as "unchanged" so the UI never needs to re-enter it.
     clientSecret: parsed.data.clientSecret ? parsed.data.clientSecret : null,
     tenant: parsed.data.tenant,
     redirectUri: parsed.data.redirectUri,
   });
+  // For Basic Auth providers, auto-connect immediately after saving credentials.
+  if (isBasicAuthProvider(provider)) {
+    try {
+      saveBasicAuthToken(provider, userKey(request));
+    } catch {
+      // Credentials may be incomplete — they'll connect once all fields are filled.
+    }
+  }
   response.json({ ok: true, configured: isOAuthProviderConfigured(provider) });
 });
 
 // DELETE /api/connectors/providers/:provider — clear stored credentials.
 connectorsRouter.delete("/providers/:provider", (request, response) => {
   const { provider } = request.params;
-  if (!PROVIDER_AUTH[provider]) {
+  if (!PROVIDER_AUTH[provider] && !isBasicAuthProvider(provider)) {
     response.status(404).json({ error: "Unknown provider" });
     return;
   }
   deleteProviderConfig(provider);
+  deleteOAuthToken(userKey(request), provider);
   response.json({ ok: true, configured: isOAuthProviderConfigured(provider) });
 });
 
@@ -156,6 +181,52 @@ connectorsRouter.get("/callback/:provider", async (request, response) => {
     response.redirect(`${target}#connector=${request.params.provider}&status=connected`);
   } catch (error) {
     fail(error.message);
+  }
+});
+
+// POST /api/connectors/providers/:provider/test — verify basic auth credentials work.
+connectorsRouter.post("/providers/:provider/test", async (request, response) => {
+  const { provider } = request.params;
+  if (!isBasicAuthProvider(provider)) {
+    response.status(400).json({ error: "Only basic auth providers support credential testing." });
+    return;
+  }
+  const creds = resolveBasicAuthCreds(provider);
+  if (!creds?.email || !creds?.apiToken || !creds?.siteUrl) {
+    response.status(400).json({ ok: false, error: "No credentials saved — fill in Site URL, Email and API Token first." });
+    return;
+  }
+  const basicHeader = `Basic ${Buffer.from(`${creds.email}:${creds.apiToken}`).toString("base64")}`;
+  try {
+    // Test Jira with /rest/api/3/myself, Confluence with /wiki/rest/api/space?limit=1
+    const tests = [
+      { label: "Jira",       url: `${creds.siteUrl}/rest/api/3/myself` },
+      { label: "Confluence", url: `${creds.siteUrl}/wiki/rest/api/space?limit=1` },
+    ];
+    const results = await Promise.all(
+      tests.map(async ({ label, url }) => {
+        try {
+          const res = await fetch(url, { headers: { Authorization: basicHeader, Accept: "application/json" } });
+          const body = await res.text().catch(() => "");
+          let hint = "";
+          if (!res.ok) {
+            try {
+              const json = JSON.parse(body);
+              hint = json.message || json.error_description || json.error || JSON.stringify(json).slice(0, 200);
+            } catch {
+              hint = body.slice(0, 200);
+            }
+          }
+          return { label, ok: res.ok, status: res.status, hint: hint || undefined };
+        } catch (err) {
+          return { label, ok: false, error: err.message };
+        }
+      }),
+    );
+    const allOk = results.every((r) => r.ok);
+    response.json({ ok: allOk, results });
+  } catch (err) {
+    response.status(500).json({ ok: false, error: err.message });
   }
 });
 

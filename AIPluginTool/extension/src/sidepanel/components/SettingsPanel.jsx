@@ -8,14 +8,26 @@ import {
   changePassword,
 } from "../../lib/api.js";
 import { getSettings, saveSettings } from "../../lib/settings.js";
+import {
+  getApiBaseUrl,
+  setApiBaseUrl,
+  getWorkerAuthToken,
+  setWorkerAuthToken,
+} from "../../lib/storage.js";
+import { ConnectionsSettings } from "./ConnectionsSettings.jsx";
 
-export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdated }) {
+export function SettingsPanel({ onClose, onOpenFullOptions, user, standaloneMode, onProfileUpdated }) {
   const [connectors, setConnectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [settings, setSettings] = useState(() => getSettings());
 
   const load = useCallback(async () => {
+    // Standalone mode manages connectors locally — no server call needed.
+    if (standaloneMode) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await listConnectors();
@@ -26,7 +38,7 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdat
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [standaloneMode]);
 
   useEffect(() => {
     void load();
@@ -67,48 +79,53 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdat
       </div>
 
       <div className="cia-ext-settings-body">
-        <AccountSection user={user} onProfileUpdated={onProfileUpdated} />
+        <BackendSection standaloneMode={standaloneMode} />
+        {!standaloneMode && <AccountSection user={user} onProfileUpdated={onProfileUpdated} />}
 
-        <section>
-          <h4>App connectors</h4>
-          <p className="cia-ext-options-help">
-            Connect apps the assistant can search while you chat.
-          </p>
-          {error ? <p className="cia-ext-banner cia-ext-banner-error">{error}</p> : null}
-          {loading ? (
-            <p className="cia-ext-options-help">Loading…</p>
-          ) : (
-            <div className="cia-ext-connector-list">
-              {connectors.map((connector) => (
-                <div key={connector.id} className="cia-ext-connector-row">
-                  <span className="cia-ext-connector-icon"><ConnectorIcon id={connector.icon} /></span>
-                  <div className="cia-ext-connector-meta">
-                    <strong>{connector.label}</strong>
+        {standaloneMode ? (
+          <ConnectionsSettings />
+        ) : (
+          <section>
+            <h4>App connectors</h4>
+            <p className="cia-ext-options-help">
+              Connect apps the assistant can search while you chat.
+            </p>
+            {error ? <p className="cia-ext-banner cia-ext-banner-error">{error}</p> : null}
+            {loading ? (
+              <p className="cia-ext-options-help">Loading…</p>
+            ) : (
+              <div className="cia-ext-connector-list">
+                {connectors.map((connector) => (
+                  <div key={connector.id} className="cia-ext-connector-row">
+                    <span className="cia-ext-connector-icon"><ConnectorIcon id={connector.icon} /></span>
+                    <div className="cia-ext-connector-meta">
+                      <strong>{connector.label}</strong>
+                    </div>
+                    {!connector.configured ? (
+                      <span className="cia-ext-connector-badge">Not set up</span>
+                    ) : connector.connected ? (
+                      <button
+                        type="button"
+                        className="cia-ext-secondary-btn"
+                        onClick={() => void handleDisconnect(connector.provider)}
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="cia-ext-primary-btn"
+                        onClick={() => void handleConnect(connector.id)}
+                      >
+                        Connect
+                      </button>
+                    )}
                   </div>
-                  {!connector.configured ? (
-                    <span className="cia-ext-connector-badge">Not set up</span>
-                  ) : connector.connected ? (
-                    <button
-                      type="button"
-                      className="cia-ext-secondary-btn"
-                      onClick={() => void handleDisconnect(connector.provider)}
-                    >
-                      Disconnect
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="cia-ext-primary-btn"
-                      onClick={() => void handleConnect(connector.id)}
-                    >
-                      Connect
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <section>
           <h4>Insights under replies</h4>
@@ -166,6 +183,67 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, onProfileUpdat
         ) : null}
       </div>
     </div>
+  );
+}
+
+function BackendSection({ standaloneMode }) {
+  const [apiUrl, setApiUrlState] = useState("");
+  const [authToken, setAuthTokenState] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    getApiBaseUrl().then(setApiUrlState);
+    getWorkerAuthToken().then(setAuthTokenState);
+  }, []);
+
+  const save = async () => {
+    await setApiBaseUrl(apiUrl.trim());
+    await setWorkerAuthToken(authToken.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <section>
+      <h4>Backend / Worker URL</h4>
+      <p className="cia-ext-options-help">
+        {standaloneMode
+          ? "Running in standalone mode — connected directly to your Cloudflare Worker."
+          : "Point to your Cloudflare Worker or local server (http://localhost:3001)."}
+      </p>
+      <label className="cia-ext-field">
+        <span>API base URL</span>
+        <input
+          type="url"
+          value={apiUrl}
+          onChange={(e) => setApiUrlState(e.target.value)}
+          placeholder="https://cia-assistant.yourname.workers.dev"
+          autoComplete="off"
+        />
+      </label>
+      <label className="cia-ext-field">
+        <span>Auth token <small>(optional — set via AUTH_TOKEN in Worker)</small></span>
+        <div className="cia-ext-account-row">
+          <input
+            type={showToken ? "text" : "password"}
+            value={authToken}
+            onChange={(e) => setAuthTokenState(e.target.value)}
+            placeholder="Leave blank if no token required"
+            autoComplete="off"
+          />
+          <button type="button" className="cia-ext-secondary-btn" onClick={() => setShowToken((v) => !v)}>
+            {showToken ? "Hide" : "Show"}
+          </button>
+        </div>
+      </label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+        <button type="button" className="cia-ext-primary-btn" onClick={() => void save()}>
+          Save
+        </button>
+        {saved && <span className="cia-ext-options-saved">Saved ✓ — reload the extension to apply</span>}
+      </div>
+    </section>
   );
 }
 

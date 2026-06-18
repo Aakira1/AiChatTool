@@ -39,6 +39,7 @@ export async function planRelayStep({
   partnerName = "the page AI",
   signal,
 }) {
+  const isFirstTurn = turn === 1;
   const lastTurn = turn >= maxTurns;
 
   const convo = transcript
@@ -52,20 +53,25 @@ export async function planRelayStep({
     `answer, and decide the next move.`,
     ``,
     `How to converse — talk to ${partnerName} like a colleague, naturally, one question at a time:`,
-    `- Turn 1: ask ONE clear, conversational question that covers the whole goal (a short paragraph,`,
-    `  written the way a person would ask — not a list of demands). ${partnerName} only sees the`,
-    `  message you send, so include the context it needs.`,
+    `- Turn 1: ALWAYS ask ONE clear, conversational question that covers the whole goal in a single`,
+    `  comprehensive ask (a short paragraph, written the way a person would ask — not a list of`,
+    `  demands). ${partnerName} only sees the message you send, so include the context it needs.`,
+    `  NEVER finish on turn 1 — you must give ${partnerName} a chance to reply first.`,
     `- READ ITS ANSWER THOROUGHLY before deciding anything. Quote it to yourself: what did it actually`,
     `  say? What is missing, vague, or possibly wrong relative to the goal?`,
-    `- If you are not satisfied, go back to it naturally — e.g. "Thanks — you mentioned X, but I'm`,
-    `  still unclear on Y. Could you confirm whether …?" Push back politely on anything that seems`,
-    `  wrong. One focused follow-up per turn.`,
+    `- If you are not satisfied AND you have more turns available, go back to it naturally —`,
+    `  e.g. "Thanks — you mentioned X, but I'm still unclear on Y. Could you confirm whether …?"`,
+    `  Push back politely on anything that seems wrong. One focused follow-up per turn.`,
     `- Keep this back-and-forth going until you BOTH agree: i.e. ${partnerName} has confirmed the key`,
     `  facts and nothing needed for the goal is missing or contradictory. When validating, ask for`,
     `  explicit confirmation ("So to confirm, X works like Y — is that right?").`,
     `- Never re-ask something it already answered clearly, and never wander to a new topic.`,
+    `- CRITICAL: NEVER send the same (or near-same) question twice. If you don't have a`,
+    `  meaningfully different angle to add, finish with "done" instead — re-sending makes`,
+    `  ${partnerName} duplicate its work and often errors out.`,
     `- This is turn ${turn} of at most ${maxTurns}.`,
-    lastTurn ? `- This is the LAST turn: you MUST finish now with action "done".` : ``,
+    isFirstTurn ? `- THIS IS TURN 1 — you MUST ask a question. Never finish on turn 1.` : ``,
+    lastTurn && !isFirstTurn ? `- This is the LAST turn: you MUST finish now with action "done".` : ``,
     ``,
     `When you finish ("done"), write the final answer for the USER (not for ${partnerName}):`,
     `start with a short "**Conclusion:** …" paragraph giving the agreed answer in plain language,`,
@@ -103,7 +109,13 @@ export async function planRelayStep({
   }
   if (parsed.action === "ask") {
     const message = String(parsed.message ?? "").trim().slice(0, 2000);
-    if (!message || lastTurn) {
+    if (!message) {
+      return { action: "done", final: "", needsConclusion: true };
+    }
+    // Reject "ask" on the last turn ONLY when we've already had at least one
+    // round-trip. Turn 1 must always be allowed to ask, otherwise maxTurns=1
+    // ("ask once and wait") never sends anything.
+    if (lastTurn && turn > 1) {
       return { action: "done", final: "", needsConclusion: true };
     }
     return { action: "ask", message };

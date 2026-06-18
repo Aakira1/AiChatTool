@@ -4,6 +4,19 @@ export function ConversationPicker({ threads, activeId, onSelect, onNew, onBulkD
   const [managing, setManaging] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const activeThread = threads.find((t) => t.id === activeId);
+  const currentLabel = activeThread
+    ? `${activeThread.pinned ? "📌 " : ""}${activeThread.title || "Untitled"}`
+    : threads.length === 0
+      ? "New chat"
+      : "Select a chat";
+
+  const pick = (id) => {
+    onSelect(id);
+    setMenuOpen(false);
+  };
 
   const toggle = (id) => {
     setSelected((cur) => {
@@ -34,20 +47,45 @@ export function ConversationPicker({ threads, activeId, onSelect, onNew, onBulkD
 
   return (
     <div className="cia-ext-threadbar">
-      <select
-        className="cia-ext-thread-select"
-        value={activeId ?? ""}
-        onChange={(event) => onSelect(event.target.value)}
-        aria-label="Select conversation"
-      >
-        {threads.length === 0 ? <option value="">No conversations yet</option> : null}
-        {threads.map((thread) => (
-          <option key={thread.id} value={thread.id}>
-            {thread.pinned ? "📌 " : ""}
-            {thread.title || "Untitled"}
-          </option>
-        ))}
-      </select>
+      <div className="cia-ext-thread-dropdown">
+        <button
+          type="button"
+          className="cia-ext-thread-trigger"
+          onClick={() => threads.length > 0 && setMenuOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={menuOpen}
+          disabled={threads.length === 0}
+          title={currentLabel}
+        >
+          <span className="cia-ext-thread-current">{currentLabel}</span>
+          {threads.length > 0 ? (
+            <span className={`cia-ext-thread-chevron${menuOpen ? " is-open" : ""}`} aria-hidden="true">⌄</span>
+          ) : null}
+        </button>
+
+        {menuOpen ? (
+          <>
+            <div className="cia-ext-thread-backdrop" onClick={() => setMenuOpen(false)} />
+            <ul className="cia-ext-thread-menu" role="listbox">
+              {threads.map((thread) => (
+                <li key={thread.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={thread.id === activeId}
+                    className={`cia-ext-thread-option${thread.id === activeId ? " is-active" : ""}`}
+                    onClick={() => pick(thread.id)}
+                  >
+                    {thread.pinned ? "📌 " : ""}
+                    {thread.title || "Untitled"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </div>
+
       <button type="button" className="cia-ext-new-btn" onClick={onNew} title="New conversation">
         + New
       </button>

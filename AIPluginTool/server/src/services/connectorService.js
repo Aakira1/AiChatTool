@@ -8,8 +8,10 @@ function trim(text, max = 400) {
 }
 
 async function authedJson(url, accessToken, signal) {
+  // accessToken may already be a full "Basic ..." or "Bearer ..." value.
+  const authHeader = /^(Basic|Bearer) /i.test(accessToken) ? accessToken : `Bearer ${accessToken}`;
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    headers: { Authorization: authHeader, Accept: "application/json" },
     signal,
   });
   if (!response.ok) {

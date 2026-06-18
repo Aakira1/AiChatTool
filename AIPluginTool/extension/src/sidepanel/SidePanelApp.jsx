@@ -38,6 +38,8 @@ import { Banner } from "./components/Banner.jsx";
 import { SettingsPanel } from "./components/SettingsPanel.jsx";
 import { ForumsPanel } from "./components/ForumsPanel.jsx";
 import { ChecklistPanel } from "./components/ChecklistPanel.jsx";
+import { NotepadPanel } from "./components/NotepadPanel.jsx";
+import { HomeScreen } from "./HomeScreen.jsx";
 
 const WELCOME_MESSAGE = {
   id: "welcome",
@@ -75,7 +77,8 @@ export function SidePanelApp() {
   const [includeContext, setIncludeContext] = useState(true);
   const [capturingPage, setCapturingPage] = useState(false);
   const [fallbackHint, setFallbackHint] = useState(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [view, setView] = useState("home"); // "home" | "chat" | "notepad" | "settings"
+  const [standaloneMode, setStandaloneMode] = useState(false);
   const [showForums, setShowForums] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
   const [forumDraft, setForumDraft] = useState(null);
@@ -83,7 +86,7 @@ export function SidePanelApp() {
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
   const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
   const [connectorSources, setConnectorSources] = useState(() => getSettings().connectorSources ?? []);
-  const [relay, setRelay] = useState({ mode: "off", target: null, busy: false, maxTurns: 4 }); // off | relay | agent
+  const [relay, setRelay] = useState({ mode: "off", target: null, busy: false, maxTurns: 1 }); // off | relay | agent
   const [attachments, setAttachments] = useState([]);
   const [visionLog, setVisionLog] = useState([]);
   const [livePreview, setLivePreview] = useState(null); // { text, busy, phase, updatedAt }
@@ -91,6 +94,8 @@ export function SidePanelApp() {
   const relayStopRef = useRef(false);
   const messagesRef = useRef(null);
   const abortRef = useRef(null);
+  const latestMessagesRef = useRef(messages);
+  latestMessagesRef.current = messages;
 
   const handleProviderChange = (value) => { setProvider(value); saveSettings({ provider: value }); };
   const handleReasoningChange = (value) => { setReasoning(value); saveSettings({ reasoning: value }); };
@@ -152,21 +157,33 @@ export function SidePanelApp() {
   }, []);
 
   const loadThreads = useCallback(async () => {
+    if (standaloneMode) {
+      const { getLocalThreads } = await import("../lib/storage.js");
+      const list = await getLocalThreads();
+      setThreads(list);
+      return list;
+    }
     const list = await listConversations();
     setThreads(list);
     return list;
-  }, []);
+  }, [standaloneMode]);
 
   const loadConversation = useCallback(async (id) => {
     if (!id) {
       setMessages([WELCOME_MESSAGE]);
       return;
     }
+    if (standaloneMode) {
+      const { getLocalThread } = await import("../lib/storage.js");
+      const thread = await getLocalThread(id);
+      setMessages(thread?.messages?.length ? thread.messages : [WELCOME_MESSAGE]);
+      return;
+    }
     const conversation = await getConversation(id);
     setMessages(
       conversation.messages.length > 0 ? conversation.messages : [WELCOME_MESSAGE],
     );
-  }, []);
+  }, [standaloneMode]);
 
   const ensureConversation = useCallback(
     async (existing) => {
@@ -193,12 +210,26 @@ export function SidePanelApp() {
         setUser(null);
         return;
       }
+
+      const isStandalone = me.standalone === true;
+      setStandaloneMode(isStandalone);
       setUser({
         email: me.user?.email ?? me.email ?? "signed-in",
         displayName: me.user?.displayName ?? me.displayName ?? null,
         role: me.role ?? me.user?.role ?? "user",
         plugins: me.plugins ?? me.user?.plugins ?? [],
       });
+
+      if (isStandalone) {
+        // In standalone/Worker mode: create a local conversation ID, don't fetch history from server
+        const { getLocalThreads } = await import("../lib/storage.js");
+        const localList = await getLocalThreads();
+        setThreads(localList);
+        const newId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setConversationId(newId);
+        setMessages([WELCOME_MESSAGE]);
+        return;
+      }
 
       const list = await loadThreads();
       const active = await ensureConversation(list);
@@ -349,6 +380,13 @@ export function SidePanelApp() {
   };
 
   const handleNewThread = async () => {
+    if (standaloneMode) {
+      const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      setConversationId(id);
+      setMessages([WELCOME_MESSAGE]);
+      setError("");
+      return;
+    }
     const created = await createConversation("New chat");
     await loadThreads();
     setConversationId(created.id);
@@ -363,11 +401,16 @@ export function SidePanelApp() {
       return;
     }
     setError("");
-    for (const id of ids) {
-      try {
-        await deleteConversation(id);
-      } catch {
-        /* keep deleting the rest */
+    if (standaloneMode) {
+      const { deleteLocalThread } = await import("../lib/storage.js");
+      for (const id of ids) await deleteLocalThread(id);
+    } else {
+      for (const id of ids) {
+        try {
+          await deleteConversation(id);
+        } catch {
+          /* keep deleting the rest */
+        }
       }
     }
     const refreshed = await loadThreads();
@@ -628,24 +671,29 @@ export function SidePanelApp() {
     };
 
     // Two strings are "essentially the same question" if they overlap a lot
-    // after normalisation — used to halt agent loops that keep re-asking.
+    // after normalisation. Used to halt agent loops that keep re-asking and
+    // would otherwise cause duplicate submissions to the page AI.
     const isNearDuplicate = (a, b) => {
       const n = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
       const na = n(a);
       const nb = n(b);
       if (!na || !nb) return false;
       if (na === nb) return true;
-      // Jaccard on word tokens — 0.85+ means it's effectively the same prompt.
+      // Substring containment — one question almost entirely inside the other
+      // (catches "Hey Rovo X" vs "Hey Rovo X please clarify").
+      const shorter = na.length < nb.length ? na : nb;
+      const longer = na.length < nb.length ? nb : na;
+      if (shorter.length >= 30 && longer.includes(shorter)) return true;
+      // Jaccard on word tokens — 0.80+ means it's effectively the same prompt.
       const ta = new Set(na.split(" "));
       const tb = new Set(nb.split(" "));
       const inter = [...ta].filter((w) => tb.has(w)).length;
       const union = new Set([...ta, ...tb]).size;
-      return union > 0 && inter / union >= 0.85;
+      return union > 0 && inter / union >= 0.80;
     };
 
     try {
       let final = "";
-      let duplicateStrikes = 0;
       for (let turn = 1; turn <= maxTurns; turn += 1) {
         if (relayStopRef.current) break;
         update(`Planning step ${turn}…`);
@@ -658,17 +706,17 @@ export function SidePanelApp() {
         if (step.action === "done") break; // needs conclusion → synthesise after loop
 
         // Loop guard: if the planner is re-asking a question it already asked,
-        // we're going in circles — bail out and synthesise from what we have.
+        // we MUST NOT send it again — that's how Rovo ends up with duplicate
+        // submissions and an "An unknown error occurred". Halt on the FIRST
+        // duplicate and synthesise from what we already have.
         const recentAsks = transcript.filter((t) => t.from === "agent").map((t) => t.text);
         if (recentAsks.some((prev) => isNearDuplicate(prev, step.message))) {
-          duplicateStrikes += 1;
-          addVisionLog(`🔁 Duplicate question detected (strike ${duplicateStrikes}/2)`);
-          if (duplicateStrikes >= 2) {
-            addVisionLog("🛑 Halting loop — concluding from what we have");
-            update("Halting loop — building conclusion…");
-            final = await conclude(`_(${partnerName} answer was already covered — concluding from what it gave us.)_`);
-            break;
-          }
+          addVisionLog("🔁 Planner tried to re-ask a question — halting to avoid a duplicate submission");
+          update("Halting loop — building conclusion (planner repeated itself)…");
+          final = await conclude(
+            `_(${partnerName} already answered that — I stopped before sending a duplicate message.)_`,
+          );
+          break;
         }
 
         log.push({ q: step.message, a: "" });
@@ -731,9 +779,14 @@ export function SidePanelApp() {
 
     let activeId = conversationId;
     if (!activeId) {
-      const created = await createConversation("New chat");
-      activeId = created.id;
-      setConversationId(activeId);
+      if (standaloneMode) {
+        activeId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setConversationId(activeId);
+      } else {
+        const created = await createConversation("New chat");
+        activeId = created.id;
+        setConversationId(activeId);
+      }
     }
 
     setError("");
@@ -783,8 +836,14 @@ export function SidePanelApp() {
           "Screenshot was too large to send. Page text context is still included — try recapturing after zooming out.",
         );
       }
+      // In standalone mode, send full conversation history so the Worker has context
+      const historyForWorker = standaloneMode
+        ? messages.filter((m) => m.id !== "welcome" && m.role && m.content)
+        : undefined;
+
       await streamChat({
         conversationId: activeId,
+        history: historyForWorker,
         message: content || "(see attached)",
         attachments: sendAttachments.map(({ name, type, encoding, content: c }) => ({
           name,
@@ -826,8 +885,23 @@ export function SidePanelApp() {
         },
         onComplete: async () => {
           handleClearScreenshot();
-          await loadConversation(activeId);
-          await loadThreads();
+          if (standaloneMode) {
+            // Persist the conversation locally so it appears in the picker.
+            const { saveLocalThread } = await import("../lib/storage.js");
+            const cur = latestMessagesRef.current.filter((m) => m.id !== "welcome");
+            const firstUser = cur.find((m) => m.role === "user");
+            const title = (firstUser?.content || "New chat").replace(/\s+/g, " ").trim().slice(0, 40);
+            await saveLocalThread({
+              id: activeId,
+              title,
+              messages: cur,
+              updatedAt: new Date().toISOString(),
+            });
+            await loadThreads();
+          } else {
+            await loadConversation(activeId);
+            await loadThreads();
+          }
         },
       });
     } catch (sendError) {
@@ -862,45 +936,17 @@ export function SidePanelApp() {
     );
   }
 
-  return (
-    <div className="cia-ext-shell">
+  const chatView = (
+    <div className="cia-ext-chat-view">
       <TopBar
         healthState={healthState}
         user={user}
         apps={[
-          ...(user?.role === "admin" || (user?.plugins ?? []).includes("checklist")
-            ? [{ label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) }]
-            : []),
-          { label: "Forums", icon: "💬", onClick: () => setShowForums(true) },
-          { label: "Settings", icon: "⚙️", onClick: () => setShowSettings(true) },
-          { label: "Web app", icon: "↗", onClick: () => void openWebApp() },
+          { label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) },
+          // Forums temporarily disabled.
           { label: "Pop out", icon: "⤢", onClick: () => void openPopoutWindow() },
-          { label: "Sign out", icon: "⎋", onClick: handleLogout, danger: true },
         ]}
       />
-
-      {showSettings ? (
-        <SettingsPanel
-          onClose={() => setShowSettings(false)}
-          onOpenFullOptions={() => chrome.runtime.openOptionsPage?.()}
-          user={user}
-          onProfileUpdated={(updates) =>
-            setUser((current) => (current ? { ...current, ...updates } : current))
-          }
-        />
-      ) : null}
-
-      {showForums ? (
-        <ForumsPanel
-          initialDraft={forumDraft}
-          onClose={() => {
-            setShowForums(false);
-            setForumDraft(null);
-          }}
-        />
-      ) : null}
-
-      {showChecklist ? <ChecklistPanel onClose={() => setShowChecklist(false)} /> : null}
 
       <ConversationPicker
         threads={threads}
@@ -946,89 +992,15 @@ export function SidePanelApp() {
         onRefreshContext={refreshPageContext}
         onCapturePage={() => void handleCapturePage()}
         onClearScreenshot={handleClearScreenshot}
+        wholePageVision={wholePageVision}
+        onToggleWholePageVision={() => {
+          const next = !wholePageVision;
+          setWholePageVision(next);
+          saveSettings({ wholePageVision: next });
+          if (next) void flashPageVision();
+        }}
         disabled={pending}
       />
-
-      {relay.mode !== "off" && livePreview ? (
-        <LivePreview snap={livePreview} target={relay.target?.name || "page AI"} />
-      ) : null}
-
-      {relay.mode !== "off" && visionLog.length > 0 ? (
-        <VisionLog entries={visionLog} />
-      ) : null}
-
-      <div className="cia-ext-relay-row">
-        <button
-          type="button"
-          className={`cia-ext-relay-btn${relay.mode !== "off" ? " is-on" : ""}`}
-          onClick={() => void handleToggleRelay()}
-          disabled={relay.busy || pending}
-          title="Use the AI chat already open on the page (Rovo / Copilot / ChatGPT)"
-        >
-          {relay.busy
-            ? "Detecting…"
-            : relay.mode !== "off"
-              ? `🔌 ${relay.target?.name}`
-              : "🔌 Use page AI"}
-        </button>
-        <button
-          type="button"
-          className={`cia-ext-relay-mode${wholePageVision ? " is-on" : ""}`}
-          onClick={() => {
-            const next = !wholePageVision;
-            setWholePageVision(next);
-            saveSettings({ wholePageVision: next });
-            if (next) void flashPageVision();
-          }}
-          disabled={pending}
-          title="Let AI Vision see the entire webpage (outlines what it reads). Useful while the agent watches the page AI."
-        >
-          👁 WebPage
-        </button>
-        {relay.mode !== "off" ? (
-          <div className="cia-ext-relay-modes">
-            <button
-              type="button"
-              className={`cia-ext-relay-mode${relay.mode === "relay" ? " is-on" : ""}`}
-              onClick={() => setRelay((r) => ({ ...r, mode: "relay" }))}
-              disabled={pending}
-              title="Type your message straight into the page AI and bring back its reply"
-            >
-              Relay
-            </button>
-            <button
-              type="button"
-              className={`cia-ext-relay-mode${relay.mode === "agent" ? " is-on" : ""}`}
-              onClick={() => setRelay((r) => ({ ...r, mode: "agent" }))}
-              disabled={pending}
-              title={`Our AI holds a multi-turn conversation with ${relay.target?.name} to reach your goal, then summarizes`}
-            >
-              Agent
-            </button>
-          </div>
-        ) : null}
-        {relay.mode === "agent" ? (
-          <label className="cia-ext-relay-turns" title="Max back-and-forth turns with the page AI">
-            <span>Turns</span>
-            <select
-              value={relay.maxTurns}
-              disabled={pending}
-              onChange={(e) => setRelay((r) => ({ ...r, maxTurns: Number(e.target.value) }))}
-            >
-              {[2, 3, 4, 5, 6].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {pending && relay.mode !== "off" ? (
-          <button type="button" className="cia-ext-relay-stop" onClick={handleStop}>
-            Stop
-          </button>
-        ) : null}
-      </div>
 
       <Composer
         value={input}
@@ -1040,6 +1012,86 @@ export function SidePanelApp() {
         onAttachmentsChange={setAttachments}
         onError={setError}
       />
+    </div>
+  );
+
+  return (
+    <div className="cia-ext-shell cia-ext-with-nav">
+      {/* Views */}
+      {view === "home" && (
+        <HomeScreen
+          user={user}
+          healthState={healthState}
+          threads={threads}
+          onNewChat={() => setView("chat")}
+          onNotepad={() => setView("notepad")}
+          onCompanion={() => setShowChecklist(true)}
+          onSettings={() => setView("settings")}
+          onSelectThread={(id) => {
+            void handleSelectThread(id);
+            setView("chat");
+          }}
+        />
+      )}
+
+      {view === "chat" && chatView}
+
+      {view === "notepad" && (
+        <NotepadPanel
+          onClose={() => setView("home")}
+          onGenerate={(text, title) => {
+            const reportPrompt = `Please generate a professional **Project Manager Status Report** based on the following project notes titled "${title}".\n\nInclude: executive summary, key accomplishments, current status, risks & issues, actions required, and next steps.\n\n---\n\n${text}`;
+            setInput(reportPrompt);
+            setView("chat");
+          }}
+        />
+      )}
+
+      {view === "settings" && (
+        <SettingsPanel
+          onClose={() => setView("home")}
+          onOpenFullOptions={() => chrome.runtime.openOptionsPage?.()}
+          user={user}
+          standaloneMode={standaloneMode}
+          onProfileUpdated={(updates) =>
+            setUser((current) => (current ? { ...current, ...updates } : current))
+          }
+        />
+      )}
+
+      {/* Overlays that float above any view */}
+      {showForums ? (
+        <ForumsPanel
+          initialDraft={forumDraft}
+          onClose={() => {
+            setShowForums(false);
+            setForumDraft(null);
+          }}
+        />
+      ) : null}
+
+      {showChecklist ? <ChecklistPanel onClose={() => setShowChecklist(false)} /> : null}
+
+      {/* Bottom navigation */}
+      <nav className="cia-ext-bottom-nav" aria-label="Main navigation">
+        {[
+          { id: "home", icon: "🏠", label: "Home" },
+          { id: "chat", icon: "💬", label: "Chat" },
+          { id: "notepad", icon: "📝", label: "Notes" },
+          { id: "settings", icon: "⚙️", label: "Settings" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`cia-ext-nav-btn${view === tab.id ? " is-active" : ""}`}
+            onClick={() => setView(tab.id)}
+            aria-label={tab.label}
+          >
+            <span className="cia-ext-nav-icon">{tab.icon}</span>
+            <span className="cia-ext-nav-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

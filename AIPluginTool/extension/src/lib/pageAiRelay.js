@@ -424,19 +424,33 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
 
     const accept = (n) => visible(n) && !composer.contains(n) && !n.contains(el) && n !== el;
 
+    // A candidate is "reply-shaped" — keeps us from picking the whole chat
+    // scroll region but ALLOWS long replies that scroll off the viewport.
+    // Real replies can easily exceed viewport height (multi-paragraph answers
+    // with lists/tables). The bestReplyNode scoring then applies a graduated
+    // height penalty to discriminate against true wrappers.
+    const REPLY_MAX_HEIGHT = window.innerHeight * 3; // generous — replies often scroll
+    const REPLY_MAX_TEXT = 30000; // upper bound for a single answer
+    const isReplySized = (n) => {
+      const r = n.getBoundingClientRect();
+      if (r.height > REPLY_MAX_HEIGHT) return false;
+      if (r.width < 80) return false; // too narrow to be a chat bubble
+      const t = (n.innerText || n.textContent || "").trim();
+      if (t.length > REPLY_MAX_TEXT) return false;
+      return true;
+    };
+
     for (const scope of scopes) {
       let nodes = [];
       if (selectorPrimary) nodes = queryAllDeep(scope, selectorPrimary);
       if (!nodes.length) nodes = queryAllDeep(scope, selectorBroad);
-      let filtered = nodes.filter(accept);
+      let filtered = nodes.filter((n) => accept(n) && isReplySized(n));
 
       // Text-density fallback — broad sweep for any visible prose block.
       if (filtered.length === 0) {
         const all = queryAllDeep(scope, selectorDensity);
         filtered = all.filter((n) => {
-          if (!accept(n)) return false;
-          const r = n.getBoundingClientRect();
-          if (r.height > window.innerHeight * 1.5) return false;
+          if (!accept(n) || !isReplySized(n)) return false;
           const direct = (n.innerText || n.textContent || "").trim();
           if (direct.length < MIN_REPLY_LEN) return false;
           if (sent && (direct === sent || (direct.length < sent.length * 1.3 && direct.includes(sent)))) return false;
@@ -468,8 +482,19 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
   };
 
   // Is `t` an echo of what we just sent? The user's own message bubble repeats
-  // the prompt (often with a "Copy" label), so it CONTAINS the sent text.
-  const isEcho = (t) => t === sent || (sent && (sent.includes(t) || t.includes(sent)));
+  // the prompt (often with a "Copy" label). We must NOT reject a long reply
+  // that QUOTES the question as part of a much larger answer.
+  //   - Short fragment that's contained in the prompt → echo (status chip)
+  //   - Block that's the prompt verbatim with a little chrome → echo (user bubble)
+  //   - Block that contains the prompt but is MUCH longer → NOT an echo (it's a
+  //     reply quoting/referencing the question)
+  const isEcho = (t) => {
+    if (!sent || !t) return false;
+    if (t === sent) return true;
+    if (t.length < sent.length * 1.3 && sent.includes(t)) return true; // short fragment of prompt
+    if (t.includes(sent) && t.length < sent.length * 1.5) return true; // user-bubble shape
+    return false;
+  };
 
   // Rovo's thinking TRACE panel ("Rovo is thinking… / Analyzing… / Searching
   // internal company knowledge base / Searching: …") is not the answer — skip
@@ -482,10 +507,12 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
   const qualifies = (t) => t && t.length >= MIN_REPLY_LEN && !isEcho(t) && !STEP_RE.test(t) && !TRACE_RE.test(t);
 
   // Pick the answer NODE. For chat apps the newest reply is at the BOTTOM of
-  // the panel, but the newest reply is also usually the LONGEST currently-on-
-  // screen block. We combine both: score = bottom + length * 0.001 so bottom-
-  // most dominates, length breaks ties. Also: prefer ancestors over their
-  // descendants (so we get the whole bubble, not one paragraph inside it).
+  // the panel. We want the smallest ancestor that captures the FULL reply —
+  // not so big it engulfs UI chrome / other turns, not so small it loses
+  // paragraphs from the answer. Score:
+  //   bottom position + text length × 0.001 − height penalty
+  // The height penalty keeps us from picking the chat scroll region: a node
+  // taller than ~50% of the viewport gets exponentially worse.
   const bestReplyNode = () => {
     const nodes = replyCandidates();
     const qualified = nodes
@@ -498,11 +525,23 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
       ({ n }) => !qualified.some(({ n: other }) => other !== n && other.contains(n)),
     );
     const pool = ancestorsOnly.length ? ancestorsOnly : qualified;
+    const vp = window.innerHeight || 1;
     let best = null;
     let bestScore = -Infinity;
     for (const { n, t } of pool) {
-      const bottom = n.getBoundingClientRect().bottom;
-      const score = bottom + t.length * 0.001;
+      const r = n.getBoundingClientRect();
+      const heightRatio = r.height / vp;
+      // Graduated penalty:
+      //   ≤ 1.5 vh: no penalty (normal multi-paragraph reply)
+      //   1.5–2.5 vh: mild penalty (might be a long reply OR a small wrapper)
+      //   > 2.5 vh: large penalty (almost certainly a wrapper)
+      const heightPenalty =
+        heightRatio > 2.5
+          ? Math.pow((heightRatio - 2.5) * 5, 2) * 500
+          : heightRatio > 1.5
+            ? (heightRatio - 1.5) * 80
+            : 0;
+      const score = r.bottom + t.length * 0.001 - heightPenalty;
       if (score > bestScore) {
         best = n;
         bestScore = score;
@@ -684,11 +723,35 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
     const replyNode = latestReplyNode();
     const reply = replyNode ? cleanText(replyNode.innerText) : "";
     const candidatesFound = replyCandidates().length;
+    // Detect Rovo's "An unknown error occurred" + "Resend the message" state
+    // and report it so the outer JS can react (click resend, retry, etc.).
+    let errorState = null;
+    const errorRe = /(unknown error occurred|an error occurred|failed to generate|something went wrong|couldn'?t generate)/i;
+    const bodyText = (document.body?.innerText || "").slice(0, 8000);
+    if (errorRe.test(bodyText)) {
+      // Find the "Resend the message" / "Try again" button so the caller can
+      // click it visually. Confined to the chat panel to avoid hitting Jira's
+      // own retry controls in error banners on the host page.
+      const scope = chatRoot.querySelectorAll ? chatRoot : document;
+      const resendBtn = [...scope.querySelectorAll('button, [role="button"]')].find((b) => {
+        if (!visible(b)) return false;
+        const t = (b.textContent || "").trim().toLowerCase();
+        return /\b(resend|try again|retry|regenerate response)\b/i.test(t) && t.length < 50;
+      });
+      errorState = {
+        message: (bodyText.match(errorRe) || [])[0] || "error",
+        resendVisible: !!resendBtn,
+      };
+      if (HL && resendBtn) HL.draw("resend", resendBtn, "#dc2626", "Resend (error)");
+    }
     if (HL) {
       HL.drawPage(wholePage);
       HL.draw("input", el, "#16a34a", "AI input");
       HL.draw("reply", replyNode, "#2563eb", "AI reads this reply");
-      HL.status(busy ? "page AI is researching…" : "reading reply…", busy ? "#7c3aed" : "#2563eb");
+      HL.status(
+        errorState ? "page AI error — needs resend" : busy ? "page AI is researching…" : "reading reply…",
+        errorState ? "#dc2626" : busy ? "#7c3aed" : "#2563eb",
+      );
     }
     return {
       id: adapter.id,
@@ -697,6 +760,40 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
       reply,
       candidatesFound,
       replyNodeFound: !!replyNode,
+      errorState,
+    };
+  }
+
+  // ── mode: clickResend — click the "Resend the message" / "Try again" button
+  // that Rovo shows when its generation fails. ──
+  if (mode === "clickResend") {
+    const scope = chatRoot.querySelectorAll ? chatRoot : document;
+    const btn = [...scope.querySelectorAll('button, [role="button"]')].find((b) => {
+      if (!visible(b)) return false;
+      const t = (b.textContent || "").trim().toLowerCase();
+      return /\b(resend|try again|retry|regenerate response)\b/i.test(t) && t.length < 50;
+    });
+    if (!btn) return { id: adapter.id, name: adapter.name, ok: false, error: "no resend button" };
+    const r = btn.getBoundingClientRect();
+    const opts = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX: r.left + r.width / 2,
+      clientY: r.top + r.height / 2,
+      button: 0,
+      view: window,
+    };
+    for (const t of ["pointerover", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      btn.dispatchEvent(
+        t.startsWith("pointer") ? new PointerEvent(t, opts) : new MouseEvent(t, opts),
+      );
+    }
+    return {
+      id: adapter.id,
+      name: adapter.name,
+      ok: true,
+      clickedLabel: (btn.textContent || "").trim().slice(0, 60),
     };
   }
 
@@ -840,10 +937,16 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
       if (phase === "prepare") {
         if (HL) HL.status("waiting for page AI to be idle…", "#7c3aed");
         if (!isBusy() || Date.now() > prepareDeadline) {
-          if (!typed) {
+          // Skip typing if the input ALREADY has our prompt verbatim — the
+          // previous send attempt typed it and just couldn't fire the send.
+          // Re-typing would replace OR append, both of which can produce a
+          // truncated/duplicated message that makes Rovo error.
+          const current = norm(inputText());
+          const alreadyTyped = current && (current === sent || current.includes(sent.slice(0, Math.min(80, sent.length))));
+          if (!typed && !alreadyTyped) {
             typeInto();
-            typed = true;
           }
+          typed = true;
           phase = "send";
           lastSendAt = 0;
         }
@@ -854,8 +957,17 @@ function RELAY_IN_PAGE(mode, text, timeoutMs, debug, wholePage) {
         HL.draw("send", findSend(), "#f59e0b", "send");
         HL.status("sending…", "#f59e0b");
       }
-      if (inputText() === "") {
+      // Verify the input still has the full prompt before each strategy. If
+      // a click broke focus and the editor lost text, re-type ONCE.
+      const current = norm(inputText());
+      if (current === "") {
         done(true); // input cleared → accepted
+        return;
+      }
+      const intact = current === sent || current.includes(sent.slice(0, Math.min(80, sent.length)));
+      if (!intact && current.length < sent.length / 2) {
+        // Input got truncated mid-attempt — re-type the full prompt.
+        typeInto();
         return;
       }
       if (isBusy()) {
@@ -1135,6 +1247,20 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
     if (sendRes.error) throw new Error(sendRes.error);
     if (sendRes.sent !== false) break;
 
+    // Defensive: maybe Rovo DID accept the message right after we gave up
+    // (in-page hardCap is tight). If the page AI is now busy generating, our
+    // message went through — retrying would duplicate it. Wait a moment then
+    // check.
+    await abortableSleep(2500);
+    const postCheck = await runInFrames(tabId, ["idle", "", 0, debug, whole]);
+    if (postCheck?.busy) {
+      onStatus?.(
+        `✓ ${postCheck.name} started responding after we gave up — treating as sent, no retry`,
+      );
+      sendRes = { ...sendRes, sent: true };
+      break;
+    }
+
     onStatus?.(`⚠️ Attempt ${attempt} not accepted (${fmtDiag(sendRes)})`);
 
     // Vision fallback after the 2nd failure (gives DOM strategies a fair go
@@ -1219,12 +1345,46 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
   await abortableSleep(3000); // human-paced first look — let Rovo start typing
   let visionReadAttempts = 0;
   let domEmptyStreak = 0; // consecutive idle-but-empty polls
+  let resendAttempts = 0;
+  const pollStartedAt = Date.now();
   while (true) {
     checkAbort();
     const r = await runInFrames(tabId, ["read", String(text), 0, debug, whole]);
     const busy = Boolean(r?.busy);
     let reply = r?.reply || "";
     pollCount += 1;
+
+    // If the page AI errored ("An unknown error occurred / Resend the
+    // message"), auto-click Resend ONCE before giving up. Guards against:
+    // 1. Stale errors from prior conversations — wait ≥10s of polling before
+    //    treating an error as ours. (A real error on our send appears within
+    //    seconds; one already there at second 0 is from before.)
+    // 2. Already saw the error and resent — don't re-resend on the same.
+    const errorIsLikelyOurs = Date.now() - pollStartedAt > 10_000;
+    if (r?.errorState && errorIsLikelyOurs) {
+      if (resendAttempts < 1 && r.errorState.resendVisible) {
+        resendAttempts += 1;
+        onStatus?.(
+          `❗ ${via} reported: "${r.errorState.message}" — clicking Resend once…`,
+        );
+        await runInFrames(tabId, ["clickResend", "", 0, debug, whole]);
+        // Give Rovo a beat to start regenerating before the next poll.
+        await abortableSleep(4000);
+        continue;
+      }
+      if (!r.errorState.resendVisible) {
+        onStatus?.(`❗ ${via} error: "${r.errorState.message}" — no Resend visible, bailing out`);
+      } else {
+        onStatus?.(`❗ ${via} errored again after resend — giving up`);
+      }
+      timedOut = true;
+      break;
+    }
+    // Note when an error was seen early but ignored (stale from prior session).
+    if (r?.errorState && !errorIsLikelyOurs && pollCount === 1) {
+      onStatus?.(`ℹ️ Pre-existing error from a prior conversation on the page — ignoring`);
+    }
+
     if (busy) {
       sawBusy = true;
       idleStreak = 0;
@@ -1233,6 +1393,14 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
       idleStreak += 1;
       if (!reply) domEmptyStreak += 1;
       else domEmptyStreak = 0;
+    }
+    // DOM-side reply tracking — DON'T REMOVE. Without this, sawReply never
+    // flips true when the DOM successfully returns text, so the polling loop
+    // never settles even after the preview shows the reply text.
+    if (reply && reply !== lastReply) {
+      lastReply = reply;
+      sawReply = true;
+      stableSince = Date.now();
     }
 
     // If Rovo looks idle but the DOM scraper keeps returning nothing, USE
@@ -1253,12 +1421,35 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
           const seen = await describeImageRemote({
             dataUrl: shot,
             name: `${via} chat`,
-            prompt:
-              `This is a screenshot of the ${via} AI chat. Transcribe the most recent assistant/AI reply ` +
-              `shown — the LATEST answer text, including paragraphs, lists, headings, and any numbered ` +
-              `or bulleted points. Do NOT include the user's question, the input box placeholder, ` +
-              `buttons, source chips, or UI chrome. Return ONLY the reply text, fully and verbatim. ` +
-              `If the assistant hasn't started replying yet, return exactly the word "EMPTY".`,
+            prompt: [
+              `This is a screenshot of the ${via} AI chat panel.`,
+              ``,
+              `TRANSCRIBE the LATEST assistant/AI reply IN FULL — every single`,
+              `paragraph, every numbered list item, every bullet point, every`,
+              `heading, every sub-item, every code block. DO NOT summarise.`,
+              `DO NOT skip lines. DO NOT truncate. If the reply runs off the`,
+              `bottom of the visible area, transcribe what IS visible exactly.`,
+              ``,
+              `Preserve structure with markdown:`,
+              `- Headings as "## Heading"`,
+              `- Numbered lists as "1. item"`,
+              `- Bullets as "- item"`,
+              `- Sub-bullets indented with two spaces`,
+              `- Bold text as **text**`,
+              `- Inline code as \`code\``,
+              ``,
+              `EXCLUDE:`,
+              `- The user's own question (the coloured bubble at the top)`,
+              `- The input box and its placeholder text`,
+              `- Buttons, toolbar icons, "Sources" chips, "Verify results" footer`,
+              `- Any "An unknown error occurred" / "Resend the message" notice`,
+              ``,
+              `If the assistant hasn't started replying yet, OR is showing an`,
+              `error instead of a reply, return EXACTLY the single word: EMPTY`,
+              ``,
+              `Otherwise return ONLY the transcribed reply text, verbatim, with`,
+              `markdown structure. No preamble, no commentary.`,
+            ].join("\n"),
           });
           const cleaned = (seen || "").trim();
           if (cleaned && !/^empty$/i.test(cleaned) && cleaned.length >= 40) {
@@ -1329,10 +1520,22 @@ export async function relayToPageAi(text, { timeoutMs = 600000, signal, onStatus
       const seen = await describeImageRemote({
         dataUrl: shot,
         name: `${via} chat`,
-        prompt:
-          `This is a screenshot of the ${via} AI chat. Transcribe the most recent assistant/AI reply ` +
-          `shown (the last answer, not the question or UI chrome). Return ONLY that reply text, fully ` +
-          `and verbatim, including any lists or numbers. If it is still loading, say "still loading".`,
+        prompt: [
+          `This is a screenshot of the ${via} AI chat.`,
+          ``,
+          `TRANSCRIBE the LATEST assistant reply IN FULL — every paragraph,`,
+          `every list item, every heading, every sub-item. DO NOT summarise.`,
+          `DO NOT skip lines. DO NOT truncate.`,
+          ``,
+          `Preserve markdown structure (## headings, 1. numbered lists,`,
+          `- bullets, indented sub-bullets, **bold**, \`code\`).`,
+          ``,
+          `EXCLUDE the user's question, input box, buttons, source chips, and`,
+          `the "Verify results" footer.`,
+          ``,
+          `If it's still loading, return exactly: still loading`,
+          `Otherwise return ONLY the reply text, verbatim with markdown.`,
+        ].join("\n"),
       });
       if (seen && seen.trim() && !/still loading/i.test(seen)) {
         reply = seen.trim();

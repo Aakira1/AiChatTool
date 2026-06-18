@@ -80,7 +80,7 @@ export function Composer({
         <textarea
           ref={textareaRef}
           className="cia-ext-textarea"
-          placeholder="Ask about CiA terminology, processes, cases, or this page… (Ctrl+V pastes images)"
+          placeholder="Message OneChat…"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -88,8 +88,8 @@ export function Composer({
           rows={1}
         />
         {pending ? (
-          <button type="button" className="cia-ext-stop-btn" onClick={onStop}>
-            Stop
+          <button type="button" className="cia-ext-stop-btn" onClick={onStop} aria-label="Stop">
+            ◼
           </button>
         ) : (
           <button
@@ -97,8 +97,9 @@ export function Composer({
             className="cia-ext-send-btn"
             disabled={!value.trim() && attachments.length === 0}
             aria-label="Send"
+            title="Send (Enter)"
           >
-            Send →
+            →
           </button>
         )}
       </form>

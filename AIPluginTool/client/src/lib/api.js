@@ -752,6 +752,13 @@ export async function clearConnectorProvider(provider) {
   return response.json();
 }
 
+export async function testConnectorProvider(provider) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}/test`, { method: "POST" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error ?? "Test request failed");
+  return payload;
+}
+
 async function consumeChatStream(response, callbacks) {
   const { signal, onToken, onComplete, onInsights, onArtifacts } = callbacks;
 

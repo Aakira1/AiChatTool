@@ -45,7 +45,7 @@ export default defineManifest({
       all_frames: false,
     },
   ],
-  permissions: ["sidePanel", "storage", "contextMenus", "activeTab", "scripting", "tabs"],
+  permissions: ["sidePanel", "storage", "unlimitedStorage", "contextMenus", "activeTab", "scripting", "tabs"],
   // Broad host access so page vision (captureVisibleTab) and the page-AI relay
   // (scripting.executeScript) work on ALL pages without per-site prompts. The
   // Privacy toggle in Settings disables page vision when the user wants it off.

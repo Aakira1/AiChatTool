@@ -79,13 +79,16 @@ export function analyzeChecklist(rows) {
     status: find(/completed.*status|% completed|^status$/),
     date: find(/date completed/),
     responsible: find(/responsible/),
+    scheduleResource: find(/investment schedule|schedule resource/),
+    notes: find(/notes|comment|direction/),
+    links: find(/links/),
   };
   if (cols.task < 0) return null;
 
   const items = [];
   for (let i = headerIndex + 1; i < rows.length; i += 1) {
     const r = rows[i];
-    const task = r[cols.task];
+    const task = cols.task >= 0 ? r[cols.task] : "";
     if (!task || !task.trim()) continue;
     const at = (idx) => (idx >= 0 ? (r[idx] ?? "").trim() : "");
     // Skip stage/section banner rows (Functional Group = Task Group = Task).
@@ -100,25 +103,46 @@ export function analyzeChecklist(rows) {
       status: cols.status >= 0 ? r[cols.status] ?? "" : "",
       date: at(cols.date),
       responsible: at(cols.responsible),
+      scheduleResource: at(cols.scheduleResource),
+      notes: at(cols.notes),
+      links: at(cols.links),
     });
   }
   if (!items.length) return null;
   return { headerIndex, cols, items };
 }
 
+/** Group items by Functional Group → Task Group, preserving first-seen order. */
 export function groupItems(items) {
   const groups = [];
   const byFg = new Map();
   for (const item of items) {
     const fgName = item.functionalGroup || "Other";
     if (!byFg.has(fgName)) {
-      const fg = { name: fgName, items: [] };
+      const fg = { name: fgName, taskGroups: [], _byTg: new Map() };
       byFg.set(fgName, fg);
       groups.push(fg);
     }
-    byFg.get(fgName).items.push(item);
+    const fg = byFg.get(fgName);
+    const tgName = item.taskGroup || "—";
+    if (!fg._byTg.has(tgName)) {
+      const tg = { name: tgName, items: [] };
+      fg._byTg.set(tgName, tg);
+      fg.taskGroups.push(tg);
+    }
+    fg._byTg.get(tgName).items.push(item);
   }
   return groups;
+}
+
+/** Flatten a grouped FG into its items (across task groups). */
+export function fgItems(fg) {
+  return fg.taskGroups.flatMap((tg) => tg.items);
+}
+
+/** Cycle a status state: not-started → in-progress → completed → not-started. */
+export function nextStatusState(state) {
+  return state === "not-started" ? "in-progress" : state === "in-progress" ? "completed" : "not-started";
 }
 
 export function progressOf(items) {

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { env } from "../config/env.js";
-import { PROVIDER_AUTH } from "./connectorRegistry.js";
+import { PROVIDER_AUTH, isBasicAuthProvider } from "./connectorRegistry.js";
 import { getOAuthToken, saveOAuthToken } from "../db/repositories/oauthRepo.js";
 import { getProviderConfig } from "../db/repositories/oauthProviderConfigRepo.js";
 
@@ -20,10 +20,44 @@ export function resolveProviderCreds(provider) {
   };
 }
 
+/** Credentials for a Basic Auth provider (stored in oauth_provider_config). */
+export function resolveBasicAuthCreds(provider) {
+  const row = getProviderConfig(provider);
+  if (!row?.client_id || !row?.client_secret) return null;
+  return {
+    email: row.client_id,
+    apiToken: row.client_secret,
+    siteUrl: (row.redirect_uri || "").replace(/\/$/, ""),
+  };
+}
+
 /** True when a provider has both a client id and secret (DB or env). */
 export function isOAuthProviderConfigured(provider) {
+  if (isBasicAuthProvider(provider)) {
+    const creds = resolveBasicAuthCreds(provider);
+    return Boolean(creds?.email && creds?.apiToken && creds?.siteUrl);
+  }
   const creds = resolveProviderCreds(provider);
   return Boolean(creds && creds.clientId && creds.clientSecret);
+}
+
+/**
+ * Build and persist a Basic Auth token entry from the stored credentials.
+ * Call this after saving provider config for a basic auth provider.
+ */
+export function saveBasicAuthToken(provider, userEmail) {
+  const creds = resolveBasicAuthCreds(provider);
+  if (!creds?.email || !creds?.apiToken || !creds?.siteUrl) {
+    throw new Error("Atlassian credentials incomplete — provide Site URL, Email and API Token.");
+  }
+  const basicValue = `Basic ${Buffer.from(`${creds.email}:${creds.apiToken}`).toString("base64")}`;
+  saveOAuthToken(userEmail, provider, {
+    accessToken: basicValue,
+    refreshToken: null,
+    expiresAt: null,
+    scope: null,
+    metadata: { siteUrl: creds.siteUrl, email: creds.email },
+  });
 }
 
 function providerConfig(provider) {
@@ -124,6 +158,11 @@ export async function exchangeCodeForToken(provider, code, userEmail) {
 export async function getValidAccessToken(provider, userEmail) {
   const stored = getOAuthToken(userEmail, provider);
   if (!stored) return null;
+
+  // Basic auth tokens never expire — return directly.
+  if (isBasicAuthProvider(provider)) {
+    return { accessToken: stored.access_token, metadata: stored.metadata };
+  }
 
   const notExpired = stored.expires_at && new Date(stored.expires_at).getTime() - 60_000 > Date.now();
   if (notExpired) return { accessToken: stored.access_token, metadata: stored.metadata };

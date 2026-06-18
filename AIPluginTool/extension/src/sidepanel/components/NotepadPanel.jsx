@@ -1,0 +1,1050 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getNotepad, saveNotepad, subscribeNotepad } from "../../lib/storage.js";
+// NOTE: `xlsx` is heavy (~600 kB). It is dynamically imported only when a user
+// actually imports a schedule, so it stays out of the main side-panel bundle.
+
+const FONTS = ["Default", "Arial", "Georgia", "Courier New", "Times New Roman", "Trebuchet MS", "Verdana"];
+
+const SHORTCODES = {
+  // Date & time
+  ts:       () => new Date().toLocaleString("en-AU"),
+  now:      () => new Date().toLocaleString("en-AU"),
+  date:     () => new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }),
+  today:    () => new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+  time:     () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  week:     () => { const d = new Date(); return `Week ${Math.ceil(d.getDate() / 7)}, ${d.toLocaleString("en-AU", { month: "long", year: "numeric" })}`; },
+  // Status tags
+  status:   () => "[In Progress]",
+  done:     () => "[Completed]",
+  action:   () => "[Action Required]",
+  followup: () => "[Follow-up]",
+  blocker:  () => "[Blocker]",
+  decision: () => "[Decision]",
+  risk:     () => "[Risk]",
+  // Priority
+  high:     () => "[High Priority]",
+  med:      () => "[Medium Priority]",
+  low:      () => "[Low Priority]",
+  // Quick markers
+  todo:     () => "☐ ",
+  check:    () => "☑ ",
+  na:       () => "N/A",
+  tbd:      () => "TBD",
+  eta:      () => "ETA: ",
+  arrow:    () => "→ ",
+  // Blocks
+  meeting:  () => `Meeting Notes — ${new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}`,
+  sig:      () => "Signed: ____________________   Date: __________",
+  hr:       () => "————————————————————",
+};
+
+const SHORTCODE_HELP = [
+  { code: "ts",       label: "{ts}",       desc: "Date & time" },
+  { code: "today",    label: "{today}",    desc: "Full date" },
+  { code: "time",     label: "{time}",     desc: "Current time" },
+  { code: "week",     label: "{week}",     desc: "Current week" },
+  { code: "status",   label: "{status}",   desc: "[In Progress]" },
+  { code: "done",     label: "{done}",     desc: "[Completed]" },
+  { code: "action",   label: "{action}",   desc: "[Action Required]" },
+  { code: "followup", label: "{followup}", desc: "[Follow-up]" },
+  { code: "blocker",  label: "{blocker}",  desc: "[Blocker]" },
+  { code: "decision", label: "{decision}", desc: "[Decision]" },
+  { code: "risk",     label: "{risk}",     desc: "[Risk]" },
+  { code: "high",     label: "{high}",     desc: "[High Priority]" },
+  { code: "med",      label: "{med}",      desc: "[Medium Priority]" },
+  { code: "low",      label: "{low}",      desc: "[Low Priority]" },
+  { code: "todo",     label: "{todo}",     desc: "☐ checkbox" },
+  { code: "check",    label: "{check}",    desc: "☑ ticked" },
+  { code: "arrow",    label: "{arrow}",    desc: "→ arrow" },
+  { code: "na",       label: "{na}",       desc: "N/A" },
+  { code: "tbd",      label: "{tbd}",      desc: "TBD" },
+  { code: "meeting",  label: "{meeting}",  desc: "Meeting heading" },
+  { code: "sig",      label: "{sig}",      desc: "Signature line" },
+  { code: "hr",       label: "{hr}",       desc: "Divider line" },
+];
+
+const OLD_NOTES_NAME = "Old Notes";
+const NEW_NOTE_TITLE = "New Note";
+
+const STORAGE_KEY = "cia-notepad-notes";   // legacy localStorage (migrated once)
+const FOLDERS_KEY = "cia-notepad-folders"; // legacy localStorage (migrated once)
+
+function defaultNotes() {
+  return [{ id: "default", title: "Project Notes", content: "", updatedAt: null, fromSchedule: false, folderId: null }];
+}
+
+// One-time migration source: the old per-site localStorage store.
+function loadLegacy() {
+  try {
+    const notes = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    const folders = JSON.parse(localStorage.getItem(FOLDERS_KEY) || "null");
+    if (notes?.length) return { notes, folders: folders ?? [] };
+  } catch { /* ignore */ }
+  return null;
+}
+
+function makeGrid(rows = 4, cols = 4) {
+  const th = (i) => `<th contenteditable="true" style="border:1px solid var(--cia-border);padding:4px 8px;background:var(--cia-soft);font-weight:600;min-width:70px;">Col ${i + 1}</th>`;
+  const td = () => `<td contenteditable="true" style="border:1px solid var(--cia-border);padding:4px 8px;min-width:70px;outline:none;"></td>`;
+  const header = `<tr>${Array.from({ length: cols }, (_, i) => th(i)).join("")}</tr>`;
+  const body = Array.from({ length: rows - 1 }, () => `<tr>${Array.from({ length: cols }, td).join("")}</tr>`).join("");
+  return `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:12px;"><tbody>${header}${body}</tbody></table><p><br></p>`;
+}
+
+function htmlToPlainText(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html.replace(/<\/tr>/gi, "\n").replace(/<\/t[dh]>/gi, "\t");
+  return (div.textContent || "").replace(/\t\n/g, "\n").trim();
+}
+
+function htmlToMarkdown(html) {
+  return html
+    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, "**$1**")
+    .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, "**$1**")
+    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, "_$1_")
+    .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, "_$1_")
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, c) => `- ${c.replace(/<[^>]+>/g, "").trim()}\n`)
+    .replace(/<\/tr>/gi, "\n").replace(/<\/t[dh]>/gi, " | ")
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<\/div>/gi, "\n")
+    .replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+
+const SCHEDULE_FOLDER_NAME = "Scheduled Projects";
+
+// ── File export helpers ──────────────────────────────────────────────────────
+
+function safeFileName(name) {
+  return (name || "note").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "note";
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// The grid cells use CSS variables that only exist inside the extension. Resolve
+// them to real colours so tables keep their borders in exported documents.
+function resolveCssVars(html) {
+  return String(html ?? "")
+    .replace(/var\(--cia-border\)/g, "#c9b8e6")
+    .replace(/var\(--cia-soft\)/g, "#f4eefb")
+    .replace(/var\(--cia-purple\)/g, "#7c3aed")
+    .replace(/var\(--cia-navy\)/g, "#2d1b69")
+    .replace(/var\(--cia-body\)/g, "#1f1235");
+}
+
+// Shared professional document styling — clean header, branded rule, proper
+// tables, lists and fonts. Used by PDF, HTML and Word exports.
+function docStyles(font) {
+  const ff = font && font !== "Default" ? `'${font}', Arial, sans-serif` : "Arial, Helvetica, sans-serif";
+  return `
+    :root{--cia-border:#c9b8e6;--cia-soft:#f4eefb;--cia-purple:#7c3aed;--cia-navy:#2d1b69;--cia-body:#1f1235;}
+    *{box-sizing:border-box;}
+    .doc-body{font-family:${ff};color:#1f1235;font-size:12px;line-height:1.55;}
+    .doc-head{border-bottom:2px solid #7c3aed;padding-bottom:10px;margin-bottom:16px;}
+    .doc-title{font-size:20px;font-weight:700;color:#2d1b69;margin:0;}
+    .doc-sub{font-size:11px;color:#6b6285;margin:4px 0 0;}
+    .doc-body h1,.doc-body h2,.doc-body h3,.doc-body h4{color:#2d1b69;margin:14px 0 6px;}
+    .doc-body table{border-collapse:collapse;width:100%;margin:10px 0;}
+    .doc-body td,.doc-body th{border:1px solid #c9b8e6;padding:6px 9px;font-size:11px;vertical-align:top;}
+    .doc-body th{background:#f4eefb;font-weight:700;text-align:left;}
+    .doc-body ul,.doc-body ol{margin:6px 0 6px 20px;}
+    .doc-body li{margin:2px 0;}
+    .doc-body p{margin:6px 0;}
+  `;
+}
+function professionalBody(title, innerHtml, font) {
+  const dateStr = new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+  return `<style>${docStyles(font)}</style><div class="doc-body">
+    <div class="doc-head"><p class="doc-title">${escapeHtml(title)}</p>
+    <p class="doc-sub">OneChat · Project Notes — ${dateStr}</p></div>
+    ${resolveCssVars(innerHtml) || "<p><em>(empty note)</em></p>"}
+  </div>`;
+}
+function reportHtmlDoc(title, innerHtml, font) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head>` +
+    `<body style="max-width:820px;margin:40px auto;padding:0 24px;">${professionalBody(title, innerHtml, font)}</body></html>`;
+}
+
+// A real Word .docx file (lazy-loaded) — keeps headings, tables, lists, fonts.
+async function noteDocxBlob(title, innerHtml, font) {
+  const { asBlob } = await import("html-docx-js-typescript");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${professionalBody(title, innerHtml, font)}</body></html>`;
+  const out = await asBlob(html);
+  return out instanceof Blob
+    ? out
+    : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
+// Rich PDF via jsPDF's HTML renderer — renders the note exactly as a document,
+// preserving grids, fonts, bold/italic, lists and headings.
+async function notePdfBlob(title, innerHtml, font) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:-10000px;top:0;width:760px;background:#fff;";
+  holder.innerHTML = professionalBody(title, innerHtml, font);
+  document.body.appendChild(holder);
+  try {
+    await new Promise((resolve, reject) => {
+      doc.html(holder, {
+        x: 0,
+        y: 0,
+        margin: [36, 36, 48, 36],
+        width: 523,        // A4 content width in pt (595 − 2×36)
+        windowWidth: 760,  // must match holder px width
+        autoPaging: "text",
+        callback: () => resolve(),
+      }).catch?.(reject);
+    });
+  } finally {
+    holder.remove();
+  }
+  return doc.output("blob");
+}
+
+// ── Schedule parsing ────────────────────────────────────────────────────────
+
+function parseBookingsSheet(workbook, XLSX) {
+  const sheetName = workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  if (rows.length < 2) return [];
+
+  // The export can have one or more blank leading rows before the header row,
+  // so find the real header row (the first row that contains "Project").
+  let headerRow = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const cells = rows[i].map((c) => String(c ?? "").trim().toLowerCase());
+    if (cells.includes("project") || cells.includes("project code")) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  const headers = rows[headerRow].map((h) => String(h ?? "").trim());
+
+  // Find date columns (header contains a date pattern like "Mon 15-Jun")
+  const dateColIndices = [];
+  const dateLabels = [];
+  headers.forEach((h, i) => {
+    if (/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}-[A-Za-z]{3}/.test(h)) {
+      dateColIndices.push(i);
+      dateLabels.push(h);
+    }
+  });
+
+  // The project NAME lives in the second column (index 1). Fall back to a header
+  // match if the layout ever changes.
+  const projectCol  = headers.indexOf("Project") !== -1 ? headers.indexOf("Project") : 1;
+  const codeCol     = headers.indexOf("Project Code") !== -1 ? headers.indexOf("Project Code") : 0;
+  const pmCol       = headers.indexOf("Project Manager");
+  const taskCol     = headers.indexOf("Task");
+  const statusCol   = headers.indexOf("Booking Status");
+
+  const councils = {};
+
+  for (let r = headerRow + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const project = String(row[projectCol] ?? "").trim();
+    if (!project || project.toLowerCase() === "unbooked days") continue;
+
+    // Keep councils, plus any CiA Live Migration project (Stage 1A/1B/2/3/4).
+    const isCouncil = /council/i.test(project);
+    const isMigration =
+      /cia\s*live\s*migration/i.test(project) &&
+      /\b(stage\s*)?(1a|1b|2|3|4)\b/i.test(project);
+    if (!isCouncil && !isMigration) continue;
+
+    const code   = String(row[codeCol] ?? "").trim();
+    const pm     = String(row[pmCol] ?? "").trim();
+    const task   = String(row[taskCol] ?? "").trim();
+    const status = String(row[statusCol] ?? "").trim();
+
+    const bookedDates = [];
+    dateColIndices.forEach((ci, idx) => {
+      const val = row[ci];
+      if (val === 1 || val === "1") bookedDates.push(dateLabels[idx]);
+    });
+
+    const key = code || project;
+    if (!councils[key]) {
+      councils[key] = { code, project, pm, tasks: [], bookedDates: [] };
+    }
+    if (task) councils[key].tasks.push({ task, status, bookedDates });
+    bookedDates.forEach((d) => { if (!councils[key].bookedDates.includes(d)) councils[key].bookedDates.push(d); });
+  }
+
+  return Object.values(councils);
+}
+
+function buildCouncilContent(council) {
+  const { code, project, pm, tasks, bookedDates } = council;
+
+  const dateRows = bookedDates
+    .map((d) => `<tr><td style="border:1px solid var(--cia-border);padding:4px 8px;">${d}</td><td style="border:1px solid var(--cia-border);padding:4px 8px;"></td></tr>`)
+    .join("");
+
+  const taskRows = tasks
+    .map((t) => `<li><strong>${t.task}</strong> <em>(${t.status})</em> — ${t.bookedDates.join(", ") || "no dates"}</li>`)
+    .join("");
+
+  return `<h3>📋 ${project}</h3>
+<p><strong>Project Code:</strong> ${code} &nbsp;|&nbsp; <strong>Project Manager:</strong> ${pm}</p>
+
+<h4>Scheduled Tasks</h4>
+<ul>${taskRows || "<li>No tasks listed</li>"}</ul>
+
+<h4>Booked Dates</h4>
+<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px;">
+  <thead><tr>
+    <th style="border:1px solid var(--cia-border);padding:4px 8px;background:var(--cia-soft);">Date</th>
+    <th style="border:1px solid var(--cia-border);padding:4px 8px;background:var(--cia-soft);">Work completed / Notes</th>
+  </tr></thead>
+  <tbody>${dateRows}</tbody>
+</table>
+
+<h4>Work Log</h4>
+<p><em>Add notes, actions and updates below…</em></p>
+<p><br></p>`;
+}
+
+// ── Subcomponents ───────────────────────────────────────────────────────────
+
+function NoteTitle({ note, onRename }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(note.title);
+  useEffect(() => setValue(note.title), [note.title]);
+  if (editing) {
+    return (
+      <input
+        className="cia-ext-notepad-title-input"
+        value={value}
+        autoFocus
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => { onRename(value || "Untitled"); setEditing(false); }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditing(false); }}
+      />
+    );
+  }
+  return (
+    <span className="cia-ext-notepad-title" onDoubleClick={() => setEditing(true)} title="Double-click to rename">
+      {note.fromSchedule ? "🏛 " : ""}{note.title}
+    </span>
+  );
+}
+
+function FolderChip({ folder, count, isDrop, onToggle, onRename, onDelete, onDragOver, onDrop }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(folder.name);
+  useEffect(() => setValue(folder.name), [folder.name]);
+
+  return (
+    <div
+      className={`cia-ext-notepad-folder${isDrop ? " is-drop" : ""}`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      title="Drag a tab here to file it. Click to expand/collapse."
+    >
+      <button className="cia-ext-notepad-folder-toggle" onClick={onToggle}>
+        {folder.collapsed ? "▸" : "▾"} 📁
+      </button>
+      {editing ? (
+        <input
+          className="cia-ext-notepad-folder-input"
+          value={value}
+          autoFocus
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => { onRename(value); setEditing(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditing(false); }}
+        />
+      ) : (
+        <span className="cia-ext-notepad-folder-name" onDoubleClick={() => setEditing(true)} title={`${folder.name} — double-click to rename`}>
+          {folder.name}
+        </span>
+      )}
+      <span className="cia-ext-notepad-folder-count">{count}</span>
+      <button className="cia-ext-notepad-folder-del" onClick={onDelete} title="Delete folder (keeps notes)">×</button>
+    </div>
+  );
+}
+
+function ScheduleUploader({ onScheduleLoaded }) {
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const inputRef = useRef(null);
+
+  const processFile = (file) => {
+    if (!file) return;
+    if (!/\.(xlsx|xls|xlsm)$/i.test(file.name)) {
+      setError("Please upload an Excel file (.xlsx, .xls)");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const XLSX = await import("xlsx"); // loaded on demand
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array" });
+        const councils = parseBookingsSheet(wb, XLSX);
+        if (councils.length === 0) {
+          setError("No council or CiA Live Migration projects found in this schedule.");
+        } else {
+          onScheduleLoaded(councils);
+        }
+      } catch (err) {
+        setError(`Failed to parse file: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  return (
+    <div className="cia-ext-notepad-upload-section">
+      <div className="cia-ext-notepad-upload-label">
+        📅 Import consultant schedule
+        <span className="cia-ext-notepad-upload-hint">Council projects auto-create tabs</span>
+      </div>
+      <div
+        className={`cia-ext-notepad-dropzone${dragging ? " is-dragging" : ""}`}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); processFile(e.dataTransfer.files[0]); }}
+      >
+        {loading ? "Parsing…" : "Drop .xlsx here or click to browse"}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xlsx,.xls,.xlsm"
+          style={{ display: "none" }}
+          onChange={(e) => processFile(e.target.files[0])}
+        />
+      </div>
+      {error ? <p className="cia-ext-notepad-upload-error">{error}</p> : null}
+    </div>
+  );
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
+
+export function NotepadPanel({ onClose, onGenerate }) {
+  const [notes, setNotes] = useState(defaultNotes);
+  const [folders, setFolders] = useState([]);
+  const [activeId, setActiveId] = useState("default");
+  const [saved, setSaved] = useState(false);
+  const [showShortcodes, setShowShortcodes] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [font, setFont] = useState("Default");
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [listMenuOpen, setListMenuOpen] = useState(false);
+  const [zipping, setZipping] = useState(false);
+  const [dragId, setDragId] = useState(null);       // note id being dragged
+  const [dropTarget, setDropTarget] = useState(null); // "folder:<id>" | "ungrouped" | "note:<id>"
+  const [hydrated, setHydrated] = useState(false);    // shared store loaded
+  const editorRef = useRef(null);
+  const saveTimerRef = useRef(null);
+
+  // Keep latest notes/folders in refs so persist can always write BOTH halves
+  // (chrome.storage stores them together under one "notes" key).
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
+  const lastWriteRef = useRef(""); // JSON of our most recent write (to ignore its echo)
+
+  // Persist notes + folders TOGETHER (chrome.storage stores them under one key).
+  const writeStore = useCallback((nextNotes, nextFolders) => {
+    const payload = { notes: nextNotes, folders: nextFolders };
+    lastWriteRef.current = JSON.stringify(payload);
+    void saveNotepad(payload);
+  }, []);
+  // Convenience writers that always pair the other half from the latest refs.
+  const persistNotes = useCallback((n) => writeStore(n, foldersRef.current), [writeStore]);
+  const persistFolders = useCallback((f) => writeStore(notesRef.current, f), [writeStore]);
+
+  const activeNote = notes.find((n) => n.id === activeId) ?? notes[0];
+
+  // Load the shared store on mount, migrating legacy localStorage once. Then
+  // live-sync whenever another screen of the plugin changes the notes.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      let data = await getNotepad();
+      if (!data?.notes?.length) {
+        const legacy = loadLegacy();
+        if (legacy) {
+          data = legacy;
+          void saveNotepad(legacy); // migrate into the shared store
+        }
+      }
+      if (active && data?.notes?.length) {
+        setNotes(data.notes);
+        setFolders(data.folders ?? []);
+        setActiveId((cur) => (data.notes.some((n) => n.id === cur) ? cur : data.notes[0].id));
+      }
+      if (active) setHydrated(true);
+    })();
+
+    const unsub = subscribeNotepad((val) => {
+      if (!val?.notes) return;
+      // Ignore the echo from our own writes; adopt changes made on other screens.
+      if (JSON.stringify(val) === lastWriteRef.current) return;
+      setNotes(val.notes);
+      setFolders(val.folders ?? []);
+    });
+    return () => { active = false; unsub(); };
+  }, []);
+
+  useEffect(() => {
+    if (editorRef.current) editorRef.current.innerHTML = activeNote?.content ?? "";
+  }, [activeId, hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (editorRef.current) editorRef.current.style.fontFamily = font === "Default" ? "" : font;
+  }, [font]);
+
+  const saveNote = useCallback((overrideId) => {
+    if (!editorRef.current) return;
+    const id = overrideId ?? activeId;
+    const content = editorRef.current.innerHTML;
+    setNotes((prev) => {
+      const updated = prev.map((n) => n.id === id ? { ...n, content, updatedAt: new Date().toISOString() } : n);
+      persistNotes(updated);
+      return updated;
+    });
+    setSaved(true);
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => setSaved(false), 2000);
+  }, [activeId]);
+
+  const handleInput = useCallback(() => {
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveNote(), 1500);
+  }, [saveNote]);
+
+  const handleKeyUp = useCallback((e) => {
+    // Markdown-style list shortcuts: "- " / "* " → bullet list, "1. " → numbered.
+    if (e.key === " ") {
+      const sel0 = window.getSelection();
+      if (sel0?.rangeCount) {
+        const range0 = sel0.getRangeAt(0);
+        const node0 = range0.startContainer;
+        if (node0.nodeType === Node.TEXT_NODE) {
+          const before0 = node0.textContent.slice(0, range0.startOffset);
+          const bullet = /^\s*[-*]\s$/.test(before0);
+          const ordered = /^\s*\d+\.\s$/.test(before0);
+          if (bullet || ordered) {
+            // Strip the marker text, then turn the line into a list.
+            node0.textContent = node0.textContent.slice(range0.startOffset);
+            const r = document.createRange();
+            r.setStart(node0, 0);
+            r.setEnd(node0, 0);
+            sel0.removeAllRanges();
+            sel0.addRange(r);
+            editorRef.current?.focus();
+            document.execCommand(bullet ? "insertUnorderedList" : "insertOrderedList", false, null);
+            saveNote();
+            return;
+          }
+        }
+      }
+    }
+
+    // Expand the moment the closing brace is typed, or on a following separator.
+    if (e.key !== "}" && e.key !== " " && e.key !== "Enter" && e.key !== "Tab") return;
+    const sel = window.getSelection();
+    if (!sel?.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    const text = node.textContent;
+    // Match {code} optionally followed by a single trailing space/tab.
+    const match = text.slice(0, range.startOffset).match(/\{(\w+)\}([ \t]?)$/);
+    if (!match) return;
+    const fn = SHORTCODES[match[1].toLowerCase()];
+    if (!fn) return;
+    const token = `{${match[1]}}`;
+    const start = range.startOffset - match[0].length;
+    const before = text.slice(0, start);
+    const after = text.slice(start + token.length + match[2].length);
+    const expanded = fn();
+    node.textContent = before + expanded + (match[2] || "") + after;
+    const newPos = before.length + expanded.length + (match[2] ? 1 : 0);
+    range.setStart(node, newPos); range.setEnd(node, newPos);
+    sel.removeAllRanges(); sel.addRange(range);
+    saveNote();
+  }, [saveNote]);
+
+  const exec = (cmd) => { editorRef.current?.focus(); document.execCommand(cmd, false, null); };
+  const insertHtml = (html) => { editorRef.current?.focus(); document.execCommand("insertHTML", false, html); };
+
+  // Create a list and set its marker style (bullet shape / numbering scheme).
+  const insertList = (type) => {
+    const ordered = ["decimal", "lower-alpha", "lower-roman", "upper-alpha"].includes(type);
+    editorRef.current?.focus();
+    document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList", false, null);
+    let node = window.getSelection()?.anchorNode;
+    while (node && node !== editorRef.current) {
+      if (node.nodeName === "UL" || node.nodeName === "OL") {
+        node.style.listStyleType = type;
+        break;
+      }
+      node = node.parentNode;
+    }
+    setListMenuOpen(false);
+    saveNote();
+  };
+
+  const switchNote = (id) => { saveNote(activeId); setActiveId(id); };
+
+  const addNote = () => {
+    const id = `note-${Date.now()}`;
+    // Capture the active editor's latest content before switching notes.
+    const liveContent = editorRef.current?.innerHTML;
+    let nextNotes = notesRef.current.map((n) =>
+      n.id === activeId && liveContent != null
+        ? { ...n, content: liveContent, updatedAt: new Date().toISOString() }
+        : n,
+    );
+
+    // Once untitled "New Note" tabs exceed 4 (or after we've consolidated once),
+    // keep only the single newest one outside and tuck the rest into "Old Notes".
+    const ungroupedNew = nextNotes.filter((n) => !n.folderId && !n.fromSchedule && n.title === NEW_NOTE_TITLE);
+    const existingFolder = foldersRef.current.find((f) => f.name === OLD_NOTES_NAME);
+    const consolidate = Boolean(existingFolder) || ungroupedNew.length + 1 > 4;
+    const folderId = existingFolder?.id ?? `folder-old-${Date.now()}`;
+    const nextFolders = consolidate && !existingFolder
+      ? [...foldersRef.current, { id: folderId, name: OLD_NOTES_NAME, collapsed: true }]
+      : foldersRef.current;
+
+    nextNotes = [...nextNotes, { id, title: NEW_NOTE_TITLE, content: "", updatedAt: null, fromSchedule: false, folderId: null }];
+    if (consolidate) {
+      nextNotes = nextNotes.map((n) =>
+        !n.folderId && !n.fromSchedule && n.title === NEW_NOTE_TITLE && n.id !== id
+          ? { ...n, folderId }
+          : n,
+      );
+    }
+
+    setFolders(nextFolders);
+    setNotes(nextNotes);
+    setActiveId(id);
+    writeStore(nextNotes, nextFolders);
+  };
+
+  const deleteNoteById = (deleteId) => {
+    if (notes.length <= 1) return;
+    setNotes((prev) => {
+      const updated = prev.filter((n) => n.id !== deleteId);
+      persistNotes(updated);
+      if (deleteId === activeId) setActiveId(updated[0].id);
+      return updated;
+    });
+  };
+
+  const renameNote = (title) => {
+    setNotes((prev) => {
+      const updated = prev.map((n) => n.id === activeId ? { ...n, title } : n);
+      persistNotes(updated);
+      return updated;
+    });
+  };
+
+  // ── Folders ───────────────────────────────────────────────────────────────
+  const addFolder = () => {
+    const id = `folder-${Date.now()}`;
+    setFolders((prev) => {
+      const updated = [...prev, { id, name: "New Folder", collapsed: false }];
+      persistFolders(updated);
+      return updated;
+    });
+  };
+
+  const toggleFolder = (id) => {
+    setFolders((prev) => {
+      const updated = prev.map((f) => f.id === id ? { ...f, collapsed: !f.collapsed } : f);
+      persistFolders(updated);
+      return updated;
+    });
+  };
+
+  const renameFolder = (id, name) => {
+    setFolders((prev) => {
+      const updated = prev.map((f) => f.id === id ? { ...f, name: name || "Folder" } : f);
+      persistFolders(updated);
+      return updated;
+    });
+  };
+
+  const deleteFolder = (id) => {
+    // Move its notes back to ungrouped and drop the folder — in one atomic write.
+    const nextNotes = notesRef.current.map((n) => (n.folderId === id ? { ...n, folderId: null } : n));
+    const nextFolders = foldersRef.current.filter((f) => f.id !== id);
+    setNotes(nextNotes);
+    setFolders(nextFolders);
+    writeStore(nextNotes, nextFolders);
+  };
+
+  // ── Drag & drop ───────────────────────────────────────────────────────────
+  const assignFolder = (noteId, folderId) => {
+    setNotes((prev) => {
+      const updated = prev.map((n) => n.id === noteId ? { ...n, folderId } : n);
+      persistNotes(updated);
+      return updated;
+    });
+  };
+
+  const reorderNote = (draggedId, targetId) => {
+    setNotes((prev) => {
+      const from = prev.findIndex((n) => n.id === draggedId);
+      const to = prev.findIndex((n) => n.id === targetId);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      // Dropping onto a note also adopts that note's folder.
+      moved.folderId = prev[to].folderId ?? null;
+      updated.splice(to, 0, moved);
+      persistNotes(updated);
+      return updated;
+    });
+  };
+
+  const handleDrop = (target) => {
+    if (!dragId) return;
+    if (target.startsWith("folder:")) assignFolder(dragId, target.slice(7));
+    else if (target === "ungrouped") assignFolder(dragId, null);
+    else if (target.startsWith("note:")) reorderNote(dragId, target.slice(5));
+    setDragId(null);
+    setDropTarget(null);
+  };
+
+  // Called when schedule is uploaded — create one tab per project inside a
+  // dedicated "Scheduled Projects" folder; skip any that already exist.
+  // Notes + folder are computed together and written in ONE atomic store update
+  // so the new folder and its notes can never be persisted out of sync.
+  const handleScheduleLoaded = (councils) => {
+    setShowUpload(false);
+
+    // Start from the live notes, capturing the active editor's latest content.
+    const liveContent = editorRef.current?.innerHTML;
+    let nextNotes = notesRef.current.map((n) =>
+      n.id === activeId && liveContent != null
+        ? { ...n, content: liveContent, updatedAt: new Date().toISOString() }
+        : n,
+    );
+
+    // Ensure the "Scheduled Projects" folder exists.
+    const existingFolder = foldersRef.current.find((f) => f.name === SCHEDULE_FOLDER_NAME);
+    const folderId = existingFolder?.id ?? `folder-sched-${Date.now()}`;
+    const nextFolders = existingFolder
+      ? foldersRef.current
+      : [...foldersRef.current, { id: folderId, name: SCHEDULE_FOLDER_NAME, collapsed: false }];
+
+    let firstNewId = null;
+    councils.forEach((c) => {
+      const existingId = `schedule-${c.code}`;
+      if (!nextNotes.some((n) => n.id === existingId)) {
+        nextNotes = [
+          ...nextNotes,
+          {
+            id: existingId,
+            title: shortCouncilName(c.project),
+            content: buildCouncilContent(c),
+            updatedAt: new Date().toISOString(),
+            fromSchedule: true,
+            scheduleCode: c.code,
+            folderId,
+          },
+        ];
+        if (!firstNewId) firstNewId = existingId;
+      }
+    });
+
+    setFolders(nextFolders);
+    setNotes(nextNotes);
+    if (firstNewId) setActiveId(firstNewId);
+    writeStore(nextNotes, nextFolders); // single atomic persist
+  };
+
+  const closeFileMenu = () => setFileMenuOpen(false);
+
+  const downloadAs = async (format) => {
+    const html = editorRef.current?.innerHTML ?? "";
+    const base = safeFileName(activeNote.title);
+    closeFileMenu();
+    if (format === "txt") {
+      triggerDownload(new Blob([htmlToPlainText(html)], { type: "text/plain" }), `${base}.txt`);
+    } else if (format === "md") {
+      triggerDownload(new Blob([htmlToMarkdown(html)], { type: "text/markdown" }), `${base}.md`);
+    } else if (format === "docx") {
+      triggerDownload(await noteDocxBlob(activeNote.title, html, font), `${base}.docx`);
+    } else {
+      triggerDownload(new Blob([reportHtmlDoc(activeNote.title, html, font)], { type: "text/html" }), `${base}.html`);
+    }
+  };
+
+  const summaryReportPdf = async () => {
+    closeFileMenu();
+    const html = editorRef.current?.innerHTML ?? "";
+    const blob = await notePdfBlob(activeNote.title, html, font);
+    triggerDownload(blob, `${safeFileName(activeNote.title)}-report.pdf`);
+  };
+
+  // Bundle every note into a ZIP — each as a PDF report + a Word (.doc) file,
+  // organised by folder. Heavy libs are lazy-loaded only when this runs.
+  const downloadAllZip = async () => {
+    saveNote(activeId);
+    closeFileMenu();
+    setZipping(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const folderName = (id) => folders.find((f) => f.id === id)?.name;
+      // Read the latest content for the active note straight from the editor.
+      const liveNotes = notes.map((n) =>
+        n.id === activeId ? { ...n, content: editorRef.current?.innerHTML ?? n.content } : n,
+      );
+      for (const n of liveNotes) {
+        const dir = n.folderId ? `${safeFileName(folderName(n.folderId))}/` : "";
+        const base = `${dir}${safeFileName(n.title)}`;
+        zip.file(`${base}.docx`, await noteDocxBlob(n.title, n.content || "", font));
+        zip.file(`${base}-report.pdf`, await notePdfBlob(n.title, n.content || "", font));
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      triggerDownload(blob, "OneChat-notes.zip");
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const generateReport = () => {
+    saveNote();
+    const html = editorRef.current?.innerHTML ?? "";
+    const text = htmlToPlainText(html);
+    if (!text.trim()) return;
+    onGenerate?.(text, activeNote.title);
+    onClose();
+  };
+
+  // Draggable tab renderer — used for both ungrouped notes and notes inside folders.
+  // Each tab carries its own × delete button.
+  const renderTab = (n) => (
+    <div
+      key={n.id}
+      draggable
+      onDragStart={() => setDragId(n.id)}
+      onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+      onDragOver={(e) => { e.preventDefault(); setDropTarget(`note:${n.id}`); }}
+      onDrop={(e) => { e.stopPropagation(); handleDrop(`note:${n.id}`); }}
+      className={[
+        "cia-ext-notepad-tab",
+        n.fromSchedule ? "is-council" : "",
+        n.id === activeId ? "is-active" : "",
+        dragId === n.id ? "is-dragging" : "",
+        dropTarget === `note:${n.id}` ? "is-drop" : "",
+      ].filter(Boolean).join(" ")}
+      onClick={() => switchNote(n.id)}
+      role="button"
+      tabIndex={0}
+    >
+      <span className="cia-ext-notepad-tab-label">{n.fromSchedule ? "🏛 " : ""}{n.title}</span>
+      {notes.length > 1 ? (
+        <button
+          type="button"
+          className="cia-ext-notepad-tab-del"
+          title="Delete this note"
+          onClick={(e) => { e.stopPropagation(); deleteNoteById(n.id); }}
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const ungroupedNotes = notes.filter((n) => !n.folderId || !folders.some((f) => f.id === n.folderId));
+
+  return (
+    <div className="cia-ext-notepad">
+      {/* Header */}
+      <div className="cia-ext-notepad-header">
+        <span className="cia-ext-notepad-icon">📝</span>
+        <NoteTitle note={activeNote} onRename={renameNote} />
+
+        {/* File menu */}
+        <div className="cia-ext-notepad-filemenu">
+          <button
+            className={`cia-ext-notepad-file-btn${fileMenuOpen ? " is-active" : ""}`}
+            onClick={() => setFileMenuOpen((v) => !v)}
+            title="File actions"
+          >
+            🗂 File ⌄
+          </button>
+          {fileMenuOpen && (
+            <>
+              <div className="cia-ext-notepad-file-backdrop" onClick={closeFileMenu} />
+              <div className="cia-ext-notepad-file-pop" role="menu">
+                <div className="cia-ext-notepad-file-label">This note</div>
+                <button onClick={() => { saveNote(); closeFileMenu(); }}>💾 Save</button>
+                <button onClick={() => downloadAs("txt")}>⬇ Download — Plain text (.txt)</button>
+                <button onClick={() => downloadAs("md")}>⬇ Download — Markdown (.md)</button>
+                <button onClick={() => void downloadAs("html")}>⬇ Download — Web page (.html)</button>
+                <button onClick={() => void downloadAs("docx")}>📄 Download — Word (.docx)</button>
+                <button onClick={() => void summaryReportPdf()}>📑 Summary report (.pdf)</button>
+                <div className="cia-ext-notepad-file-label">All notes</div>
+                <button onClick={() => void downloadAllZip()} disabled={zipping}>
+                  🗜 {zipping ? "Zipping…" : "Download all as ZIP (.docx + .pdf)"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button
+          className={`cia-ext-notepad-upload-toggle${showUpload ? " is-active" : ""}`}
+          onClick={() => setShowUpload((v) => !v)}
+          title="Import consultant schedule"
+        >
+          📅 Schedule
+        </button>
+        <button className="cia-ext-icon-btn" onClick={() => { saveNote(); onClose(); }} title="Close">✕</button>
+      </div>
+
+      {/* Schedule uploader (collapsible) */}
+      {showUpload && <ScheduleUploader onScheduleLoaded={handleScheduleLoaded} />}
+
+      {/* Tab navbar — folders, then ungrouped tabs. Drag tabs to file/reorder. */}
+      <div className="cia-ext-notepad-tabs">
+        {folders.map((f) => {
+          const folderNotes = notes.filter((n) => n.folderId === f.id);
+          return (
+            <div key={f.id} className="cia-ext-notepad-folder-group">
+              <FolderChip
+                folder={f}
+                count={folderNotes.length}
+                isDrop={dropTarget === `folder:${f.id}`}
+                onToggle={() => toggleFolder(f.id)}
+                onRename={(name) => renameFolder(f.id, name)}
+                onDelete={() => deleteFolder(f.id)}
+                onDragOver={(e) => { e.preventDefault(); setDropTarget(`folder:${f.id}`); }}
+                onDrop={(e) => { e.stopPropagation(); handleDrop(`folder:${f.id}`); }}
+              />
+              {!f.collapsed && folderNotes.map(renderTab)}
+            </div>
+          );
+        })}
+
+        {/* Ungrouped notes — also the drop zone that removes a tab from a folder */}
+        <div
+          className={`cia-ext-notepad-ungrouped${dropTarget === "ungrouped" ? " is-drop" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); if (!dropTarget?.startsWith("note:")) setDropTarget("ungrouped"); }}
+          onDrop={() => handleDrop("ungrouped")}
+        >
+          {ungroupedNotes.map(renderTab)}
+        </div>
+
+        <button className="cia-ext-notepad-tab-btn" onClick={addNote} title="New note">+</button>
+        <button className="cia-ext-notepad-tab-btn" onClick={addFolder} title="New folder">📁</button>
+      </div>
+
+      {/* Toolbar */}
+      <div className="cia-ext-notepad-toolbar">
+        <select className="cia-ext-notepad-font" value={font} onChange={(e) => setFont(e.target.value)} title="Font family">
+          {FONTS.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+        </select>
+        <div className="cia-ext-notepad-sep" />
+        <button className="cia-ext-notepad-btn" title="Bold (Ctrl+B)" onClick={() => exec("bold")}><b>B</b></button>
+        <button className="cia-ext-notepad-btn" title="Italic (Ctrl+I)" onClick={() => exec("italic")}><i>I</i></button>
+        <button className="cia-ext-notepad-btn" title="Underline (Ctrl+U)" onClick={() => exec("underline")}><u>U</u></button>
+        <div className="cia-ext-notepad-sep" />
+        <div className="cia-ext-notepad-listmenu">
+          <button
+            className={`cia-ext-notepad-btn${listMenuOpen ? " is-active" : ""}`}
+            title="Lists"
+            onClick={() => setListMenuOpen((v) => !v)}
+          >
+            ☰ List ⌄
+          </button>
+          {listMenuOpen && (
+            <>
+              <div className="cia-ext-notepad-list-backdrop" onClick={() => setListMenuOpen(false)} />
+              <div className="cia-ext-notepad-list-pop" role="menu">
+                <div className="cia-ext-notepad-list-label">Bulleted</div>
+                <button onClick={() => insertList("disc")}>● Filled bullet</button>
+                <button onClick={() => insertList("circle")}>○ Hollow bullet</button>
+                <button onClick={() => insertList("square")}>▪ Square bullet</button>
+                <div className="cia-ext-notepad-list-label">Numbered</div>
+                <button onClick={() => insertList("decimal")}>1. Numbers</button>
+                <button onClick={() => insertList("lower-alpha")}>a. Letters</button>
+                <button onClick={() => insertList("lower-roman")}>i. Roman</button>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="cia-ext-notepad-sep" />
+        <button className="cia-ext-notepad-btn" title="Insert 4×4 grid" onClick={() => insertHtml(makeGrid(4, 4))}>⊞ Grid</button>
+        <div className="cia-ext-notepad-sep" />
+        <button className={`cia-ext-notepad-btn${showShortcodes ? " is-active" : ""}`} title="Shortcodes" onClick={() => setShowShortcodes((v) => !v)}>{"{ }"}</button>
+      </div>
+
+      {/* Shortcodes */}
+      {showShortcodes && (
+        <div className="cia-ext-notepad-shortcodes">
+          <div className="cia-ext-notepad-sc-hint">Click to insert — or type in editor and press Space</div>
+          <div className="cia-ext-notepad-sc-grid">
+            {SHORTCODE_HELP.map(({ code, label, desc }) => (
+              <button key={code} className="cia-ext-notepad-sc-btn" onClick={() => { insertHtml(`<span>${SHORTCODES[code]()}</span>`); setShowShortcodes(false); }}>
+                <code>{label}</code><span>{desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        className="cia-ext-notepad-editor"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onKeyUp={handleKeyUp}
+        data-placeholder="Start typing… use {ts} for timestamp, {status} for tags, or import a schedule above…"
+      />
+
+      {/* Footer */}
+      <div className="cia-ext-notepad-footer">
+        <button className="cia-ext-primary-btn cia-ext-notepad-save-btn" onClick={() => saveNote()}>
+          {saved ? "✓ Saved" : "Save"}
+        </button>
+        <button className="cia-ext-primary-btn cia-ext-notepad-generate-btn" onClick={generateReport} title="Generate PM report from these notes">
+          ✨ Generate Report
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function shortCouncilName(project) {
+  // Strip the leading state code (VIC_/NSW_/NZ_) and the "CiA Live …" suffix so
+  // both councils and other orgs (e.g. water corps) get a clean tab name.
+  let name = project.replace(/^[A-Za-z]{2,3}_/, "");
+  name = name.replace(/\s*[-–]?\s*CiA\s*Live.*$/i, "");
+  name = name.trim();
+  return name || project.slice(0, 30);
+}

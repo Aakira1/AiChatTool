@@ -159,6 +159,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "CIA_OPEN_POPOUT") {
+    // Content scripts can't call chrome.windows — open the detached popup here.
+    const url = chrome.runtime.getURL("src/sidepanel/index.html");
+    chrome.windows
+      .create({ url, type: "popup", width: 440, height: 760 })
+      .catch(() => {});
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message?.type === "CIA_CAPTURE_SCREENSHOT") {
     void (async () => {
       // Respect Privacy mode — no page screenshots when it's on.

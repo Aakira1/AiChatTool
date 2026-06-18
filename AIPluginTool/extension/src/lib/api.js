@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./storage.js";
+import { getApiBaseUrl, getWorkerAuthToken } from "./storage.js";
 
 export class SessionExpiredError extends Error {
   constructor() {
@@ -9,11 +9,13 @@ export class SessionExpiredError extends Error {
 
 async function apiFetch(path, options = {}) {
   const base = await getApiBaseUrl();
+  const token = await getWorkerAuthToken();
   const response = await fetch(`${base}${path}`, {
     credentials: "include",
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
   });
@@ -297,6 +299,7 @@ async function consumeChatStream(response, callbacks) {
 
 export async function streamChat({
   conversationId,
+  history,
   message,
   attachments = [],
   pageContext,
@@ -311,12 +314,17 @@ export async function streamChat({
   onArtifacts,
 }) {
   const base = await getApiBaseUrl();
+  const token = await getWorkerAuthToken();
   const response = await fetch(`${base}/api/chat`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       conversationId,
+      ...(history ? { history } : {}),
       message,
       attachments,
       ...(pageContext != null ? { pageContext } : {}),
@@ -516,6 +524,13 @@ export async function saveConnectorProvider(provider, config) {
     throw new Error(payload.error ?? "Failed to save credentials");
   }
   return response.json();
+}
+
+export async function testConnectorProvider(provider) {
+  const response = await apiFetch(`/api/connectors/providers/${provider}/test`, { method: "POST" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error ?? "Test request failed");
+  return payload;
 }
 
 export async function clearConnectorProvider(provider) {
