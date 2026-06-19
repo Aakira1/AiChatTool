@@ -116,6 +116,13 @@ function initFloatingWidget() {
   `;
   root.appendChild(bubble);
 
+  // Optional quick-launch button (pinned app) that floats just above the bubble.
+  const quickBtn = document.createElement("button");
+  quickBtn.type = "button";
+  quickBtn.className = "cia-fw-quick is-hidden";
+  quickBtn.innerHTML = `<span class="cia-fw-quick-icon" aria-hidden="true"></span>`;
+  root.appendChild(quickBtn);
+
   const panel = document.createElement("section");
   panel.className = "cia-fw-panel";
   panel.setAttribute("role", "dialog");
@@ -151,7 +158,24 @@ function initFloatingWidget() {
   const dragHandle = panel.querySelector("[data-drag-handle]");
   const resizer = panel.querySelector(".cia-fw-resizer");
 
-  const widget = createWidgetState(host, bubble, panel, iframe);
+  const widget = createWidgetState(host, bubble, panel, iframe, quickBtn);
+
+  // Pinned-app quick launch: deep-link the panel to the chosen app, then open.
+  let pinnedAppId = null;
+  const applyPinnedApp = (app) => {
+    pinnedAppId = app?.id ?? null;
+    quickBtn.dataset.appId = pinnedAppId ?? "";
+    quickBtn.title = app ? `Open ${app.label}` : "";
+    quickBtn.querySelector(".cia-fw-quick-icon").textContent = app?.icon ?? "";
+    quickBtn.classList.toggle("has-app", Boolean(app));
+    widget.refresh();
+  };
+  chrome.storage?.local?.get?.(["ciaPinnedApp"], (d) => applyPinnedApp(d?.ciaPinnedApp));
+  quickBtn.addEventListener("click", () => {
+    if (!pinnedAppId) return;
+    chrome.storage?.local?.set?.({ ciaPendingApp: { id: pinnedAppId, at: Date.now() } });
+    widget.expand();
+  });
 
   // Both header buttons collapse to the bubble. We deliberately don't expose a
   // "fully hide the bubble" affordance here — the bubble is the only way users
@@ -230,9 +254,9 @@ function initFloatingWidget() {
   };
   chrome.storage?.local?.get?.(["ciaPrivacyMode"], (d) => applyPrivacy(Boolean(d?.ciaPrivacyMode)));
   chrome.storage?.onChanged?.addListener?.((changes, area) => {
-    if (area === "local" && changes.ciaPrivacyMode) {
-      applyPrivacy(Boolean(changes.ciaPrivacyMode.newValue));
-    }
+    if (area !== "local") return;
+    if (changes.ciaPrivacyMode) applyPrivacy(Boolean(changes.ciaPrivacyMode.newValue));
+    if (changes.ciaPinnedApp) applyPinnedApp(changes.ciaPinnedApp.newValue);
   });
 
   chrome.runtime.onMessage.addListener((message) => {
@@ -267,7 +291,7 @@ function initFloatingWidget() {
   });
 }
 
-function createWidgetState(host, bubble, panel, iframe) {
+function createWidgetState(host, bubble, panel, iframe, quickBtn) {
   let state = {
     open: false,
     visible: true,
@@ -311,21 +335,27 @@ function createWidgetState(host, bubble, panel, iframe) {
   };
 
   const apply = () => {
+    // While a docked side panel / popout window is open, hide the entire
+    // floating widget (both the bubble AND any open panel) — it returns when the
+    // external panel closes.
+    const panelOpen = state.open && !state.externalPanelOpen;
     const bubbleHidden = state.open || !state.visible || state.externalPanelOpen;
-    host.dataset.state = state.open ? "open" : state.visible ? "collapsed" : "hidden";
-    panel.classList.toggle("is-open", state.open);
+    host.dataset.state = state.externalPanelOpen ? "hidden" : state.open ? "open" : state.visible ? "collapsed" : "hidden";
+    panel.classList.toggle("is-open", panelOpen);
     bubble.classList.toggle("is-hidden", bubbleHidden);
     bubble.style.pointerEvents = bubbleHidden ? "none" : "auto";
-    panel.style.pointerEvents = state.open ? "auto" : "none";
+    panel.style.pointerEvents = panelOpen ? "auto" : "none";
 
     // Position the bubble. If the user has dragged it, honor the saved
     // coordinates (clamped to the viewport so resized windows don't strand it
     // off-screen). Otherwise clear inline styles so the CSS default — pinned to
     // the bottom-right corner — applies.
     const bubbleSize = 56;
+    let bx = null;
+    let by = null;
     if (state.bubbleX != null && state.bubbleY != null) {
-      const bx = clamp(state.bubbleX, 4, Math.max(window.innerWidth - bubbleSize - 4, 4));
-      const by = clamp(state.bubbleY, 4, Math.max(window.innerHeight - bubbleSize - 4, 4));
+      bx = clamp(state.bubbleX, 4, Math.max(window.innerWidth - bubbleSize - 4, 4));
+      by = clamp(state.bubbleY, 4, Math.max(window.innerHeight - bubbleSize - 4, 4));
       bubble.style.left = `${bx}px`;
       bubble.style.top = `${by}px`;
       bubble.style.right = "auto";
@@ -337,7 +367,26 @@ function createWidgetState(host, bubble, panel, iframe) {
       bubble.style.bottom = "";
     }
 
-    if (state.open) {
+    // Keep the pinned-app quick-launch button tucked just above the bubble,
+    // and hide it whenever the bubble itself is hidden.
+    if (quickBtn) {
+      const showQuick = !bubbleHidden && quickBtn.classList.contains("has-app");
+      quickBtn.classList.toggle("is-hidden", !showQuick);
+      quickBtn.style.pointerEvents = showQuick ? "auto" : "none";
+      if (bx != null && by != null) {
+        quickBtn.style.left = `${bx + 8}px`;
+        quickBtn.style.top = `${by - 44}px`;
+        quickBtn.style.right = "auto";
+        quickBtn.style.bottom = "auto";
+      } else {
+        quickBtn.style.left = "";
+        quickBtn.style.top = "";
+        quickBtn.style.right = "";
+        quickBtn.style.bottom = "";
+      }
+    }
+
+    if (panelOpen) {
       const w = clamp(state.width, 320, Math.min(window.innerWidth - 24, 720));
       const h = clamp(state.height, 360, Math.min(window.innerHeight - 24, 900));
       // Default-dock to the LEFT side of the viewport so the panel doesn't
@@ -398,6 +447,7 @@ function createWidgetState(host, bubble, panel, iframe) {
       apply();
     },
     persist,
+    refresh: apply,
     getState: () => ({ ...state }),
   };
 
@@ -630,6 +680,29 @@ const SHADOW_CSS = `
         0 0 0 14px rgba(228, 0, 124, 0);
     }
   }
+
+  /* Pinned-app quick-launch button (floats just above the bubble) */
+  .cia-fw-quick {
+    position: fixed;
+    right: 32px;
+    bottom: 88px;
+    width: 40px;
+    height: 40px;
+    border-radius: 28%;
+    border: 2px solid #fff;
+    padding: 0;
+    cursor: pointer;
+    background: linear-gradient(135deg, #7c3aed, #e4007c);
+    box-shadow: 0 8px 18px rgba(124, 58, 237, 0.4);
+    display: grid;
+    place-items: center;
+    transition: transform 180ms cubic-bezier(.4,1.4,.6,1), opacity 180ms ease, box-shadow 180ms ease;
+    z-index: 2;
+  }
+  .cia-fw-quick:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 12px 24px rgba(124, 58, 237, 0.5); }
+  .cia-fw-quick:active { transform: scale(0.94); }
+  .cia-fw-quick.is-hidden { opacity: 0; transform: translateY(8px) scale(0.6); pointer-events: none; }
+  .cia-fw-quick-icon { font-size: 18px; line-height: 1; }
 
   .cia-fw-tooltip {
     position: fixed;

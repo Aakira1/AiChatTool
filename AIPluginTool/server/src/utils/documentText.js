@@ -7,8 +7,8 @@ import {
 const MAX_ATTACHMENTS = 3;
 const MAX_FILE_CHARS = 200_000;
 const MAX_TOTAL_CHARS = 500_000;
-const MAX_BASE64_BYTES = 10_000_000;
-const MAX_IMAGE_BYTES = 8_000_000;
+const MAX_BASE64_BYTES = 32_000_000;
+const MAX_IMAGE_BYTES = 32_000_000;
 
 function isImageAttachment(item) {
   const type = String(item?.type ?? "").toLowerCase();
@@ -32,7 +32,7 @@ export async function sanitizeAttachments(rawAttachments = []) {
       const data = String(item?.content ?? "");
       const bytes = Buffer.from(data, "base64").length;
       if (bytes > MAX_IMAGE_BYTES) {
-        throw new Error(`"${name}" exceeds the 8MB image size limit`);
+        throw new Error(`"${name}" exceeds the 32MB image size limit`);
       }
       sanitized.push({
         name,
@@ -58,7 +58,7 @@ export async function sanitizeAttachments(rawAttachments = []) {
       const base64 = String(item?.content ?? "");
       const buffer = Buffer.from(base64, "base64");
       if (buffer.length > MAX_BASE64_BYTES) {
-        throw new Error(`"${name}" exceeds the 10MB binary size limit`);
+        throw new Error(`"${name}" exceeds the 32MB binary size limit`);
       }
       content = (await extractTextFromBuffer(name, buffer)).slice(0, MAX_FILE_CHARS);
     } else {

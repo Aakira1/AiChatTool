@@ -352,11 +352,23 @@ export function ChecklistPanel({ onClose }) {
     [stages, tick],
   );
 
-  // Up Next: first not-completed item in the active stage (document order).
-  const upNext = useMemo(
-    () => allItems.find((it) => statusState(it.status) !== "completed") ?? null,
-    [stage, tick], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  // Up Next: first not-completed item that matches the active filters, so the
+  // default "✓ Complete" card tracks the consultant-type (and search) filter
+  // chosen below instead of always showing the first task in the whole stage.
+  const upNext = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (
+      allItems.find((it) => {
+        if (statusState(it.status) === "completed") return false;
+        if (consultantFilter && (it[consultantField] || "").trim() !== consultantFilter) return false;
+        if (q) {
+          const hay = `${it.task} ${it.notes} ${it.responsible} ${it.taskGroup} ${it.functionalGroup}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      }) ?? null
+    );
+  }, [stage, tick, consultantFilter, consultantField, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleGroup = (name) =>
     setExpandedGroups((cur) => {

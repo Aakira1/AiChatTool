@@ -1556,6 +1556,41 @@ button:disabled {
   background: linear-gradient(135deg, #ef4444, #b91c1c);
 }
 
+/* Attach (+) button — uploads any file type */
+.cia-ext-attach-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cia-border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--cia-purple);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 80ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.cia-ext-attach-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--cia-soft);
+  border-color: var(--cia-purple);
+}
+.cia-ext-attach-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Drag-over state for the whole composer */
+.cia-ext-composer.is-dragover {
+  outline: 2px dashed var(--cia-purple);
+  outline-offset: -4px;
+  border-radius: 18px;
+  background: var(--cia-soft);
+}
+
 /* Login */
 .cia-ext-login {
   margin: 24px 16px;
@@ -3124,6 +3159,127 @@ body.cia-ext-options-page {
   color: var(--cia-body);
 }
 
+/* Quick actions — section header with helper note */
+.cia-ext-home-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cia-ext-home-section-note {
+  font-size: 10px;
+  color: var(--cia-muted);
+  font-weight: 500;
+}
+
+/* Tiles are now divs (role=button) so they can hold a remove button */
+.cia-ext-home-action {
+  position: relative;
+  outline: none;
+}
+.cia-ext-home-action:hover { border-color: var(--app-accent, var(--cia-purple)); }
+.cia-ext-home-action:focus-visible {
+  border-color: var(--app-accent, var(--cia-purple));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent, #7c3aed) 25%, transparent);
+}
+
+.cia-ext-home-action-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--cia-soft);
+  color: var(--cia-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.14s ease, transform 0.14s ease, background 0.14s ease, color 0.14s ease;
+}
+.cia-ext-home-action:hover .cia-ext-home-action-remove,
+.cia-ext-home-action:focus-within .cia-ext-home-action-remove {
+  opacity: 1;
+  transform: scale(1);
+}
+.cia-ext-home-action-remove:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* "Add app" tile — dashed, with a popover picker */
+.cia-ext-home-action-add {
+  border-style: dashed;
+  background: transparent;
+  padding: 0;
+}
+.cia-ext-home-action-add:hover { background: var(--cia-soft); }
+.cia-ext-home-add-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--cia-muted);
+}
+.cia-ext-home-action-add:hover .cia-ext-home-add-trigger { color: var(--cia-purple); }
+
+.cia-ext-home-add-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.cia-ext-home-add-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 61;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--cia-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  animation: cia-ext-tile-in 0.16s ease both;
+}
+.cia-ext-home-add-pop-label {
+  padding: 5px 8px 3px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cia-muted);
+}
+.cia-ext-home-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cia-body);
+  text-align: left;
+}
+.cia-ext-home-add-item:hover { background: var(--cia-soft); }
+
 /* Connectors */
 .cia-ext-home-connectors {
   display: flex;
@@ -3264,6 +3420,271 @@ body.cia-ext-options-page {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+/* Raised centre "Apps" button (FAB) */
+.cia-ext-nav-fab {
+  flex: 0 0 auto;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 4px 4px;
+  font-family: inherit;
+}
+.cia-ext-nav-fab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-top: -22px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--cia-purple), var(--cia-magenta, #db2777));
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.42);
+  border: 3px solid #fff;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+}
+.cia-ext-nav-fab:hover .cia-ext-nav-fab-btn { transform: translateY(-2px) scale(1.05); }
+.cia-ext-nav-fab:active .cia-ext-nav-fab-btn { transform: scale(0.94); }
+.cia-ext-nav-fab.is-active .cia-ext-nav-fab-btn {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.55);
+}
+.cia-ext-nav-fab-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cia-muted);
+  transition: color 0.15s ease;
+}
+.cia-ext-nav-fab.is-active .cia-ext-nav-fab-label { color: var(--cia-purple); }
+
+/* =====================================================================
+   MULTI-APP LAUNCHER (drag & drop)
+   ===================================================================== */
+
+.cia-ext-apps-view {
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px 16px 76px;
+  animation: cia-ext-fade-in 0.25s ease both;
+}
+
+.cia-ext-applauncher-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cia-ext-applauncher-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cia-navy, var(--cia-body));
+}
+.cia-ext-applauncher-hint {
+  font-size: 11.5px;
+  color: var(--cia-muted);
+  margin-top: 2px;
+}
+.cia-ext-applauncher-reset {
+  border: 1px solid var(--cia-border);
+  background: #fff;
+  color: var(--cia-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cia-ext-applauncher-reset:hover { color: var(--cia-purple); border-color: var(--cia-purple); background: var(--cia-soft); }
+.cia-ext-applauncher-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.cia-ext-app-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Launcher folders */
+.cia-ext-app-folder {
+  border: 1.5px solid var(--cia-border);
+  border-radius: var(--radius-md);
+  background: var(--cia-soft);
+  padding: 8px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.cia-ext-app-folder.is-over {
+  border-color: var(--cia-purple);
+  border-style: dashed;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cia-purple) 25%, transparent);
+}
+.cia-ext-app-folder.is-over .cia-ext-app-grid { pointer-events: none; }
+.cia-ext-app-folder-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.cia-ext-app-folder-caret {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--cia-body);
+  padding: 2px;
+}
+.cia-ext-app-folder-name { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--cia-body); cursor: text; }
+.cia-ext-app-folder-input {
+  flex: 1;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--cia-purple);
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: #fff;
+  color: var(--cia-body);
+  outline: none;
+}
+.cia-ext-app-folder-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--cia-purple);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.cia-ext-app-folder-del {
+  border: none;
+  background: transparent;
+  color: var(--cia-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.cia-ext-app-folder-del:hover { color: var(--cia-magenta-dark); }
+.cia-ext-app-folder-empty {
+  margin: 6px 0;
+  padding: 12px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--cia-muted);
+  border: 1.5px dashed var(--cia-border);
+  border-radius: var(--radius-sm);
+}
+.cia-ext-app-ungrouped.is-over {
+  outline: 2px dashed var(--cia-purple);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+}
+
+.cia-ext-app-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 14px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--cia-border);
+  background: #fff;
+  cursor: grab;
+  text-align: left;
+  font-family: inherit;
+  overflow: hidden;
+  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.16s ease, border-color 0.16s ease;
+  animation: cia-ext-tile-in 0.3s ease both;
+}
+/* Accent wash that reveals on hover */
+.cia-ext-app-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--app-accent, var(--cia-purple));
+  opacity: 0;
+  transition: opacity 0.16s ease;
+  pointer-events: none;
+}
+.cia-ext-app-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(26, 15, 61, 0.12);
+  border-color: var(--app-accent, var(--cia-purple));
+}
+.cia-ext-app-tile:hover::before { opacity: 0.06; }
+.cia-ext-app-tile:active { cursor: grabbing; }
+
+.cia-ext-app-tile-icon {
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.12));
+}
+.cia-ext-app-tile-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cia-body);
+}
+.cia-ext-app-tile-desc {
+  font-size: 10.5px;
+  color: var(--cia-muted);
+  line-height: 1.3;
+}
+.cia-ext-app-tile-grip {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  font-size: 13px;
+  color: var(--cia-border);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.cia-ext-app-tile:hover .cia-ext-app-tile-grip { opacity: 1; }
+
+/* Drag states */
+.cia-ext-app-tile.is-dragging {
+  opacity: 0.55;
+  transform: scale(0.96) rotate(-1.5deg);
+  box-shadow: 0 12px 26px rgba(26, 15, 61, 0.22);
+  cursor: grabbing;
+}
+.cia-ext-app-tile.is-over {
+  border-color: var(--app-accent, var(--cia-purple));
+  border-style: dashed;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--app-accent, #7c3aed) 35%, transparent);
+}
+.cia-ext-app-tile.is-landed { animation: cia-ext-tile-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Gentle wiggle on every tile while a drag is in progress — signals reorderable */
+.cia-ext-app-grid.is-dragging-any .cia-ext-app-tile:not(.is-dragging) {
+  animation: cia-ext-wiggle 0.5s ease-in-out infinite;
+}
+
+@keyframes cia-ext-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cia-ext-tile-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cia-ext-tile-pop {
+  0% { transform: scale(0.9); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes cia-ext-wiggle {
+  0%, 100% { transform: rotate(-0.8deg); }
+  50% { transform: rotate(0.8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cia-ext-app-tile,
+  .cia-ext-apps-view,
+  .cia-ext-app-grid.is-dragging-any .cia-ext-app-tile:not(.is-dragging) { animation: none !important; }
 }
 
 /* =====================================================================
@@ -3882,6 +4303,24 @@ body.cia-ext-options-page {
   padding: 0;
 }
 
+/* Go-Live checklist — multi-select filter row + task number / category chip */
+.cia-ext-gl-filters { flex-wrap: wrap; align-items: center; }
+.cia-ext-gl-filters .cia-ext-chk-search { flex: 1 1 100%; }
+.cia-ext-gl-filters .cia-ext-chk-statusfilter { flex: 1 1 auto; }
+.cia-ext-gl-no { color: var(--cia-muted); font-weight: 700; margin-right: 2px; }
+.cia-ext-gl-cat {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cia-soft);
+  color: var(--cia-magenta-dark);
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* =====================================================================
    NOTEPAD — per-tab delete + list dropdown
    ===================================================================== */
@@ -3949,6 +4388,23 @@ body.cia-ext-options-page {
   letter-spacing: 0.05em;
   color: var(--cia-muted);
 }
+
+/* Template generator menu */
+.cia-ext-notepad-tpl-pop {
+  min-width: 230px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.cia-ext-notepad-tpl-item {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 8px;
+  white-space: normal !important;
+}
+.cia-ext-notepad-tpl-icon { font-size: 15px; line-height: 1.2; }
+.cia-ext-notepad-tpl-text { display: flex; flex-direction: column; }
+.cia-ext-notepad-tpl-text strong { font-size: 12px; font-weight: 600; }
+.cia-ext-notepad-tpl-text small { font-size: 10px; color: var(--cia-muted); }
 
 /* =====================================================================
    AI VISION popover
@@ -4076,3 +4532,245 @@ body.cia-ext-options-page {
   margin-bottom: 0;
   align-self: center;
 }
+
+.cia-ext-notepad-tab-input {
+  width: 92px;
+  border: 1px solid var(--cia-purple);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font: inherit;
+  font-size: 11px;
+  background: #fff;
+  color: var(--cia-body);
+  outline: none;
+}
+
+/* =====================================================================
+   v2 UI POLISH — launcher badges, theme picker, density, onboarding,
+   and a modernised Notepad header / tabs / toolbar
+   ===================================================================== */
+
+/* Launcher + Quick-action badges */
+.cia-ext-app-tile-badge,
+.cia-ext-home-action-badge {
+  position: absolute;
+  top: 7px;
+  left: 9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cia-magenta, #e4007c), var(--cia-orange, #f7941d));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(228, 0, 124, 0.4);
+  z-index: 2;
+  animation: cia-ext-badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.cia-ext-home-action-badge { top: 6px; left: 6px; right: auto; }
+@keyframes cia-ext-badge-pop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* Theme picker */
+.cia-ext-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 4px 0;
+}
+.cia-ext-theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px;
+  border: 1.5px solid var(--cia-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cia-ext-theme-swatch:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.cia-ext-theme-swatch.is-active { border-color: var(--cia-purple); box-shadow: 0 0 0 2px var(--cia-soft); }
+.cia-ext-theme-chip {
+  width: 100%;
+  height: 26px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.cia-ext-theme-name { font-size: 10.5px; font-weight: 600; color: var(--cia-body); }
+
+/* Segmented control (density) */
+.cia-ext-segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  background: var(--cia-soft);
+  border-radius: 999px;
+}
+.cia-ext-segmented-btn {
+  border: none;
+  background: transparent;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cia-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cia-ext-segmented-btn.is-active { background: #fff; color: var(--cia-purple); box-shadow: var(--shadow-sm); }
+
+/* Compact density — tighten the whole side panel */
+:root[data-density="compact"] .cia-ext-home-action { padding: 10px 8px 9px; }
+:root[data-density="compact"] .cia-ext-home-action-icon { font-size: 18px; }
+:root[data-density="compact"] .cia-ext-app-tile { padding: 11px 11px 10px; }
+:root[data-density="compact"] .cia-ext-app-tile-icon { font-size: 21px; }
+:root[data-density="compact"] .cia-ext-app-grid { gap: 7px; }
+:root[data-density="compact"] .cia-ext-chk-task { padding: 4px 8px; }
+
+/* Getting-started onboarding card */
+.cia-ext-gs {
+  border: 1.5px solid var(--cia-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, var(--cia-soft), #fff 70%);
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  animation: cia-ext-tile-in 0.3s ease both;
+}
+.cia-ext-gs-head { display: flex; align-items: center; gap: 8px; }
+.cia-ext-gs-title { flex: 1; font-size: 13px; font-weight: 700; color: var(--cia-navy, var(--cia-body)); }
+.cia-ext-gs-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cia-purple);
+  background: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.cia-ext-gs-dismiss {
+  border: none;
+  background: transparent;
+  color: var(--cia-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.cia-ext-gs-dismiss:hover { color: var(--cia-magenta-dark); }
+.cia-ext-gs-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.14);
+  overflow: hidden;
+  margin: 9px 0 4px;
+}
+.cia-ext-gs-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cia-purple), var(--cia-magenta, #e4007c));
+  transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cia-ext-gs-steps { list-style: none; margin: 6px 0 0; padding: 0; }
+.cia-ext-gs-step { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-size: 12.5px; color: var(--cia-body); }
+.cia-ext-gs-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cia-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+.cia-ext-gs-step.is-done .cia-ext-gs-check { background: #16a34a; border-color: #16a34a; }
+.cia-ext-gs-step.is-done .cia-ext-gs-label { color: var(--cia-muted); text-decoration: line-through; }
+.cia-ext-gs-label { flex: 1; }
+.cia-ext-gs-go {
+  border: none;
+  background: transparent;
+  color: var(--cia-purple);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cia-ext-gs-go:hover { text-decoration: underline; }
+
+/* Modernised Notepad header / tabs / toolbar */
+.cia-ext-notepad-header {
+  background: linear-gradient(180deg, #fff, var(--cia-soft));
+  border-bottom: 1px solid var(--cia-border);
+  padding: 9px 12px;
+}
+.cia-ext-notepad-tabs {
+  background: var(--cia-light);
+  border-bottom: 1px solid var(--cia-border);
+}
+.cia-ext-notepad-tab {
+  border: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  background: rgba(124, 58, 237, 0.06);
+  color: var(--cia-muted);
+  border-radius: 999px;
+  padding: 4px 8px 4px 11px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.cia-ext-notepad-tab:hover { background: rgba(124, 58, 237, 0.12); color: var(--cia-body); }
+.cia-ext-notepad-tab.is-active {
+  background: #fff;
+  color: var(--cia-purple);
+  border-color: var(--cia-border);
+  box-shadow: 0 2px 6px rgba(26, 15, 61, 0.1);
+  bottom: 0;
+}
+.cia-ext-notepad-tab.is-council { background: rgba(228, 0, 124, 0.08); }
+.cia-ext-notepad-tab.is-dragging { opacity: 0.5; transform: scale(0.95); }
+.cia-ext-notepad-tab.is-drop { box-shadow: 0 0 0 2px var(--cia-purple); }
+.cia-ext-notepad-tab-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--cia-purple);
+}
+.cia-ext-notepad-tab-btn:hover { background: var(--cia-purple); color: #fff; }
+.cia-ext-notepad-toolbar {
+  gap: 4px;
+  padding: 7px 9px;
+  background: linear-gradient(180deg, #fff, var(--cia-light));
+  border-bottom: 1px solid var(--cia-border);
+}
+.cia-ext-notepad-btn {
+  border-radius: 7px;
+  padding: 4px 8px;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 600;
+  transition: all 0.13s ease;
+}
+.cia-ext-notepad-btn:hover,
+.cia-ext-notepad-btn.is-active {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+.cia-ext-notepad-font {
+  border-radius: 7px;
+  padding: 4px 7px;
+  border-color: var(--cia-border);
+  background: #fff;
+}
+.cia-ext-notepad-sep { background: var(--cia-border); opacity: 0.6; }

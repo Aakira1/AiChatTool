@@ -12,6 +12,13 @@ function modelFor(env) {
   return env.MODEL || DEFAULT_MODEL;
 }
 
+// Workers AI defaults to a very low max output (~256 tokens), which truncates
+// replies mid-sentence. Use a generous default, overridable via `MAX_TOKENS`.
+function maxTokensFor(env) {
+  const n = parseInt(env.MAX_TOKENS, 10);
+  return Number.isFinite(n) && n > 0 ? n : 4096;
+}
+
 const SYSTEM_PROMPT = `You are OneChat, an AI assistant built for TechnologyOne consultants.
 You help with project management, CiA platform questions, client work, and general queries.
 Be concise, professional, and practical. When you reference information from connected apps, cite the source.`;
@@ -51,8 +58,19 @@ async function handleChat(request, env) {
     userContent += `\n\n[Page context — ${pageContext.title ?? pageContext.url ?? "current tab"}]\n${pageContext.text.slice(0, 4000)}`;
   }
   if (attachments?.length > 0) {
-    const names = attachments.map((a) => a.name).join(", ");
-    userContent += `\n\n[Attachments: ${names}]`;
+    // Inline any text we have (the client extracts spreadsheets/CSV/text/code to
+    // text before sending). Base64 binaries (PDF/Word/images) can't be parsed by
+    // the lightweight text model, so we note them by name.
+    const parts = attachments.map((a) => {
+      if (a.encoding === "base64") {
+        return `[Attached file "${a.name}" (${a.type || "binary"}) — open it in the full app to have its contents read.]`;
+      }
+      if (a.content) {
+        return `### Attached file: ${a.name}\n${String(a.content).slice(0, 60_000)}`;
+      }
+      return `[Attachment: ${a.name}]`;
+    });
+    userContent += `\n\n${parts.join("\n\n")}`;
   }
 
   const messages = [
@@ -61,8 +79,31 @@ async function handleChat(request, env) {
     { role: "user", content: userContent || "(no message)" },
   ];
 
+  return streamModel(env, messages);
+}
+
+// Regenerate: re-run the last user turn. The extension sends the running history
+// (standalone mode keeps no server state); we drop any trailing assistant turn.
+async function handleRegenerate(request, env) {
+  const body = await request.json();
+  const { history = [] } = body;
+
+  const prior = history
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .filter((m) => m.id !== "welcome" && m.content)
+    .map((m) => ({ role: m.role, content: String(m.content) }));
+  while (prior.length && prior[prior.length - 1].role === "assistant") prior.pop();
+
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...prior];
+  if (messages.length === 1) messages.push({ role: "user", content: "(no message)" });
+
+  return streamModel(env, messages);
+}
+
+// Shared SSE streamer for chat + regenerate.
+async function streamModel(env, messages) {
   // With stream:true, Workers AI returns a ReadableStream directly (not a Response).
-  const aiStream = await env.AI.run(modelFor(env), { messages, stream: true });
+  const aiStream = await env.AI.run(modelFor(env), { messages, stream: true, max_tokens: maxTokensFor(env) });
   const sourceStream = aiStream?.body ?? aiStream;
 
   const { readable, writable } = new TransformStream();
@@ -152,6 +193,7 @@ async function handleRelayStep(request, env) {
         content: `GOAL: ${goal}\n\n${convo ? `Conversation:\n${convo}\n\n` : ""}Decide next step.`,
       },
     ],
+    max_tokens: maxTokensFor(env),
   });
 
   const raw = (result.response ?? "").trim();
@@ -193,6 +235,7 @@ async function handleRelayConclude(request, env) {
       },
       { role: "user", content: `GOAL: ${goal}\n\nConversation:\n${convo}\n\nWrite the final conclusion.` },
     ],
+    max_tokens: maxTokensFor(env),
   });
 
   return json({ text: result.response ?? "" });
@@ -302,6 +345,7 @@ export default {
 
       // Chat
       if (path === "/api/chat" && request.method === "POST") return handleChat(request, env);
+      if (path === "/api/chat/regenerate" && request.method === "POST") return handleRegenerate(request, env);
       if (path === "/api/relay/step" && request.method === "POST") return handleRelayStep(request, env);
       if (path === "/api/relay/conclude" && request.method === "POST") return handleRelayConclude(request, env);
 

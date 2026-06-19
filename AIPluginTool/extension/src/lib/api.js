@@ -349,6 +349,7 @@ export async function streamChat({
 
 export async function regenerateChat({
   conversationId,
+  history,
   provider,
   reasoning,
   signal,
@@ -364,6 +365,7 @@ export async function regenerateChat({
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       conversationId,
+      ...(history ? { history } : {}),
       ...(provider && provider !== "server" ? { provider } : {}),
       ...(reasoning && reasoning !== "auto" ? { reasoning } : {}),
     }),

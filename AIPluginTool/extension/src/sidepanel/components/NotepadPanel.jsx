@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getNotepad, saveNotepad, subscribeNotepad } from "../../lib/storage.js";
+import { NOTE_TEMPLATES } from "../../lib/noteTemplates.js";
 // NOTE: `xlsx` is heavy (~600 kB). It is dynamically imported only when a user
 // actually imports a schedule, so it stays out of the main side-panel bundle.
 
@@ -83,12 +84,21 @@ function loadLegacy() {
   return null;
 }
 
-function makeGrid(rows = 4, cols = 4) {
-  const th = (i) => `<th contenteditable="true" style="border:1px solid var(--cia-border);padding:4px 8px;background:var(--cia-soft);font-weight:600;min-width:70px;">Col ${i + 1}</th>`;
-  const td = () => `<td contenteditable="true" style="border:1px solid var(--cia-border);padding:4px 8px;min-width:70px;outline:none;"></td>`;
+// Shared cell styling — kept in JS so dynamically-added rows/columns match the
+// originals exactly. NOTE: cells are NOT individually contenteditable; the whole
+// editor is the editable surface, which keeps the caret behaving (the old nested
+// contenteditable cells broke cursor placement and cell growth).
+const TABLE_CELL_CSS = "border:1px solid var(--cia-border);padding:6px 9px;min-width:40px;vertical-align:top;word-break:break-word;";
+const TABLE_TH_CSS = TABLE_CELL_CSS + "background:var(--cia-soft);font-weight:600;text-align:left;";
+
+function makeGrid(rows = 3, cols = 3) {
+  const th = (i) => `<th style="${TABLE_TH_CSS}">Col ${i + 1}</th>`;
+  const td = () => `<td style="${TABLE_CELL_CSS}"><br></td>`;
   const header = `<tr>${Array.from({ length: cols }, (_, i) => th(i)).join("")}</tr>`;
   const body = Array.from({ length: rows - 1 }, () => `<tr>${Array.from({ length: cols }, td).join("")}</tr>`).join("");
-  return `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:12px;"><tbody>${header}${body}</tbody></table><p><br></p>`;
+  // table-layout:fixed + width:100% → columns stay even and text wraps inside the
+  // cell (so it grows vertically and the caret never escapes the cell).
+  return `<table class="cia-ext-np-table" style="border-collapse:collapse;width:100%;table-layout:fixed;margin:8px 0;font-size:12px;"><tbody>${header}${body}</tbody></table><p><br></p>`;
 }
 
 function htmlToPlainText(html) {
@@ -453,12 +463,17 @@ export function NotepadPanel({ onClose, onGenerate }) {
   const [font, setFont] = useState("Default");
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [listMenuOpen, setListMenuOpen] = useState(false);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [inTable, setInTable] = useState(false);
   const [zipping, setZipping] = useState(false);
   const [dragId, setDragId] = useState(null);       // note id being dragged
   const [dropTarget, setDropTarget] = useState(null); // "folder:<id>" | "ungrouped" | "note:<id>"
+  const [editingTabId, setEditingTabId] = useState(null); // note tab being renamed inline
+  const [editTabValue, setEditTabValue] = useState("");
   const [hydrated, setHydrated] = useState(false);    // shared store loaded
   const editorRef = useRef(null);
   const saveTimerRef = useRef(null);
+  const currentCellRef = useRef(null); // table cell the caret is in (for table tools)
 
   // Keep latest notes/folders in refs so persist can always write BOTH halves
   // (chrome.storage stores them together under one "notes" key).
@@ -611,6 +626,160 @@ export function NotepadPanel({ onClose, onGenerate }) {
     saveNote();
   };
 
+  // ── Word-style table editing ───────────────────────────────────────────────
+  // The whole editor is contenteditable; we manipulate the table DOM directly
+  // and keep a reference to the cell the caret is in so the toolbar buttons work
+  // even after focus moves to a button.
+  const findCell = (node) => {
+    let n = node;
+    while (n && n !== editorRef.current) {
+      if (n.nodeType === 1 && (n.tagName === "TD" || n.tagName === "TH")) return n;
+      n = n.parentNode;
+    }
+    return null;
+  };
+
+  const trackCell = () => {
+    const sel = window.getSelection();
+    const cell = sel?.rangeCount ? findCell(sel.getRangeAt(0).startContainer) : null;
+    currentCellRef.current = cell;
+    setInTable(Boolean(cell));
+  };
+
+  const colIndexOf = (cell) => Array.from(cell.parentNode.children).indexOf(cell);
+
+  const newCell = (tag) => {
+    const c = document.createElement(tag === "th" ? "th" : "td");
+    c.style.cssText = tag === "th" ? TABLE_TH_CSS : TABLE_CELL_CSS;
+    c.innerHTML = "<br>";
+    return c;
+  };
+
+  const placeCaret = (cell) => {
+    if (!cell) return;
+    editorRef.current?.focus();
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    currentCellRef.current = cell;
+    setInTable(true);
+  };
+
+  const insertTableRow = (where) => {
+    const cell = currentCellRef.current;
+    if (!cell) return;
+    const row = cell.parentNode;
+    const table = cell.closest("table");
+    const cols = Math.max(...Array.from(table.rows, (r) => r.cells.length));
+    const tr = document.createElement("tr");
+    for (let i = 0; i < cols; i += 1) tr.appendChild(newCell("td"));
+    row.parentNode.insertBefore(tr, where === "above" ? row : row.nextSibling);
+    placeCaret(tr.cells[Math.min(colIndexOf(cell), tr.cells.length - 1)]);
+    saveNote();
+  };
+
+  const insertTableCol = (where) => {
+    const cell = currentCellRef.current;
+    if (!cell) return;
+    const idx = colIndexOf(cell);
+    const table = cell.closest("table");
+    for (const r of table.rows) {
+      const ref = r.cells[idx];
+      const tag = ref?.tagName === "TH" ? "th" : "td";
+      r.insertBefore(newCell(tag), where === "left" ? ref : (ref?.nextSibling ?? null));
+    }
+    placeCaret(cell.parentNode.cells[where === "left" ? idx : idx + 1]);
+    saveNote();
+  };
+
+  const deleteTableRow = () => {
+    const cell = currentCellRef.current;
+    if (!cell) return;
+    const table = cell.closest("table");
+    if (table.rows.length <= 1) table.remove();
+    else cell.parentNode.remove();
+    currentCellRef.current = null;
+    setInTable(false);
+    saveNote();
+  };
+
+  const deleteTableCol = () => {
+    const cell = currentCellRef.current;
+    if (!cell) return;
+    const idx = colIndexOf(cell);
+    const table = cell.closest("table");
+    if (table.rows[0].cells.length <= 1) table.remove();
+    else for (const r of table.rows) r.cells[idx]?.remove();
+    currentCellRef.current = null;
+    setInTable(false);
+    saveNote();
+  };
+
+  const deleteTable = () => {
+    currentCellRef.current?.closest("table")?.remove();
+    currentCellRef.current = null;
+    setInTable(false);
+    saveNote();
+  };
+
+  const insertTable = (rows = 3, cols = 3) => {
+    insertHtml(makeGrid(rows, cols));
+    // Drop the caret into the first body cell so typing starts inside the table.
+    setTimeout(() => {
+      const tables = editorRef.current?.querySelectorAll("table.cia-ext-np-table");
+      const first = tables?.[tables.length - 1]?.querySelector("tbody tr:nth-child(2) td, td");
+      if (first) placeCaret(first);
+      saveNote();
+    }, 0);
+  };
+
+  // Tab / Shift+Tab moves between cells (Word-style); Tab past the last cell adds
+  // a new row.
+  const handleEditorKeyDown = (e) => {
+    if (e.key !== "Tab") return;
+    const sel = window.getSelection();
+    const cell = sel?.rangeCount ? findCell(sel.getRangeAt(0).startContainer) : null;
+    if (!cell) return;
+    e.preventDefault();
+    const table = cell.closest("table");
+    const all = Array.from(table.querySelectorAll("td,th"));
+    const i = all.indexOf(cell);
+    if (e.shiftKey) {
+      if (i > 0) placeCaret(all[i - 1]);
+    } else if (i < all.length - 1) {
+      placeCaret(all[i + 1]);
+    } else {
+      currentCellRef.current = cell;
+      insertTableRow("below");
+      const row = currentCellRef.current?.parentNode;
+      if (row?.cells?.length) placeCaret(row.cells[0]);
+    }
+  };
+
+  // Template generator — drop a ready-made layout into the editor. When the note
+  // is still empty we replace its content (and adopt the template's name);
+  // otherwise the template is inserted at the cursor so existing notes are kept.
+  const insertTemplate = (tpl) => {
+    setTemplateMenuOpen(false);
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const html = tpl.html();
+    const isEmpty = !htmlToPlainText(editor.innerHTML).trim();
+    if (isEmpty) {
+      editor.innerHTML = html;
+      const defaultTitle = !activeNote.fromSchedule &&
+        (activeNote.title === NEW_NOTE_TITLE || activeNote.title === "Project Notes");
+      if (defaultTitle) renameNoteById(activeNote.id, tpl.label);
+    } else {
+      document.execCommand("insertHTML", false, html);
+    }
+    saveNote();
+  };
+
   const switchNote = (id) => { saveNote(activeId); setActiveId(id); };
 
   const addNote = () => {
@@ -658,9 +827,11 @@ export function NotepadPanel({ onClose, onGenerate }) {
     });
   };
 
-  const renameNote = (title) => {
+  const renameNote = (title) => renameNoteById(activeId, title);
+
+  const renameNoteById = (id, title) => {
     setNotes((prev) => {
-      const updated = prev.map((n) => n.id === activeId ? { ...n, title } : n);
+      const updated = prev.map((n) => (n.id === id ? { ...n, title: title || "Untitled" } : n));
       persistNotes(updated);
       return updated;
     });
@@ -859,11 +1030,32 @@ export function NotepadPanel({ onClose, onGenerate }) {
         dragId === n.id ? "is-dragging" : "",
         dropTarget === `note:${n.id}` ? "is-drop" : "",
       ].filter(Boolean).join(" ")}
-      onClick={() => switchNote(n.id)}
+      onClick={() => { if (editingTabId !== n.id) switchNote(n.id); }}
       role="button"
       tabIndex={0}
     >
-      <span className="cia-ext-notepad-tab-label">{n.fromSchedule ? "🏛 " : ""}{n.title}</span>
+      {editingTabId === n.id ? (
+        <input
+          className="cia-ext-notepad-tab-input"
+          value={editTabValue}
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setEditTabValue(e.target.value)}
+          onBlur={() => { renameNoteById(n.id, editTabValue.trim()); setEditingTabId(null); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.target.blur();
+            if (e.key === "Escape") setEditingTabId(null);
+          }}
+        />
+      ) : (
+        <span
+          className="cia-ext-notepad-tab-label"
+          title="Double-click to rename"
+          onDoubleClick={(e) => { e.stopPropagation(); setEditingTabId(n.id); setEditTabValue(n.title); }}
+        >
+          {n.fromSchedule ? "🏛 " : ""}{n.title}
+        </span>
+      )}
       {notes.length > 1 ? (
         <button
           type="button"
@@ -997,7 +1189,34 @@ export function NotepadPanel({ onClose, onGenerate }) {
           )}
         </div>
         <div className="cia-ext-notepad-sep" />
-        <button className="cia-ext-notepad-btn" title="Insert 4×4 grid" onClick={() => insertHtml(makeGrid(4, 4))}>⊞ Grid</button>
+        <button className="cia-ext-notepad-btn" title="Insert table" onClick={() => insertTable(3, 3)}>⊞ Table</button>
+        <div className="cia-ext-notepad-sep" />
+        <div className="cia-ext-notepad-listmenu">
+          <button
+            className={`cia-ext-notepad-btn${templateMenuOpen ? " is-active" : ""}`}
+            title="Insert a template"
+            onClick={() => setTemplateMenuOpen((v) => !v)}
+          >
+            ＋ Template ⌄
+          </button>
+          {templateMenuOpen && (
+            <>
+              <div className="cia-ext-notepad-list-backdrop" onClick={() => setTemplateMenuOpen(false)} />
+              <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
+                <div className="cia-ext-notepad-list-label">Insert template</div>
+                {NOTE_TEMPLATES.map((tpl) => (
+                  <button key={tpl.id} className="cia-ext-notepad-tpl-item" onClick={() => insertTemplate(tpl)}>
+                    <span className="cia-ext-notepad-tpl-icon">{tpl.icon}</span>
+                    <span className="cia-ext-notepad-tpl-text">
+                      <strong>{tpl.label}</strong>
+                      <small>{tpl.desc}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <div className="cia-ext-notepad-sep" />
         <button className={`cia-ext-notepad-btn${showShortcodes ? " is-active" : ""}`} title="Shortcodes" onClick={() => setShowShortcodes((v) => !v)}>{"{ }"}</button>
       </div>
@@ -1016,6 +1235,21 @@ export function NotepadPanel({ onClose, onGenerate }) {
         </div>
       )}
 
+      {/* Contextual table tools — appear when the caret is inside a table */}
+      {inTable && (
+        <div className="cia-ext-notepad-tabletools" onMouseDown={(e) => e.preventDefault()}>
+          <span className="cia-ext-notepad-tt-label">Table</span>
+          <button className="cia-ext-notepad-btn" title="Insert row above" onClick={() => insertTableRow("above")}>⤒ Row</button>
+          <button className="cia-ext-notepad-btn" title="Insert row below" onClick={() => insertTableRow("below")}>⤓ Row</button>
+          <button className="cia-ext-notepad-btn" title="Insert column left" onClick={() => insertTableCol("left")}>⇤ Col</button>
+          <button className="cia-ext-notepad-btn" title="Insert column right" onClick={() => insertTableCol("right")}>⇥ Col</button>
+          <div className="cia-ext-notepad-sep" />
+          <button className="cia-ext-notepad-btn" title="Delete row" onClick={deleteTableRow}>✕ Row</button>
+          <button className="cia-ext-notepad-btn" title="Delete column" onClick={deleteTableCol}>✕ Col</button>
+          <button className="cia-ext-notepad-btn cia-ext-notepad-tt-del" title="Delete table" onClick={deleteTable}>🗑 Table</button>
+        </div>
+      )}
+
       {/* Editor */}
       <div
         ref={editorRef}
@@ -1024,6 +1258,9 @@ export function NotepadPanel({ onClose, onGenerate }) {
         suppressContentEditableWarning
         onInput={handleInput}
         onKeyUp={handleKeyUp}
+        onKeyDown={handleEditorKeyDown}
+        onMouseUp={trackCell}
+        onClick={trackCell}
         data-placeholder="Start typing… use {ts} for timestamp, {status} for tags, or import a schedule above…"
       />
 

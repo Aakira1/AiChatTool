@@ -1,3 +1,5 @@
+import { appById } from "./apps.js";
+
 const STORAGE_KEY = "cia.settings.v1";
 const EVENT_NAME = "cia:settings:changed";
 
@@ -84,6 +86,10 @@ const DEFAULTS = {
   provider: "server",
   reasoning: "auto",
   theme: "magenta",
+  // UI density for the side panel — "comfortable" (default) or "compact".
+  density: "comfortable",
+  // App that the on-page floating bubble can quick-launch ("" = none).
+  pinnedApp: "",
   sources: { webSearch: false, companyKnowledge: true },
   connectorSources: [],
   // Page vision (reading/screenshotting the page) is ON by default on all pages.
@@ -100,10 +106,13 @@ const DEFAULTS = {
 // content scripts (which can't see the side panel's localStorage) can read them.
 function syncPrivacyToChromeStorage(settings) {
   try {
+    const app = settings?.pinnedApp ? appById(settings.pinnedApp) : null;
     chrome?.storage?.local?.set?.({
       ciaPrivacyMode: Boolean(settings?.privacyMode),
       ciaDebugHighlight: Boolean(settings?.debugHighlight),
       ciaWholePageVision: Boolean(settings?.wholePageVision),
+      // Mirror the bubble-pinned app so the content script can render its button.
+      ciaPinnedApp: app ? { id: app.id, icon: app.icon, label: app.label } : null,
     });
   } catch {
     /* ignore */
@@ -166,7 +175,14 @@ export function applyTheme(themeId) {
   document.documentElement.dataset.theme = theme.id;
 }
 
+// Apply UI density to the document root (CSS keys off [data-density]).
+export function applyDensity(density) {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.density = density === "compact" ? "compact" : "comfortable";
+}
+
 export function applySettings(settings = getSettings()) {
   applyTheme(settings.theme);
+  applyDensity(settings.density);
   syncPrivacyToChromeStorage(settings);
 }

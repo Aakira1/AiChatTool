@@ -7,7 +7,8 @@ import {
   updateDisplayName,
   changePassword,
 } from "../../lib/api.js";
-import { getSettings, saveSettings } from "../../lib/settings.js";
+import { getSettings, saveSettings, THEMES } from "../../lib/settings.js";
+import { APP_CATALOG } from "../../lib/apps.js";
 import {
   getApiBaseUrl,
   setApiBaseUrl,
@@ -126,6 +127,64 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, standaloneMode
             )}
           </section>
         )}
+
+        <section>
+          <h4>Appearance</h4>
+          <p className="cia-ext-options-help">Theme</p>
+          <div className="cia-ext-theme-grid">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`cia-ext-theme-swatch${settings.theme === t.id ? " is-active" : ""}`}
+                onClick={() => updateSetting({ theme: t.id })}
+                title={t.label}
+                aria-label={`${t.label} theme`}
+                aria-pressed={settings.theme === t.id}
+              >
+                <span className="cia-ext-theme-chip" style={{ background: t.swatch }} />
+                <span className="cia-ext-theme-name">{t.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="cia-ext-options-help" style={{ marginTop: 12 }}>Density</p>
+          <div className="cia-ext-segmented">
+            {[
+              { id: "comfortable", label: "Comfortable" },
+              { id: "compact", label: "Compact" },
+            ].map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={`cia-ext-segmented-btn${(settings.density ?? "comfortable") === d.id ? " is-active" : ""}`}
+                onClick={() => updateSetting({ density: d.id })}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h4>Floating bubble</h4>
+          <p className="cia-ext-options-help">
+            Pin an app to the on-page chat bubble for one-tap access — a small launcher button
+            appears next to it on every page.
+          </p>
+          <label className="cia-ext-field">
+            <span>Quick-launch app</span>
+            <select
+              value={settings.pinnedApp ?? ""}
+              onChange={(e) => updateSetting({ pinnedApp: e.target.value })}
+            >
+              <option value="">None</option>
+              {APP_CATALOG.filter((a) => a.id !== "settings").map((a) => (
+                <option key={a.id} value={a.id}>{a.icon} {a.label}</option>
+              ))}
+            </select>
+          </label>
+        </section>
 
         <section>
           <h4>Insights under replies</h4>

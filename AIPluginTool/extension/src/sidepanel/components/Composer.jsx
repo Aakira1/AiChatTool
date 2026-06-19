@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { readPastedFiles } from "../../lib/documents.js";
 
 export function Composer({
@@ -12,6 +12,22 @@ export function Composer({
   onError,
 }) {
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Shared path for paste / drop / upload — reads any file type into attachments.
+  const addFiles = async (fileList) => {
+    if (pending || !onAttachmentsChange) return;
+    const files = [...(fileList ?? [])];
+    if (!files.length) return;
+    try {
+      const parsed = await readPastedFiles(files);
+      onAttachmentsChange([...attachments, ...parsed].slice(0, 3));
+      onError?.("");
+    } catch (err) {
+      onError?.(err.message);
+    }
+  };
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -33,13 +49,7 @@ export function Composer({
     const files = [...(event.clipboardData?.files ?? [])];
     if (!files.length) return; // plain text — let it paste normally
     event.preventDefault();
-    try {
-      const parsed = await readPastedFiles(files);
-      onAttachmentsChange([...attachments, ...parsed].slice(0, 3));
-      onError?.("");
-    } catch (err) {
-      onError?.(err.message);
-    }
+    await addFiles(files);
   };
 
   const removeAttachment = (name) => {
@@ -71,12 +81,36 @@ export function Composer({
         </div>
       ) : null}
       <form
-        className="cia-ext-composer"
+        className={`cia-ext-composer${dragOver ? " is-dragover" : ""}`}
         onSubmit={(event) => {
           event.preventDefault();
           if (!pending && (value.trim() || attachments.length)) onSubmit();
         }}
+        onDragOver={(e) => { if (!pending) { e.preventDefault(); setDragOver(true); } }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer?.files?.length) void addFiles(e.dataTransfer.files);
+        }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }}
+        />
+        <button
+          type="button"
+          className="cia-ext-attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={pending}
+          aria-label="Attach a file"
+          title="Attach a file (any type)"
+        >
+          +
+        </button>
         <textarea
           ref={textareaRef}
           className="cia-ext-textarea"

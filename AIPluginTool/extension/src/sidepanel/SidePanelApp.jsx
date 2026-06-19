@@ -25,6 +25,7 @@ import {
   saveSettings,
   applySettings,
   applyTheme,
+  applyDensity,
   subscribeSettings,
   isPageVisionAllowed,
 } from "../lib/settings.js";
@@ -38,7 +39,10 @@ import { Banner } from "./components/Banner.jsx";
 import { SettingsPanel } from "./components/SettingsPanel.jsx";
 import { ForumsPanel } from "./components/ForumsPanel.jsx";
 import { ChecklistPanel } from "./components/ChecklistPanel.jsx";
+import { GoLivePanel } from "./components/GoLivePanel.jsx";
 import { NotepadPanel } from "./components/NotepadPanel.jsx";
+import { AppLauncher, LayersIcon } from "./components/AppLauncher.jsx";
+import { APP_CATALOG, computeAppBadges } from "../lib/apps.js";
 import { HomeScreen } from "./HomeScreen.jsx";
 
 const WELCOME_MESSAGE = {
@@ -81,6 +85,8 @@ export function SidePanelApp() {
   const [standaloneMode, setStandaloneMode] = useState(false);
   const [showForums, setShowForums] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showGoLive, setShowGoLive] = useState(false);
+  const [appBadges, setAppBadges] = useState({});
   const [forumDraft, setForumDraft] = useState(null);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
@@ -297,7 +303,7 @@ export function SidePanelApp() {
   // Apply theme colors on mount and live-update whenever settings change.
   useEffect(() => {
     applySettings();
-    return subscribeSettings((next) => applyTheme(next.theme));
+    return subscribeSettings((next) => { applyTheme(next.theme); applyDensity(next.density); });
   }, []);
 
   useEffect(() => {
@@ -480,6 +486,12 @@ export function SidePanelApp() {
     setError("");
     setPending(true);
 
+    // In standalone (Worker) mode the server keeps no history, so send the prior
+    // turns (minus the assistant message we're regenerating) for context.
+    const regenHistory = standaloneMode
+      ? messages.filter((m) => m.id !== "welcome" && m.id !== lastAssistant.id && m.role && m.content)
+      : undefined;
+
     const assistantId = localId("local-assistant");
     setMessages((current) => [
       ...current.filter((m) => m.id !== lastAssistant.id && m.id !== "welcome"),
@@ -493,6 +505,7 @@ export function SidePanelApp() {
     try {
       await regenerateChat({
         conversationId,
+        history: regenHistory,
         provider,
         reasoning,
         signal: controller.signal,
@@ -517,8 +530,17 @@ export function SidePanelApp() {
           );
         },
         onComplete: async () => {
-          await loadConversation(conversationId);
-          await loadThreads();
+          if (standaloneMode) {
+            const { saveLocalThread } = await import("../lib/storage.js");
+            const cur = latestMessagesRef.current.filter((m) => m.id !== "welcome");
+            const firstUser = cur.find((m) => m.role === "user");
+            const title = (firstUser?.content || "New chat").replace(/\s+/g, " ").trim().slice(0, 40);
+            await saveLocalThread({ id: conversationId, title, messages: cur, updatedAt: new Date().toISOString() });
+            await loadThreads();
+          } else {
+            await loadConversation(conversationId);
+            await loadThreads();
+          }
         },
       });
     } catch (regenError) {
@@ -919,6 +941,50 @@ export function SidePanelApp() {
     }
   };
 
+  // Open a given app by id — used by the launcher, Quick actions and the
+  // floating-bubble quick-launch (deep link). Declared before the early returns
+  // below so hook order stays stable (Rules of Hooks).
+  const openApp = useCallback((id) => {
+    switch (id) {
+      case "chat": void handleNewThread(); setView("chat"); break;
+      case "notepad": setView("notepad"); break;
+      case "companion": setShowChecklist(true); break;
+      case "golive": setShowGoLive(true); break;
+      case "settings": setView("settings"); break;
+      case "apps": setView("apps"); break;
+      default: break;
+    }
+  }, [handleNewThread]);
+
+  // Recompute launcher badges on mount and whenever the underlying data changes.
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => computeAppBadges().then((b) => { if (alive) setAppBadges(b); }).catch(() => {});
+    refresh();
+    const handler = (changes, area) => {
+      if (area === "local" && (changes.goLiveData || changes.checklistData || changes.notes)) refresh();
+    };
+    chrome.storage?.onChanged?.addListener?.(handler);
+    return () => { alive = false; chrome.storage?.onChanged?.removeListener?.(handler); };
+  }, [showChecklist, showGoLive]);
+
+  // Floating bubble quick-launch: it writes ciaPendingApp, we act on it here.
+  useEffect(() => {
+    if (!user) return undefined;
+    const act = (pending) => {
+      if (pending?.id && Date.now() - (pending.at ?? 0) < 60_000) {
+        openApp(pending.id);
+        chrome.storage?.local?.remove?.("ciaPendingApp");
+      }
+    };
+    chrome.storage?.local?.get?.(["ciaPendingApp"], (d) => act(d?.ciaPendingApp));
+    const handler = (changes, area) => {
+      if (area === "local" && changes.ciaPendingApp?.newValue) act(changes.ciaPendingApp.newValue);
+    };
+    chrome.storage?.onChanged?.addListener?.(handler);
+    return () => chrome.storage?.onChanged?.removeListener?.(handler);
+  }, [user, openApp]);
+
   if (authLoading) {
     return (
       <div className="cia-ext-shell">
@@ -943,6 +1009,7 @@ export function SidePanelApp() {
         user={user}
         apps={[
           { label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) },
+          { label: "Go-Live", icon: "🚀", onClick: () => setShowGoLive(true) },
           // Forums temporarily disabled.
           { label: "Pop out", icon: "⤢", onClick: () => void openPopoutWindow() },
         ]}
@@ -1015,6 +1082,13 @@ export function SidePanelApp() {
     </div>
   );
 
+  // Apps shown in the drag-and-drop launcher / Quick actions, with live badges.
+  const launcherApps = APP_CATALOG.map((a) => ({
+    ...a,
+    badge: appBadges[a.id] ?? 0,
+    onClick: () => openApp(a.id),
+  }));
+
   return (
     <div className="cia-ext-shell cia-ext-with-nav">
       {/* Views */}
@@ -1023,10 +1097,7 @@ export function SidePanelApp() {
           user={user}
           healthState={healthState}
           threads={threads}
-          onNewChat={() => setView("chat")}
-          onNotepad={() => setView("notepad")}
-          onCompanion={() => setShowChecklist(true)}
-          onSettings={() => setView("settings")}
+          apps={launcherApps}
           onSelectThread={(id) => {
             void handleSelectThread(id);
             setView("chat");
@@ -1035,6 +1106,12 @@ export function SidePanelApp() {
       )}
 
       {view === "chat" && chatView}
+
+      {view === "apps" && (
+        <div className="cia-ext-apps-view">
+          <AppLauncher apps={launcherApps} />
+        </div>
+      )}
 
       {view === "notepad" && (
         <NotepadPanel
@@ -1072,11 +1149,38 @@ export function SidePanelApp() {
 
       {showChecklist ? <ChecklistPanel onClose={() => setShowChecklist(false)} /> : null}
 
-      {/* Bottom navigation */}
+      {showGoLive ? <GoLivePanel onClose={() => setShowGoLive(false)} /> : null}
+
+      {/* Bottom navigation — with a raised centre button for the app launcher */}
       <nav className="cia-ext-bottom-nav" aria-label="Main navigation">
         {[
           { id: "home", icon: "🏠", label: "Home" },
           { id: "chat", icon: "💬", label: "Chat" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`cia-ext-nav-btn${view === tab.id ? " is-active" : ""}`}
+            onClick={() => setView(tab.id)}
+            aria-label={tab.label}
+          >
+            <span className="cia-ext-nav-icon">{tab.icon}</span>
+            <span className="cia-ext-nav-label">{tab.label}</span>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          className={`cia-ext-nav-fab${view === "apps" ? " is-active" : ""}`}
+          onClick={() => setView("apps")}
+          aria-label="Apps"
+          title="Apps"
+        >
+          <span className="cia-ext-nav-fab-btn"><LayersIcon size={24} /></span>
+          <span className="cia-ext-nav-fab-label">Apps</span>
+        </button>
+
+        {[
           { id: "notepad", icon: "📝", label: "Notes" },
           { id: "settings", icon: "⚙️", label: "Settings" },
         ].map((tab) => (

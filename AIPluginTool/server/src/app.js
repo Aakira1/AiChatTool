@@ -49,7 +49,9 @@ export function createApp() {
     }),
   );
   app.use(cookieParser());
-  app.use(express.json({ limit: "40mb" }));
+  // Large enough for a 32MB attachment once base64-encoded (~43MB) plus the
+  // message/history JSON around it.
+  app.use(express.json({ limit: "60mb" }));
   app.use((request, response, next) => {
     const startedAt = Date.now();
     response.on("finish", () => {
