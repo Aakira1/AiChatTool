@@ -307,6 +307,7 @@ export async function streamChat({
   reasoning,
   sources,
   connectorSources = [],
+  rag,
   signal,
   onToken,
   onComplete,
@@ -332,6 +333,7 @@ export async function streamChat({
       ...(reasoning && reasoning !== "auto" ? { reasoning } : {}),
       ...(sources ? { sources } : {}),
       ...(connectorSources.length > 0 ? { connectorSources } : {}),
+      ...(rag === false ? { rag: false } : {}),
     }),
     signal,
   });
@@ -345,6 +347,39 @@ export async function streamChat({
     onInsights,
     onArtifacts,
   });
+}
+
+// One-shot completion used by the Notepad AI tools. Streams the reply via
+// onToken and resolves with the full text. Never indexed into RAG.
+export async function aiComplete({ message, signal, onToken }) {
+  const base = await getApiBaseUrl();
+  const token = await getWorkerAuthToken();
+  const response = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      conversationId: `note-${Date.now()}`,
+      message,
+      history: [],
+      rag: false,
+    }),
+    signal,
+  });
+  if (response.status === 401) throw new SessionExpiredError();
+  if (!response.ok) {
+    throw new Error(`AI request failed (${response.status}).`);
+  }
+  let full = "";
+  await consumeChatStream(response, {
+    signal,
+    onToken: (t) => { full += t; onToken?.(t); },
+    onComplete: () => {},
+  });
+  return full;
 }
 
 export async function regenerateChat({

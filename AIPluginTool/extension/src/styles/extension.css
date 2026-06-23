@@ -497,6 +497,44 @@ button:disabled {
   background: var(--cia-soft);
 }
 
+/* ── Assistant markdown typography ──────────────────────────────────── */
+.cia-ext-bubble > :first-child { margin-top: 0; }
+.cia-ext-bubble > :last-child { margin-bottom: 0; }
+.cia-ext-bubble h1,
+.cia-ext-bubble h2,
+.cia-ext-bubble h3,
+.cia-ext-bubble h4 {
+  margin: 14px 0 6px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--cia-navy, var(--cia-body));
+}
+.cia-ext-bubble h1 { font-size: 17px; }
+.cia-ext-bubble h2 { font-size: 15.5px; }
+.cia-ext-bubble h3 { font-size: 14px; }
+.cia-ext-bubble h4 { font-size: 13px; }
+.cia-ext-bubble p { margin: 0 0 8px; }
+.cia-ext-bubble ul,
+.cia-ext-bubble ol { margin: 6px 0 8px; padding-left: 20px; }
+.cia-ext-bubble li { margin: 3px 0; }
+.cia-ext-bubble li > ul,
+.cia-ext-bubble li > ol { margin: 3px 0; }
+.cia-ext-bubble strong { font-weight: 700; color: var(--cia-navy, var(--cia-body)); }
+.cia-ext-bubble a { color: var(--cia-purple); text-decoration: underline; word-break: break-word; }
+.cia-ext-bubble blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--cia-border);
+  background: var(--cia-soft);
+  border-radius: 0 6px 6px 0;
+  color: var(--cia-muted);
+}
+.cia-ext-bubble hr {
+  border: none;
+  border-top: 1px solid var(--cia-border);
+  margin: 12px 0;
+}
+
 .cia-ext-file-card {
   display: flex;
   align-items: center;
@@ -604,21 +642,36 @@ button:disabled {
    web app's message actions. */
 .cia-ext-msg-actions button,
 .cia-ext-dl-menu > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 1px solid var(--cia-border);
   background: #ffffff;
   color: var(--cia-muted);
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
+  border-radius: 7px;
   cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease, transform 0.1s ease;
 }
 
 .cia-ext-msg-actions button:hover:not(:disabled),
 .cia-ext-dl-menu > button:hover:not(:disabled) {
   border-color: var(--cia-magenta);
   color: var(--cia-magenta);
+  background: var(--cia-soft);
+  transform: translateY(-1px);
+}
+
+/* Download "building" spinner */
+.cia-ext-dl-spin {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--cia-border);
+  border-top-color: var(--cia-magenta);
+  animation: cia-ext-spin 0.7s linear infinite;
 }
 
 .cia-ext-msg-actions button.is-active {
@@ -4774,3 +4827,232 @@ body.cia-ext-options-page {
   background: #fff;
 }
 .cia-ext-notepad-sep { background: var(--cia-border); opacity: 0.6; }
+
+/* Notepad AI tools */
+.cia-ext-notepad-ai-btn {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(228, 0, 124, 0.12)) !important;
+  color: var(--cia-purple) !important;
+  font-weight: 700 !important;
+}
+.cia-ext-notepad-ai-btn:disabled { opacity: 0.5; cursor: default; }
+
+.cia-ext-notepad-ai-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--cia-soft);
+  border-bottom: 1px solid var(--cia-border);
+  animation: cia-ext-fade-in 0.15s ease both;
+}
+.cia-ext-notepad-ai-ask-icon { font-size: 14px; }
+.cia-ext-notepad-ai-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--cia-border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--cia-body);
+  background: #fff;
+}
+.cia-ext-notepad-ai-input:focus { outline: none; border-color: var(--cia-purple); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+
+.cia-ext-notepad-ai-preview {
+  margin: 0;
+  border-bottom: 1px solid var(--cia-border);
+  background: linear-gradient(180deg, var(--cia-soft), #fff);
+  animation: cia-ext-fade-in 0.15s ease both;
+}
+.cia-ext-notepad-ai-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cia-purple);
+}
+.cia-ext-notepad-ai-cancel {
+  margin-left: auto;
+  border: 1px solid var(--cia-border);
+  background: #fff;
+  color: var(--cia-magenta-dark);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cia-ext-notepad-ai-preview-body {
+  padding: 0 12px 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cia-body);
+  white-space: pre-wrap;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.cia-ext-notepad-ai-spinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(124, 58, 237, 0.25);
+  border-top-color: var(--cia-purple);
+  animation: cia-ext-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes cia-ext-spin { to { transform: rotate(360deg); } }
+
+.cia-ext-notepad-ai-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 12px;
+}
+.cia-ext-notepad-ai-error button {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* Editor highlight while dragging a note file in to import it */
+.cia-ext-notepad-editor.is-filedrag {
+  outline: 2px dashed var(--cia-purple);
+  outline-offset: -4px;
+  background: var(--cia-soft);
+}
+
+/* ── Settings: animated connection-status card ──────────────────────── */
+.cia-ext-connstatus {
+  border: 1.5px solid var(--cia-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, var(--cia-soft), #fff 70%);
+  padding: 14px;
+  margin-bottom: 16px;
+  animation: cia-ext-fade-in 0.25s ease both;
+}
+.cia-ext-cs-wirerow { display: flex; align-items: center; gap: 8px; }
+.cia-ext-cs-node {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: #fff;
+  border: 1.5px solid var(--cia-border);
+  flex-shrink: 0;
+}
+.cia-ext-cs-node-app { color: var(--cia-purple); }
+.cia-ext-cs-wire {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cia-border);
+  overflow: hidden;
+}
+.cia-ext-cs-wire > i { position: absolute; inset: 0; }
+
+/* Checking → flowing dashes; Online → solid gradient + light sweep; Offline → red */
+.cia-ext-connstatus.is-checking .cia-ext-cs-wire {
+  background: repeating-linear-gradient(90deg, var(--cia-purple) 0 8px, transparent 8px 16px);
+  background-size: 16px 100%;
+  opacity: 0.55;
+  animation: cia-ext-cs-flow 0.7s linear infinite;
+}
+.cia-ext-connstatus.is-online .cia-ext-cs-wire { background: linear-gradient(90deg, var(--cia-purple), #16a34a); }
+.cia-ext-connstatus.is-online .cia-ext-cs-wire > i {
+  background: rgba(255, 255, 255, 0.65);
+  width: 28%;
+  filter: blur(3px);
+  animation: cia-ext-cs-sweep 2.4s ease-in-out infinite;
+}
+.cia-ext-connstatus.is-offline .cia-ext-cs-wire { background: #fca5a5; }
+.cia-ext-connstatus.is-online .cia-ext-cs-node-cloud {
+  border-color: #16a34a;
+  color: #16a34a;
+  animation: cia-ext-cs-pulse 2s ease-out infinite;
+}
+.cia-ext-connstatus.is-offline .cia-ext-cs-node-cloud { border-color: #dc2626; color: #dc2626; }
+
+@keyframes cia-ext-cs-flow { to { background-position: 16px 0; } }
+@keyframes cia-ext-cs-sweep { 0% { left: -28%; } 100% { left: 100%; } }
+@keyframes cia-ext-cs-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+
+.cia-ext-cs-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.cia-ext-cs-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--cia-muted); }
+.cia-ext-connstatus.is-online .cia-ext-cs-badge { color: #16a34a; }
+.cia-ext-connstatus.is-offline .cia-ext-cs-badge { color: #dc2626; }
+.cia-ext-cs-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.cia-ext-connstatus.is-online .cia-ext-cs-dot { animation: cia-ext-cs-blink 1.4s ease-in-out infinite; }
+@keyframes cia-ext-cs-blink { 50% { opacity: 0.35; } }
+.cia-ext-cs-host { font-size: 10.5px; color: var(--cia-muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cia-ext-cs-conns { margin-top: 12px; border-top: 1px dashed var(--cia-border); padding-top: 10px; }
+.cia-ext-cs-conns-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cia-muted); }
+.cia-ext-cs-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cia-ext-cs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--cia-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cia-body);
+  animation: cia-ext-tile-in 0.3s ease both;
+}
+.cia-ext-cs-chip svg,
+.cia-ext-cs-chip img { width: 13px; height: 13px; }
+.cia-ext-cs-chip-tick { color: #16a34a; font-weight: 800; }
+.cia-ext-cs-none { display: block; margin-top: 6px; font-size: 11.5px; color: var(--cia-muted); }
+
+/* Contextual table tools (Word-style add/remove rows & columns) */
+.cia-ext-notepad-tabletools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 9px;
+  background: var(--cia-soft);
+  border-bottom: 1px solid var(--cia-border);
+  animation: cia-ext-fade-in 0.15s ease both;
+}
+.cia-ext-notepad-tt-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cia-muted);
+  margin-right: 2px;
+}
+.cia-ext-notepad-tabletools .cia-ext-notepad-btn { background: #fff; }
+.cia-ext-notepad-tt-del:hover { background: #fee2e2 !important; color: #dc2626 !important; }
+
+/* Tables inside the notepad editor */
+.cia-ext-notepad-editor table { border-collapse: collapse; }
+.cia-ext-notepad-editor td,
+.cia-ext-notepad-editor th {
+  min-width: 40px;
+  vertical-align: top;
+  word-break: break-word;
+}
+.cia-ext-notepad-editor td:focus,
+.cia-ext-notepad-editor th:focus { outline: none; }

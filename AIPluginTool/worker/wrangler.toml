@@ -6,6 +6,13 @@ compatibility_flags = ["nodejs_compat"]
 [ai]
 binding = "AI"
 
+# RAG over uploaded files. Create the index once, then redeploy:
+#   npx wrangler vectorize create cia-uploads --dimensions=768 --metric=cosine
+# (768 dims matches the @cf/baai/bge-base-en-v1.5 embedding model.)
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "cia-uploads"
+
 # Uncomment to add persistent conversation storage via KV
 # [[kv_namespaces]]
 # binding = "KV"

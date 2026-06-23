@@ -57,8 +57,22 @@ export function MessageDownloadMenu({ content, fallbackTitle = "Document" }) {
 
   return (
     <div className="cia-ext-dl-menu" ref={ref}>
-      <button type="button" onClick={() => setOpen((v) => !v)} disabled={busy !== null}>
-        {busy ? "Building…" : "Download ▾"}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy !== null}
+        title="Download as…"
+        aria-label="Download as…"
+      >
+        {busy ? (
+          <span className="cia-ext-dl-spin" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M12 15V3" />
+          </svg>
+        )}
       </button>
       {open ? (
         <div className="cia-ext-dl-menu-pop" role="menu">

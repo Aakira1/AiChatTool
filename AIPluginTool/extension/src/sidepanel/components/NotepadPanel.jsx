@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getNotepad, saveNotepad, subscribeNotepad } from "../../lib/storage.js";
 import { NOTE_TEMPLATES } from "../../lib/noteTemplates.js";
+import { aiComplete } from "../../lib/api.js";
+import { mdToHtml } from "../../lib/markdown.js";
+import { downloadNoteFile, isNoteFile, parseNoteFile } from "../../lib/noteFile.js";
+
+// AI actions available from the Notepad's ✨ AI menu. `mode` decides how the
+// result is applied: replace the note, or append to it.
+const AI_ACTIONS = [
+  { id: "improve", icon: "✨", label: "Improve writing", mode: "replace",
+    prompt: (t) => `Rewrite and improve the following note for clarity, grammar and a professional tone. Keep the meaning and any structure. Return ONLY the rewritten note in clean Markdown, with no preamble.\n\n---\n${t}` },
+  { id: "grammar", icon: "✅", label: "Fix spelling & grammar", mode: "replace",
+    prompt: (t) => `Correct spelling, grammar and punctuation in the following note. Do not change the meaning, tone or wording beyond necessary fixes. Return ONLY the corrected note in Markdown.\n\n---\n${t}` },
+  { id: "shorter", icon: "✂️", label: "Make it shorter", mode: "replace",
+    prompt: (t) => `Make the following note more concise while keeping all key points. Return ONLY the shortened note in Markdown.\n\n---\n${t}` },
+  { id: "longer", icon: "➕", label: "Make it longer", mode: "replace",
+    prompt: (t) => `Expand the following note with more useful detail and elaboration, staying strictly on topic. Return ONLY the expanded note in Markdown.\n\n---\n${t}` },
+  { id: "summary", icon: "📝", label: "Summarise", mode: "append",
+    prompt: (t) => `Summarise the following note as a short "## Summary" section with a few bullet points of the key items. Return ONLY the summary in Markdown.\n\n---\n${t}` },
+  { id: "actions", icon: "☑️", label: "Extract action items", mode: "append",
+    prompt: (t) => `From the following note, extract a concise "## Action Items" checklist using "- [ ] " items for each concrete task. Return ONLY that section in Markdown.\n\n---\n${t}` },
+  { id: "continue", icon: "✍️", label: "Continue writing", mode: "append",
+    prompt: (t) => `Continue writing the following note naturally from where it ends. Return ONLY the new continuation in Markdown — no preamble and do not repeat existing text.\n\n---\n${t}` },
+];
+
 // NOTE: `xlsx` is heavy (~600 kB). It is dynamically imported only when a user
 // actually imports a schedule, so it stays out of the main side-panel bundle.
 
@@ -465,6 +488,15 @@ export function NotepadPanel({ onClose, onGenerate }) {
   const [listMenuOpen, setListMenuOpen] = useState(false);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [inTable, setInTable] = useState(false);
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiPreview, setAiPreview] = useState("");
+  const [aiLabel, setAiLabel] = useState("");
+  const [aiError, setAiError] = useState("");
+  const [askOpen, setAskOpen] = useState(false);
+  const [askText, setAskText] = useState("");
+  const [fileDrag, setFileDrag] = useState(false);
+  const aiAbortRef = useRef(null);
   const [zipping, setZipping] = useState(false);
   const [dragId, setDragId] = useState(null);       // note id being dragged
   const [dropTarget, setDropTarget] = useState(null); // "folder:<id>" | "ungrouped" | "note:<id>"
@@ -554,6 +586,8 @@ export function NotepadPanel({ onClose, onGenerate }) {
   }, [saveNote]);
 
   const handleKeyUp = useCallback((e) => {
+    // Keep the table-tools toolbar in sync as the caret moves with the keyboard.
+    trackCell();
     // Markdown-style list shortcuts: "- " / "* " → bullet list, "1. " → numbered.
     if (e.key === " ") {
       const sel0 = window.getSelection();
@@ -778,6 +812,82 @@ export function NotepadPanel({ onClose, onGenerate }) {
       document.execCommand("insertHTML", false, html);
     }
     saveNote();
+  };
+
+  // ── AI tooling ─────────────────────────────────────────────────────────────
+  const applyAiResult = (mode, full) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const html = mdToHtml(full);
+    if (mode === "replace") {
+      editor.innerHTML = html;
+    } else {
+      const cur = editor.innerHTML.replace(/(?:<p><br\s*\/?><\/p>\s*)+$/i, "");
+      editor.innerHTML = `${cur}<p><br></p>${html}`;
+    }
+    saveNote();
+  };
+
+  const runAi = async (action, customMessage) => {
+    if (aiBusy) return;
+    const text = htmlToPlainText(editorRef.current?.innerHTML ?? "");
+    if (!customMessage && !text.trim()) {
+      setAiError("Write some notes first, then run an AI action.");
+      return;
+    }
+    const message = customMessage
+      ? `${customMessage}\n\nUse the note below as context if relevant.\n\n---\n${text}`
+      : action.prompt(text);
+    setAiMenuOpen(false);
+    setAskOpen(false);
+    setAiError("");
+    setAiBusy(true);
+    setAiPreview("");
+    setAiLabel(action?.label || "Ask AI");
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    try {
+      const full = await aiComplete({
+        message,
+        signal: controller.signal,
+        onToken: (t) => setAiPreview((p) => p + t),
+      });
+      if (full.trim()) applyAiResult(action?.mode || "append", full.trim());
+    } catch (e) {
+      if (e.name !== "AbortError") setAiError(e.message || "AI request failed");
+    } finally {
+      setAiBusy(false);
+      setAiPreview("");
+      aiAbortRef.current = null;
+    }
+  };
+
+  const cancelAi = () => aiAbortRef.current?.abort();
+
+  // ── Note files: import via drag & drop, export to disk ──────────────────────
+  const importNoteFiles = async (fileList) => {
+    const files = [...(fileList ?? [])].filter((f) => isNoteFile(f.name));
+    if (!files.length) return;
+    // Capture the active editor's latest content before adding notes.
+    const liveContent = editorRef.current?.innerHTML;
+    let nextNotes = notesRef.current.map((n) =>
+      n.id === activeId && liveContent != null ? { ...n, content: liveContent, updatedAt: new Date().toISOString() } : n,
+    );
+    let firstId = null;
+    for (const f of files) {
+      const { title, content } = parseNoteFile(f.name, await f.text());
+      const id = `note-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      nextNotes = [...nextNotes, { id, title, content, updatedAt: new Date().toISOString(), fromSchedule: false, folderId: null }];
+      if (!firstId) firstId = id;
+    }
+    setNotes(nextNotes);
+    if (firstId) setActiveId(firstId);
+    writeStore(nextNotes, foldersRef.current);
+  };
+
+  const saveNoteToFile = () => {
+    closeFileMenu();
+    downloadNoteFile(activeNote.title, editorRef.current?.innerHTML ?? activeNote.content ?? "");
   };
 
   const switchNote = (id) => { saveNote(activeId); setActiveId(id); };
@@ -1093,6 +1203,7 @@ export function NotepadPanel({ onClose, onGenerate }) {
               <div className="cia-ext-notepad-file-pop" role="menu">
                 <div className="cia-ext-notepad-file-label">This note</div>
                 <button onClick={() => { saveNote(); closeFileMenu(); }}>💾 Save</button>
+                <button onClick={saveNoteToFile}>🗂 Save to file (drag back in to re-add)</button>
                 <button onClick={() => downloadAs("txt")}>⬇ Download — Plain text (.txt)</button>
                 <button onClick={() => downloadAs("md")}>⬇ Download — Markdown (.md)</button>
                 <button onClick={() => void downloadAs("html")}>⬇ Download — Web page (.html)</button>
@@ -1218,6 +1329,36 @@ export function NotepadPanel({ onClose, onGenerate }) {
           )}
         </div>
         <div className="cia-ext-notepad-sep" />
+        <div className="cia-ext-notepad-listmenu">
+          <button
+            className={`cia-ext-notepad-btn cia-ext-notepad-ai-btn${aiMenuOpen ? " is-active" : ""}`}
+            title="AI writing tools"
+            onClick={() => setAiMenuOpen((v) => !v)}
+            disabled={aiBusy}
+          >
+            ✨ AI ⌄
+          </button>
+          {aiMenuOpen && (
+            <>
+              <div className="cia-ext-notepad-list-backdrop" onClick={() => setAiMenuOpen(false)} />
+              <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
+                <div className="cia-ext-notepad-list-label">AI tools</div>
+                {AI_ACTIONS.map((a) => (
+                  <button key={a.id} className="cia-ext-notepad-tpl-item" onClick={() => void runAi(a)}>
+                    <span className="cia-ext-notepad-tpl-icon">{a.icon}</span>
+                    <span className="cia-ext-notepad-tpl-text"><strong>{a.label}</strong></span>
+                  </button>
+                ))}
+                <div className="cia-ext-notepad-list-label">Custom</div>
+                <button className="cia-ext-notepad-tpl-item" onClick={() => { setAiMenuOpen(false); setAskOpen(true); }}>
+                  <span className="cia-ext-notepad-tpl-icon">💬</span>
+                  <span className="cia-ext-notepad-tpl-text"><strong>Ask AI…</strong></span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="cia-ext-notepad-sep" />
         <button className={`cia-ext-notepad-btn${showShortcodes ? " is-active" : ""}`} title="Shortcodes" onClick={() => setShowShortcodes((v) => !v)}>{"{ }"}</button>
       </div>
 
@@ -1250,10 +1391,56 @@ export function NotepadPanel({ onClose, onGenerate }) {
         </div>
       )}
 
+      {/* AI: custom prompt input */}
+      {askOpen && !aiBusy ? (
+        <div className="cia-ext-notepad-ai-ask">
+          <span className="cia-ext-notepad-ai-ask-icon" aria-hidden="true">✨</span>
+          <input
+            className="cia-ext-notepad-ai-input"
+            autoFocus
+            placeholder="Ask the AI to do something with this note…"
+            value={askText}
+            onChange={(e) => setAskText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && askText.trim()) { void runAi({ id: "ask", label: "Ask AI", mode: "append" }, askText.trim()); setAskText(""); }
+              if (e.key === "Escape") setAskOpen(false);
+            }}
+          />
+          <button
+            className="cia-ext-primary-btn"
+            disabled={!askText.trim()}
+            onClick={() => { void runAi({ id: "ask", label: "Ask AI", mode: "append" }, askText.trim()); setAskText(""); }}
+          >
+            Send
+          </button>
+          <button className="cia-ext-icon-btn" onClick={() => setAskOpen(false)} aria-label="Close">✕</button>
+        </div>
+      ) : null}
+
+      {/* AI: live generation preview */}
+      {aiBusy ? (
+        <div className="cia-ext-notepad-ai-preview">
+          <div className="cia-ext-notepad-ai-preview-head">
+            <span className="cia-ext-notepad-ai-spinner" aria-hidden="true" />
+            <span>✨ {aiLabel}…</span>
+            <button className="cia-ext-notepad-ai-cancel" onClick={cancelAi}>Stop</button>
+          </div>
+          <div className="cia-ext-notepad-ai-preview-body">{aiPreview || "Thinking…"}</div>
+        </div>
+      ) : null}
+
+      {/* AI: error */}
+      {aiError ? (
+        <div className="cia-ext-notepad-ai-error">
+          <span>{aiError}</span>
+          <button onClick={() => setAiError("")} aria-label="Dismiss">✕</button>
+        </div>
+      ) : null}
+
       {/* Editor */}
       <div
         ref={editorRef}
-        className="cia-ext-notepad-editor"
+        className={`cia-ext-notepad-editor${fileDrag ? " is-filedrag" : ""}`}
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
@@ -1261,7 +1448,18 @@ export function NotepadPanel({ onClose, onGenerate }) {
         onKeyDown={handleEditorKeyDown}
         onMouseUp={trackCell}
         onClick={trackCell}
-        data-placeholder="Start typing… use {ts} for timestamp, {status} for tags, or import a schedule above…"
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); setFileDrag(true); }
+        }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setFileDrag(false); }}
+        onDrop={(e) => {
+          if (e.dataTransfer?.files?.length) {
+            e.preventDefault();
+            setFileDrag(false);
+            void importNoteFiles(e.dataTransfer.files);
+          }
+        }}
+        data-placeholder="Start typing… use {ts} for timestamp, drag in a saved .note.html file, or import a schedule above…"
       />
 
       {/* Footer */}

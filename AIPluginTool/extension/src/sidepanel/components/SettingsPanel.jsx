@@ -6,6 +6,7 @@ import {
   listConnectors,
   updateDisplayName,
   changePassword,
+  pingHealth,
 } from "../../lib/api.js";
 import { getSettings, saveSettings, THEMES } from "../../lib/settings.js";
 import { APP_CATALOG } from "../../lib/apps.js";
@@ -14,6 +15,7 @@ import {
   setApiBaseUrl,
   getWorkerAuthToken,
   setWorkerAuthToken,
+  getConnections,
 } from "../../lib/storage.js";
 import { ConnectionsSettings } from "./ConnectionsSettings.jsx";
 
@@ -80,6 +82,7 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, standaloneMode
       </div>
 
       <div className="cia-ext-settings-body">
+        <ConnectionStatus standaloneMode={standaloneMode} />
         <BackendSection standaloneMode={standaloneMode} />
         {!standaloneMode && <AccountSection user={user} onProfileUpdated={onProfileUpdated} />}
 
@@ -187,6 +190,23 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, standaloneMode
         </section>
 
         <section>
+          <h4>Uploaded files (memory)</h4>
+          <label className="cia-ext-options-toggle">
+            <input
+              type="checkbox"
+              checked={settings.rememberUploads !== false}
+              onChange={(event) => updateSetting({ rememberUploads: event.target.checked })}
+            />
+            Remember uploaded files across this chat (RAG)
+          </label>
+          <p className="cia-ext-options-help">
+            When on, files you attach are indexed so the assistant can recall them in later
+            messages of the same conversation. Turn off to use an attachment for a single message
+            only — nothing is stored or retrieved. (Requires the backend RAG index to be enabled.)
+          </p>
+        </section>
+
+        <section>
           <h4>Insights under replies</h4>
           <label className="cia-ext-options-toggle">
             <input
@@ -242,6 +262,90 @@ export function SettingsPanel({ onClose, onOpenFullOptions, user, standaloneMode
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ConnectionStatus({ standaloneMode }) {
+  const [phase, setPhase] = useState("checking"); // checking | online | offline
+  const [host, setHost] = useState("");
+  const [connectors, setConnectors] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const base = await getApiBaseUrl();
+      if (alive) setHost(base.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+      try {
+        const h = await pingHealth();
+        if (alive) setPhase(h?.ok ? "online" : "offline");
+      } catch {
+        if (alive) setPhase("offline");
+      }
+      try {
+        let list = [];
+        if (standaloneMode) {
+          const c = await getConnections();
+          list = [
+            ...(c.agents ?? [])
+              .filter((a) => a.enabled && a.url)
+              .map((a) => ({ id: a.id, label: a.name || "Agent", icon: "🧠" })),
+            ...Object.entries(c.apps ?? {})
+              .filter(([, cfg]) => cfg.siteUrl && cfg.email && cfg.apiToken)
+              .map(([id]) => ({
+                id,
+                label: id.charAt(0).toUpperCase() + id.slice(1),
+                icon: id === "jira" ? "🔷" : id === "confluence" ? "🔶" : "🔗",
+              })),
+          ];
+        } else {
+          const data = await listConnectors();
+          list = (data.connectors ?? [])
+            .filter((c) => c.connected)
+            .map((c) => ({ id: c.id, label: c.label, iconId: c.icon }));
+        }
+        if (alive) setConnectors(list);
+      } catch {
+        /* ignore — connectors are best-effort */
+      }
+    })();
+    return () => { alive = false; };
+  }, [standaloneMode]);
+
+  const label = phase === "online" ? "Connected" : phase === "offline" ? "Can't reach backend" : "Connecting…";
+
+  return (
+    <section className={`cia-ext-connstatus is-${phase}`}>
+      <div className="cia-ext-cs-wirerow">
+        <span className="cia-ext-cs-node cia-ext-cs-node-app" aria-hidden="true">✦</span>
+        <span className="cia-ext-cs-wire" aria-hidden="true"><i /></span>
+        <span className="cia-ext-cs-node cia-ext-cs-node-cloud" aria-hidden="true">☁</span>
+      </div>
+
+      <div className="cia-ext-cs-meta">
+        <span className="cia-ext-cs-badge">
+          <span className="cia-ext-cs-dot" />
+          {label}
+        </span>
+        {host ? <span className="cia-ext-cs-host" title={host}>{host}</span> : null}
+      </div>
+
+      <div className="cia-ext-cs-conns">
+        <span className="cia-ext-cs-conns-label">{standaloneMode ? "Connections" : "Connected apps"}</span>
+        {connectors.length ? (
+          <div className="cia-ext-cs-chips">
+            {connectors.map((c, i) => (
+              <span key={c.id} className="cia-ext-cs-chip" style={{ animationDelay: `${i * 60}ms` }}>
+                {c.iconId ? <ConnectorIcon id={c.iconId} /> : <span aria-hidden="true">{c.icon}</span>}
+                {c.label}
+                <span className="cia-ext-cs-chip-tick" aria-hidden="true">✓</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="cia-ext-cs-none">Nothing connected yet</span>
+        )}
+      </div>
+    </section>
   );
 }
 

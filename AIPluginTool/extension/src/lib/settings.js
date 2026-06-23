@@ -90,6 +90,9 @@ const DEFAULTS = {
   density: "comfortable",
   // App that the on-page floating bubble can quick-launch ("" = none).
   pinnedApp: "",
+  // Remember uploaded files across the chat (RAG). When off, attachments are
+  // used for that one message only and never indexed/retrieved.
+  rememberUploads: true,
   sources: { webSearch: false, companyKnowledge: true },
   connectorSources: [],
   // Page vision (reading/screenshotting the page) is ON by default on all pages.

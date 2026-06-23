@@ -878,6 +878,7 @@ export function SidePanelApp() {
         reasoning,
         sources,
         connectorSources,
+        rag: getSettings().rememberUploads !== false,
         signal: controller.signal,
         onToken: (token) => {
           streamed += token;
