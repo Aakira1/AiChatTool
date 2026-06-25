@@ -1,6 +1,6 @@
 // Ready-made note templates for the Notepad's template generator. Each returns
 // an HTML fragment inserted into the rich-text editor. They are tailored to
-// CiA / P&R transition consulting work but are useful for any project note.
+// Useful, ready-to-fill layouts for any project note.
 //
 // Templates are deliberately "featureful": branded callout banners, colour-coded
 // status/severity pills, KPI strips, meta grids, checklists and legends — so a

@@ -3117,6 +3117,7 @@ body.cia-ext-options-page {
   font-size: 18px;
   color: var(--cia-magenta);
 }
+.cia-ext-home-logo-svg { display: block; flex-shrink: 0; }
 
 .cia-ext-home-brand-name {
   font-size: 14px;

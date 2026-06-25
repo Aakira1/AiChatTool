@@ -50,7 +50,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your CiA Transition Assistant. Ask me anything, or right-click selected text on any page to send it to me.",
+    "Hi! I'm OneChat, your AI assistant. Ask me anything, or right-click selected text on any page to send it to me.",
   metadata: {},
 };
 
@@ -266,7 +266,7 @@ export function SidePanelApp() {
       setConversationId(active.id);
       await loadConversation(active.id);
     } catch (bootError) {
-      console.warn("[CiA] bootstrap failed", bootError);
+      console.warn("[OneChat] bootstrap failed", bootError);
       setError(bootError.message ?? "Could not contact the API. Open the extension options to update the API URL.");
     } finally {
       setAuthLoading(false);
@@ -335,7 +335,7 @@ export function SidePanelApp() {
 
     const handleMessage = (message) => {
       if (message?.type === "CIA_PREFILL_FROM_SELECTION" && message.selection) {
-        const prefill = `From this page (${message.title || message.url || "current tab"}):\n\n"${message.selection}"\n\nPlease analyse this in the CiA context.`;
+        const prefill = `From this page (${message.title || message.url || "current tab"}):\n\n"${message.selection}"\n\nPlease analyse this.`;
         setInput((current) => (current ? current : prefill));
         setIncludeContext(true);
         void refreshPageContext();
@@ -394,7 +394,7 @@ export function SidePanelApp() {
     try {
       await logout();
     } catch (logoutError) {
-      console.warn("[CiA] logout failed", logoutError);
+      console.warn("[OneChat] logout failed", logoutError);
     }
     setUser(null);
     setMessages([WELCOME_MESSAGE]);
@@ -1100,7 +1100,7 @@ export function SidePanelApp() {
   if (authLoading) {
     return (
       <div className="cia-ext-shell">
-        <div className="cia-ext-loading">Connecting to CiA Assistant…</div>
+        <div className="cia-ext-loading">Connecting to OneChat…</div>
       </div>
     );
   }

@@ -32,14 +32,24 @@ function colorAt(x, y, size) {
   return [r, g, b, 255];
 }
 
-function inMonogram(x, y, size) {
-  // Render a simplified white "T1" centered in the icon.
-  const px = (n) => Math.round((n * size) / 32);
-  if (y >= px(8) && y <= px(11) && x >= px(7) && x <= px(17)) return true;
-  if (x >= px(11) && x <= px(13) && y >= px(8) && y <= px(22)) return true;
-  if (x >= px(20) && x <= px(22) && y >= px(8) && y <= px(22)) return true;
-  if (y >= px(21) && y <= px(23) && x >= px(18) && x <= px(24)) return true;
-  if (y >= px(8) && y <= px(11) && x >= px(17) && x <= px(20)) return true;
+function inLogo(x, y, size) {
+  // White "O" ring with a 4-point star in the centre (the OneChat mark).
+  const c = (size - 1) / 2;
+  const dx = x - c;
+  const dy = y - c;
+  const d = Math.hypot(dx, dy);
+
+  // The O ring (annulus).
+  const rOuter = size * 0.40;
+  const rInner = size * 0.30;
+  if (d <= rOuter && d >= rInner) return true;
+
+  // The centre star — an astroid (4 cusps along the axes).
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  const R = size * 0.2;
+  if (Math.pow(ax, 2 / 3) + Math.pow(ay, 2 / 3) <= Math.pow(R, 2 / 3)) return true;
+
   return false;
 }
 
@@ -66,19 +76,21 @@ function buildPixels(size) {
         continue;
       }
 
-      if (inMonogram(x, y, size)) {
-        buf[offset] = 255;
-        buf[offset + 1] = 255;
-        buf[offset + 2] = 255;
+      if (inLogo(x, y, size)) {
+        // Purple → magenta gradient for the O★ mark (matches the floating bubble).
+        const t = (x + y) / (size * 2);
+        buf[offset] = Math.round(124 * (1 - t) + 228 * t);
+        buf[offset + 1] = Math.round(58 * (1 - t) + 0 * t);
+        buf[offset + 2] = Math.round(237 * (1 - t) + 124 * t);
         buf[offset + 3] = 255;
         continue;
       }
 
-      const [r, g, b, a] = colorAt(x, y, size);
-      buf[offset] = r;
-      buf[offset + 1] = g;
-      buf[offset + 2] = b;
-      buf[offset + 3] = a;
+      // White background.
+      buf[offset] = 255;
+      buf[offset + 1] = 255;
+      buf[offset + 2] = 255;
+      buf[offset + 3] = 255;
     }
   }
   return buf;

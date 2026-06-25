@@ -3,7 +3,7 @@ const CONTEXT_MENU_ID = "cia-ask-about-selection";
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: CONTEXT_MENU_ID,
-    title: 'Ask CiA about "%s"',
+    title: 'Ask OneChat about "%s"',
     contexts: ["selection"],
   });
 
@@ -12,7 +12,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel
     ?.setPanelBehavior?.({ openPanelOnActionClick: false })
     .catch((error) => {
-      console.warn("[CiA] sidePanel.setPanelBehavior failed", error);
+      console.warn("[OneChat] sidePanel.setPanelBehavior failed", error);
     });
 });
 
@@ -44,7 +44,7 @@ function openSidePanelWithFallbackHint(tab, reason) {
     // Synchronous call — preserves the gesture token from the action click.
     chrome.sidePanel
       .open({ windowId: tab.windowId })
-      .catch((error) => console.warn("[CiA] sidePanel.open fallback failed", error));
+      .catch((error) => console.warn("[OneChat] sidePanel.open fallback failed", error));
   }
   // Fire-and-forget storage write so the side panel can render its hint banner.
   chrome.storage.local
@@ -87,14 +87,14 @@ function toggleWidget(tab) {
         }, 100);
         chrome.storage.local.remove("sidePanelFallback").catch(() => {});
       } catch (injectError) {
-        console.warn("[CiA] failed to inject floating widget", injectError, sendError);
+        console.warn("[OneChat] failed to inject floating widget", injectError, sendError);
         // Can't open the side panel from here — the gesture token is gone.
         // Surface a notification instead so the user isn't left guessing.
         chrome.notifications
           ?.create?.({
             type: "basic",
             iconUrl: "icons/icon-128.png",
-            title: "CiA Assistant",
+            title: "OneChat",
             message:
               "Couldn't show the floating chat on this page. Try reloading the tab, or open the full web app from the toolbar.",
           })
@@ -144,7 +144,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (windowId != null) {
       chrome.sidePanel
         .open({ windowId })
-        .catch((error) => console.warn("[CiA] sidePanel.open from message failed", error));
+        .catch((error) => console.warn("[OneChat] sidePanel.open from message failed", error));
     }
     sendResponse({ ok: true });
     return false;

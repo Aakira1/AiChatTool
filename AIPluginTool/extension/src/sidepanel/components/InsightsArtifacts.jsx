@@ -4,7 +4,7 @@ import { getSettings, subscribeSettings } from "../../lib/settings.js";
 function summarise(artifacts) {
   if (!artifacts) return "";
   if (artifacts.headline) return artifacts.headline;
-  if (artifacts.comparison) return "CI ↔ CiA comparison";
+  if (artifacts.comparison) return "Comparison";
   return "View details";
 }
 

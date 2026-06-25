@@ -46,7 +46,7 @@ export function LoginScreen({ onLogin, onRegister, healthState }) {
       <p className="cia-ext-login-subtitle">
         {isRegister
           ? "Set up an account to join the forums and chat."
-          : "Connect this extension to your CiA Assistant server."}
+          : "Connect this extension to your OneChat server."}
       </p>
 
       {healthState?.ok === false ? (

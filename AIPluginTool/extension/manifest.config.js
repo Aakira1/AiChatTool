@@ -3,10 +3,10 @@ import pkg from "./package.json" with { type: "json" };
 
 export default defineManifest({
   manifest_version: 3,
-  name: "CiA Transition Assistant",
-  short_name: "CiA Assistant",
+  name: "OneChat",
+  short_name: "OneChat",
   description:
-    "AI-powered Ci \u2192 CiA transition helper. Click the floating bubble or right-click any selection to ask the assistant.",
+    "Your AI assistant in the browser. Click the floating bubble or right-click any selection to ask OneChat.",
   version: pkg.version,
   version_name: `${pkg.version}-dev`,
   icons: {
@@ -16,7 +16,7 @@ export default defineManifest({
     128: "icons/icon-128.png",
   },
   action: {
-    default_title: "Toggle CiA Assistant",
+    default_title: "Toggle OneChat",
     default_icon: {
       16: "icons/icon-16.png",
       32: "icons/icon-32.png",

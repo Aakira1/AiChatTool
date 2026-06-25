@@ -189,7 +189,7 @@ export function OptionsApp() {
             overlay on that page.
           </li>
           <li>
-            <strong>Right-click on selected text</strong> on any page → <em>Ask CiA about "..."</em>{" "}
+            <strong>Right-click on selected text</strong> on any page → <em>Ask OneChat about "..."</em>{" "}
             to send the selection straight to the chat.
           </li>
           <li>

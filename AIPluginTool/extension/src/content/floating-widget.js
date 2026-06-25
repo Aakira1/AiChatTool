@@ -98,22 +98,21 @@ function initFloatingWidget() {
   styles.textContent = SHADOW_CSS;
   root.appendChild(styles);
 
-  // Use the bundled PNG icon (the previous TNE.AX.svg / TNE_icon.svg files were
-  // never shipped, which left a broken image in the bubble and header).
-  const svgUrl = chrome.runtime.getURL("icons/icon-128.png");
-  const svgHoverUrl = chrome.runtime.getURL("icons/icon-128.png");
+  // OneChat mark: an "O" ring with a star in its centre (purple → magenta).
+  const LOGO_SVG = `<svg class="cia-fw-logo-svg" viewBox="0 0 40 40" aria-hidden="true">
+    <defs><linearGradient id="cia-fw-lg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#e4007c"/>
+    </linearGradient></defs>
+    <circle class="cia-fw-ring" cx="20" cy="20" r="13.5" fill="none" stroke="url(#cia-fw-lg)" stroke-width="4"/>
+    <path class="cia-fw-star" d="M20 10.5 L21.8 18.2 L29.5 20 L21.8 21.8 L20 29.5 L18.2 21.8 L10.5 20 L18.2 18.2 Z" fill="url(#cia-fw-lg)"/>
+  </svg>`;
 
   const bubble = document.createElement("button");
   bubble.type = "button";
   bubble.className = "cia-fw-bubble";
-  bubble.title = "Open CiA Assistant";
-  bubble.setAttribute("aria-label", "Open CiA Assistant");
-  const logoUrl = chrome.runtime.getURL("icons/icon-128.png");
-  bubble.innerHTML = `
-    <span class="cia-fw-bubble-glow" aria-hidden="true"></span>
-    <img src="${svgUrl}" class="cia-fw-bubble-mark" aria-hidden="true" alt="" />
-    <img src="${svgHoverUrl}" class="cia-fw-bubble-mark-hover" aria-hidden="true" alt="" />
-  `;
+  bubble.title = "Open OneChat";
+  bubble.setAttribute("aria-label", "Open OneChat");
+  bubble.innerHTML = `<span class="cia-fw-bubble-glow" aria-hidden="true"></span>${LOGO_SVG}`;
   root.appendChild(bubble);
 
   // Optional quick-launch button (pinned app) that floats just above the bubble.
@@ -128,21 +127,20 @@ function initFloatingWidget() {
   const dotsTab = document.createElement("button");
   dotsTab.type = "button";
   dotsTab.className = "cia-fw-dots";
-  dotsTab.title = "Open CiA Assistant";
-  dotsTab.setAttribute("aria-label", "Open CiA Assistant");
+  dotsTab.title = "Open OneChat";
+  dotsTab.setAttribute("aria-label", "Open OneChat");
   dotsTab.innerHTML = `<span></span><span></span><span></span>`;
   root.appendChild(dotsTab);
 
   const panel = document.createElement("section");
   panel.className = "cia-fw-panel";
   panel.setAttribute("role", "dialog");
-  panel.setAttribute("aria-label", "CiA Assistant");
+  panel.setAttribute("aria-label", "OneChat");
   panel.innerHTML = `
     <header class="cia-fw-header" data-drag-handle>
-      <div class="cia-fw-handle-grip" aria-hidden="true"></div>
       <div class="cia-fw-title">
-        <img src="${svgUrl}" class="cia-fw-logo" aria-hidden="true" alt="" />
-        <span class="cia-fw-brand-name"><span class="cia-fw-brand-one">One</span>Chat</span>
+        ${LOGO_SVG}
+        <span class="cia-fw-brand-name">OneChat</span>
       </div>
       <div class="cia-fw-actions">
         <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture visible page (screenshot + text)" aria-label="Capture visible page">👁</button>
@@ -152,7 +150,7 @@ function initFloatingWidget() {
         <button type="button" class="cia-fw-icon-btn" data-action="close" title="Close">×</button>
       </div>
     </header>
-    <iframe class="cia-fw-iframe" src="about:blank" title="CiA Assistant" loading="lazy"></iframe>
+    <iframe class="cia-fw-iframe" src="about:blank" title="OneChat" loading="lazy"></iframe>
     <div class="cia-fw-resizer" aria-hidden="true"></div>
   `;
   root.appendChild(panel);
@@ -249,8 +247,15 @@ function initFloatingWidget() {
     dotsTab.style.top = `${y}px`;
     dotsTab.style.left = side === "left" ? "0px" : "auto";
     dotsTab.style.right = side === "right" ? "0px" : "auto";
-    bubble.classList.add("is-docked"); // fades the full bubble out
-    dotsTab.classList.add("is-shown"); // shows the 3-dot edge tab
+    bubble.dataset.dock = side;
+    bubble.classList.add("is-docked"); // zips the bubble toward the edge
+    // Reveal the 3-dot tab once the bubble has zipped away.
+    setTimeout(() => {
+      const s2 = widget.getState();
+      if (!s2.open && s2.visible && !s2.externalPanelOpen && bubble.classList.contains("is-docked")) {
+        dotsTab.classList.add("is-shown");
+      }
+    }, 260);
   };
   const resetIdle = () => {
     bubble.classList.remove("is-docked");
@@ -666,15 +671,31 @@ const SHADOW_CSS = `
     transition: transform 200ms cubic-bezier(.4,1.4,.6,1), box-shadow 200ms ease, background 200ms ease, opacity 200ms ease;
     pointer-events: auto;
     z-index: 2;
+    /* Idle: a gentle breathing glow + bob while it's just sitting there. */
+    animation: cia-fw-idle 4s ease-in-out infinite;
+  }
+
+  @keyframes cia-fw-idle {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+      box-shadow: 0 10px 26px rgba(26, 11, 46, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+    50% {
+      transform: translateY(-3px) scale(1.015);
+      box-shadow: 0 14px 30px rgba(124, 58, 237, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.62);
+    }
   }
 
   .cia-fw-bubble:hover {
+    animation: none;
     background: rgba(255, 255, 255, 0.28);
     transform: translateY(-3px) scale(1.06);
     box-shadow:
       0 16px 34px rgba(26, 11, 46, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
+  .cia-fw-bubble:active { animation: none; }
+  .cia-fw-bubble.is-dragging { animation: none; }
 
   .cia-fw-bubble:active {
     transform: translateY(-1px) scale(0.97);
@@ -690,17 +711,35 @@ const SHADOW_CSS = `
   }
 
   .cia-fw-bubble.is-hidden {
+    animation: none;
     opacity: 0;
     transform: translateY(8px) scale(0.6);
     pointer-events: none;
   }
 
-  /* Idle: the full bubble fades away and a small 3-dot tab takes its place on
-     the page edge (see .cia-fw-dots). Hover/click restores the bubble. */
+  @media (prefers-reduced-motion: reduce) {
+    .cia-fw-bubble { animation: none; }
+    .cia-fw-bubble.is-docked { animation: none; opacity: 0; transform: scale(0.5); }
+  }
+
+  /* Collapsing: the bubble winds up, then zips toward the page edge and shrinks
+     into the 3-dot tab. Hover/click on the tab restores it. */
   .cia-fw-bubble.is-docked {
-    opacity: 0;
-    transform: scale(0.5);
     pointer-events: none;
+    animation: cia-fw-zip-r 0.42s cubic-bezier(.5, -0.4, .7, 1) forwards;
+  }
+  .cia-fw-bubble.is-docked[data-dock="left"] {
+    animation-name: cia-fw-zip-l;
+  }
+  @keyframes cia-fw-zip-r {
+    0% { transform: translateX(0) scale(1); opacity: 1; }
+    22% { transform: translateX(-6px) scale(1.1); opacity: 1; }
+    100% { transform: translateX(42px) scale(0.32); opacity: 0; }
+  }
+  @keyframes cia-fw-zip-l {
+    0% { transform: translateX(0) scale(1); opacity: 1; }
+    22% { transform: translateX(6px) scale(1.1); opacity: 1; }
+    100% { transform: translateX(-42px) scale(0.32); opacity: 0; }
   }
 
   .cia-fw-dots {
@@ -933,15 +972,47 @@ const SHADOW_CSS = `
 
   .cia-fw-brand-name {
     font-size: 15px;
-    font-weight: 700;
-    color: #1f1235;
+    font-weight: 800;
+    color: #7c3aed;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .cia-fw-brand-one {
-    color: #f9bd1c;
+  /* O-with-star logo */
+  .cia-fw-title .cia-fw-logo-svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .cia-fw-bubble .cia-fw-logo-svg { width: 28px; height: 28px; position: relative; z-index: 1; }
+
+  /* Animated logo: twinkling star + gently pulsing ring */
+  .cia-fw-star {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cia-fw-twinkle 2.6s ease-in-out infinite;
+  }
+  .cia-fw-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cia-fw-ringpulse 2.6s ease-in-out infinite;
+  }
+  /* On bubble hover the star gives a quick spin */
+  .cia-fw-bubble:hover .cia-fw-star { animation: cia-fw-starspin 0.8s cubic-bezier(.4,1.4,.6,1); }
+
+  @keyframes cia-fw-twinkle {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    45% { transform: scale(1.22) rotate(16deg); opacity: 0.8; }
+    70% { transform: scale(0.94) rotate(6deg); opacity: 1; }
+  }
+  @keyframes cia-fw-ringpulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.07); opacity: 1; }
+  }
+  @keyframes cia-fw-starspin {
+    from { transform: scale(1) rotate(0deg); }
+    to { transform: scale(1) rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cia-fw-star, .cia-fw-ring { animation: none; }
   }
 
   .cia-fw-brand-sub {
@@ -1050,8 +1121,8 @@ const SHADOW_CSS = `
 if (window.top === window && !document.getElementById(HOST_ID)) {
   try {
     initFloatingWidget();
-    console.info("[CiA] floating widget injected on", location.href);
+    console.info("[OneChat] floating widget injected on", location.href);
   } catch (error) {
-    console.warn("[CiA] floating widget failed to init", error);
+    console.warn("[OneChat] floating widget failed to init", error);
   }
 }

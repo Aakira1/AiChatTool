@@ -295,14 +295,8 @@ function parseBookingsSheet(workbook, XLSX) {
   for (let r = headerRow + 1; r < rows.length; r++) {
     const row = rows[r];
     const project = String(row[projectCol] ?? "").trim();
+    // Import every real project row; skip blanks and "unbooked days" filler.
     if (!project || project.toLowerCase() === "unbooked days") continue;
-
-    // Keep councils, plus any CiA Live Migration project (Stage 1A/1B/2/3/4).
-    const isCouncil = /council/i.test(project);
-    const isMigration =
-      /cia\s*live\s*migration/i.test(project) &&
-      /\b(stage\s*)?(1a|1b|2|3|4)\b/i.test(project);
-    if (!isCouncil && !isMigration) continue;
 
     const code   = String(row[codeCol] ?? "").trim();
     const pm     = String(row[pmCol] ?? "").trim();
@@ -439,7 +433,7 @@ function ScheduleUploader({ onScheduleLoaded }) {
         const wb = XLSX.read(data, { type: "array" });
         const councils = parseBookingsSheet(wb, XLSX);
         if (councils.length === 0) {
-          setError("No council or CiA Live Migration projects found in this schedule.");
+          setError("No projects with bookings found in this schedule.");
         } else {
           onScheduleLoaded(councils);
         }
@@ -455,8 +449,8 @@ function ScheduleUploader({ onScheduleLoaded }) {
   return (
     <div className="cia-ext-notepad-upload-section">
       <div className="cia-ext-notepad-upload-label">
-        📅 Import consultant schedule
-        <span className="cia-ext-notepad-upload-hint">Council projects auto-create tabs</span>
+        📅 Import a schedule
+        <span className="cia-ext-notepad-upload-hint">Projects auto-create tabs</span>
       </div>
       <div
         className={`cia-ext-notepad-dropzone${dragging ? " is-dragging" : ""}`}
@@ -1133,7 +1127,7 @@ export function NotepadPanel({ onClose, onGenerate }) {
           ...nextNotes,
           {
             id: existingId,
-            title: shortCouncilName(c.project),
+            title: shortProjectName(c.project),
             content: buildCouncilContent(c),
             updatedAt: new Date().toISOString(),
             fromSchedule: true,
@@ -1309,7 +1303,7 @@ export function NotepadPanel({ onClose, onGenerate }) {
         <button
           className={`cia-ext-notepad-upload-toggle${showUpload ? " is-active" : ""}`}
           onClick={() => setShowUpload((v) => !v)}
-          title="Import consultant schedule"
+          title="Import a schedule"
         >
           📅 Schedule
         </button>
@@ -1603,11 +1597,8 @@ export function NotepadPanel({ onClose, onGenerate }) {
   );
 }
 
-function shortCouncilName(project) {
-  // Strip the leading state code (VIC_/NSW_/NZ_) and the "CiA Live …" suffix so
-  // both councils and other orgs (e.g. water corps) get a clean tab name.
-  let name = project.replace(/^[A-Za-z]{2,3}_/, "");
-  name = name.replace(/\s*[-–]?\s*CiA\s*Live.*$/i, "");
-  name = name.trim();
+function shortProjectName(project) {
+  // Strip a leading region/state code prefix (e.g. "VIC_") for a clean tab name.
+  const name = project.replace(/^[A-Za-z]{2,3}_/, "").trim();
   return name || project.slice(0, 30);
 }

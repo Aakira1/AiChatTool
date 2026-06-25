@@ -128,7 +128,10 @@ export function HomeScreen({ user, healthState, threads = [], apps = [], onSelec
       {/* Hero */}
       <div className="cia-ext-home-hero">
         <div className="cia-ext-home-brand">
-          <span className="cia-ext-home-logo">✦</span>
+          <svg className="cia-ext-home-logo-svg" viewBox="0 0 40 40" width="20" height="20" aria-hidden="true">
+            <circle cx="20" cy="20" r="13.5" fill="none" stroke="#fff" strokeWidth="4" />
+            <path d="M20 10.5 L21.8 18.2 L29.5 20 L21.8 21.8 L20 29.5 L18.2 21.8 L10.5 20 L18.2 18.2 Z" fill="#fff" />
+          </svg>
           <span className="cia-ext-home-brand-name">OneChat</span>
         </div>
         <div className="cia-ext-home-greeting">{timeGreeting()}{name ? `, ${name}` : ""}</div>

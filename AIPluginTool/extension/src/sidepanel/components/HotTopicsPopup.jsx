@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 
 export const HOT_TOPICS = [
-  { label: "Map Ci → CiA", text: "Map this Ci term to CiA and explain differences:", icon: "🔁" },
-  { label: "Similar cases", text: "Find similar CI/CIA cases for:", icon: "🔍" },
-  { label: "Compare metrics", text: "Compare CI vs CiA open cases and search reliability.", icon: "📊" },
-  { label: "Summarize page", text: "Summarize this page for a CiA transition context.", icon: "📝" },
+  { label: "Summarize page", text: "Summarize this page concisely:", icon: "📝" },
+  { label: "Explain this", text: "Explain this clearly and simply:", icon: "💡" },
+  { label: "Improve writing", text: "Improve the writing of the following text:", icon: "✨" },
+  { label: "Action items", text: "Extract the key action items from this:", icon: "☑️" },
 ];
 
 export function HotTopicsPopup({ onSelect, onClose }) {
