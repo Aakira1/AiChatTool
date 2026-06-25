@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getConnections, getStored, setStored } from "../lib/storage.js";
 import { getSettings } from "../lib/settings.js";
+import { getAiProviders, providerMeta } from "../lib/aiProviders.js";
 
 const QA_KEY = "quickActionIds"; // which apps are pinned to Quick actions
 const GS_KEY = "gettingStartedDismissed";
@@ -67,23 +68,30 @@ export function HomeScreen({ user, healthState, threads = [], apps = [], onSelec
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    getConnections()
-      .then((c) => {
-        const agents = (c.agents ?? []).map((a) => ({
-          id: a.id,
+    let alive = true;
+    const load = async () => {
+      const [c, ai] = await Promise.all([getConnections().catch(() => ({})), getAiProviders().catch(() => ({ providers: [], activeIds: [] }))]);
+      // AI providers the user configured (On when active + ready).
+      const aiConns = (ai.providers ?? [])
+        .filter((p) => p.apiKey && p.model)
+        .map((p) => ({
+          id: p.id,
           icon: "🧠",
-          label: a.name || "Unnamed agent",
-          connected: a.enabled && Boolean(a.url),
+          label: `${providerMeta(p.type).label} · ${p.model}`,
+          connected: (ai.activeIds ?? []).includes(p.id),
         }));
-        const appConns = Object.entries(c.apps ?? {}).map(([id, cfg]) => ({
-          id,
-          icon: id === "jira" ? "🔷" : id === "confluence" ? "🔶" : "🔗",
-          label: id.charAt(0).toUpperCase() + id.slice(1),
-          connected: Boolean(cfg.siteUrl && cfg.email && cfg.apiToken),
-        }));
-        setConnectors([...agents, ...appConns]);
-      })
-      .catch(() => {});
+      const appConns = Object.entries(c.apps ?? {}).map(([id, cfg]) => ({
+        id,
+        icon: id === "jira" ? "🔷" : id === "confluence" ? "🔶" : "🔗",
+        label: id.charAt(0).toUpperCase() + id.slice(1),
+        connected: Boolean(cfg.siteUrl && cfg.email && cfg.apiToken),
+      }));
+      if (alive) setConnectors([...aiConns, ...appConns]);
+    };
+    load();
+    const handler = (changes, area) => { if (area === "local" && (changes.aiProviders || changes.connections)) load(); };
+    chrome.storage?.onChanged?.addListener?.(handler);
+    return () => { alive = false; chrome.storage?.onChanged?.removeListener?.(handler); };
   }, []);
 
   // Load the pinned set once; default to every app the first time.

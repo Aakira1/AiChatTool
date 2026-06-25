@@ -84,6 +84,9 @@ export const MessageList = forwardRef(function MessageList(
           <div className="cia-ext-bubble">
             {message.role === "assistant" ? (
               <>
+                {message.metadata?.via ? (
+                  <div className="cia-ext-msg-via">🧠 {message.metadata.via}</div>
+                ) : null}
                 {message.content ? (
                   <AssistantContent
                     content={message.content}

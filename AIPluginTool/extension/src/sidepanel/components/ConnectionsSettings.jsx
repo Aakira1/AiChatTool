@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getConnections, setConnections } from "../../lib/storage.js";
+import { getAiProviders, setAiProviders, PROVIDER_TYPES, providerMeta } from "../../lib/aiProviders.js";
 
 // App connectors available in standalone mode (Basic Auth — credentials stored locally).
 const APP_CONNECTORS = [
@@ -17,32 +18,53 @@ const APP_CONNECTORS = [
   },
 ];
 
-function blankAgent() {
-  return { id: `agent-${Date.now()}`, name: "", url: "", enabled: true };
+function blankProvider(type = "openai") {
+  const m = providerMeta(type);
+  return { id: `ai-${Date.now()}`, type, label: m.label, apiKey: "", baseUrl: m.defaultBase, model: m.defaultModel, enabled: true };
 }
 
 export function ConnectionsSettings() {
   const [conn, setConn] = useState(null);
+  const [ai, setAi] = useState(null); // { providers, activeId }
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     getConnections().then(setConn);
+    getAiProviders().then(setAi);
   }, []);
 
-  const persist = (next) => {
-    setConn(next);
-    void setConnections(next);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 1500); };
+
+  const persist = (next) => { setConn(next); void setConnections(next); flash(); };
+  const persistAi = (next) => { setAi(next); void setAiProviders(next); flash(); };
+
+  if (!conn || !ai) return <p className="cia-ext-options-help">Loading…</p>;
+
+  // ── AI providers ─────────────────────────────────────────────────────────────
+  const addProvider = () => {
+    const p = blankProvider();
+    // Newly added providers are active by default (the chat can use several).
+    persistAi({ providers: [...ai.providers, p], activeIds: [...ai.activeIds, p.id] });
   };
-
-  if (!conn) return <p className="cia-ext-options-help">Loading…</p>;
-
-  // ── AI agents ──────────────────────────────────────────────────────────────
-  const addAgent = () => persist({ ...conn, agents: [...conn.agents, blankAgent()] });
-  const updateAgent = (id, patch) =>
-    persist({ ...conn, agents: conn.agents.map((a) => (a.id === id ? { ...a, ...patch } : a)) });
-  const removeAgent = (id) => persist({ ...conn, agents: conn.agents.filter((a) => a.id !== id) });
+  const updateProvider = (id, patch) => {
+    const providers = ai.providers.map((p) => {
+      if (p.id !== id) return p;
+      const next = { ...p, ...patch };
+      // Reset base/model defaults when the type changes.
+      if (patch.type && patch.type !== p.type) {
+        const m = providerMeta(patch.type);
+        next.baseUrl = m.defaultBase;
+        next.model = m.defaultModel;
+        if (!p.label || p.label === providerMeta(p.type).label) next.label = m.label;
+      }
+      return next;
+    });
+    persistAi({ ...ai, providers });
+  };
+  const removeProvider = (id) =>
+    persistAi({ providers: ai.providers.filter((p) => p.id !== id), activeIds: ai.activeIds.filter((x) => x !== id) });
+  const toggleActive = (id) =>
+    persistAi({ ...ai, activeIds: ai.activeIds.includes(id) ? ai.activeIds.filter((x) => x !== id) : [...ai.activeIds, id] });
 
   // ── App connectors ─────────────────────────────────────────────────────────
   const updateApp = (id, patch) =>
@@ -50,57 +72,33 @@ export function ConnectionsSettings() {
 
   return (
     <div className="cia-ext-conn">
-      {/* AI Agents */}
+      {/* AI Providers */}
       <section className="cia-ext-conn-section">
         <div className="cia-ext-conn-head">
-          <h4>🤖 AI Agents</h4>
-          <button type="button" className="cia-ext-secondary-btn cia-ext-conn-add" onClick={addAgent}>
-            + Add agent
+          <h4>🤖 AI Providers</h4>
+          <button type="button" className="cia-ext-secondary-btn cia-ext-conn-add" onClick={addProvider}>
+            + Add provider
           </button>
         </div>
         <p className="cia-ext-options-help">
-          Connect Microsoft Copilot or other agents by name and endpoint. Add as many as you need.
+          Bring your own AI — add an OpenAI-compatible, Anthropic (Claude) or Google Gemini key.
+          Mark <strong>several active</strong> to have the chat answer with all of them at once. Keys
+          are stored locally in this browser.
         </p>
 
-        {conn.agents.length === 0 ? (
-          <div className="cia-ext-conn-empty">No agents yet — add a Copilot agent to get started.</div>
+        {ai.providers.length === 0 ? (
+          <div className="cia-ext-conn-empty">No providers yet — add one to use your own AI (otherwise the built-in model is used).</div>
         ) : (
           <div className="cia-ext-conn-list">
-            {conn.agents.map((agent) => (
-              <div key={agent.id} className="cia-ext-conn-card">
-                <div className="cia-ext-conn-card-top">
-                  <span className="cia-ext-conn-card-icon">🧠</span>
-                  <input
-                    className="cia-ext-conn-name-input"
-                    value={agent.name}
-                    placeholder="Agent name (e.g. M365 Copilot)"
-                    onChange={(e) => updateAgent(agent.id, { name: e.target.value })}
-                  />
-                  <label className="cia-ext-conn-switch" title="Enable / disable">
-                    <input
-                      type="checkbox"
-                      checked={agent.enabled}
-                      onChange={(e) => updateAgent(agent.id, { enabled: e.target.checked })}
-                    />
-                    <span className="cia-ext-conn-switch-track" />
-                  </label>
-                  <button
-                    type="button"
-                    className="cia-ext-conn-remove"
-                    onClick={() => removeAgent(agent.id)}
-                    title="Remove agent"
-                  >
-                    ×
-                  </button>
-                </div>
-                <input
-                  className="cia-ext-conn-url-input"
-                  value={agent.url}
-                  placeholder="Endpoint URL (e.g. https://…/copilot/agent)"
-                  autoComplete="off"
-                  onChange={(e) => updateAgent(agent.id, { url: e.target.value })}
-                />
-              </div>
+            {ai.providers.map((p) => (
+              <ProviderCard
+                key={p.id}
+                provider={p}
+                active={ai.activeIds.includes(p.id)}
+                onChange={(patch) => updateProvider(p.id, patch)}
+                onRemove={() => removeProvider(p.id)}
+                onActivate={() => toggleActive(p.id)}
+              />
             ))}
           </div>
         )}
@@ -133,6 +131,84 @@ export function ConnectionsSettings() {
       </section>
 
       {saved ? <p className="cia-ext-conn-saved">Saved ✓</p> : null}
+    </div>
+  );
+}
+
+function ProviderCard({ provider, active, onChange, onRemove, onActivate }) {
+  const [showKey, setShowKey] = useState(false);
+  const meta = providerMeta(provider.type);
+  const ready = Boolean(provider.apiKey && provider.model);
+
+  return (
+    <div className={`cia-ext-conn-card${active ? " is-configured" : ""}`}>
+      <div className="cia-ext-conn-card-top">
+        <span className="cia-ext-conn-card-icon">🧠</span>
+        <select
+          className="cia-ext-conn-name-input"
+          value={provider.type}
+          onChange={(e) => onChange({ type: e.target.value })}
+          title="Provider type"
+        >
+          {PROVIDER_TYPES.map((t) => (
+            <option key={t.type} value={t.type}>{t.label}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className={`cia-ext-conn-pill${active ? " is-on" : ""}`}
+          onClick={onActivate}
+          title={active ? "Active — used for AI" : "Use this provider"}
+        >
+          {active ? "✓ Active" : "Use"}
+        </button>
+        <button type="button" className="cia-ext-conn-remove" onClick={onRemove} title="Remove">×</button>
+      </div>
+
+      <div className="cia-ext-conn-fields">
+        <label className="cia-ext-field">
+          <span>API key</span>
+          <div className="cia-ext-account-row">
+            <input
+              type={showKey ? "text" : "password"}
+              value={provider.apiKey ?? ""}
+              placeholder="Paste your API key"
+              autoComplete="off"
+              onChange={(e) => onChange({ apiKey: e.target.value })}
+            />
+            <button type="button" className="cia-ext-secondary-btn" onClick={() => setShowKey((v) => !v)}>
+              {showKey ? "Hide" : "Show"}
+            </button>
+          </div>
+        </label>
+
+        <label className="cia-ext-field">
+          <span>Model</span>
+          <input
+            value={provider.model ?? ""}
+            placeholder={meta.defaultModel}
+            autoComplete="off"
+            onChange={(e) => onChange({ model: e.target.value })}
+          />
+        </label>
+
+        {meta.needsBase ? (
+          <label className="cia-ext-field">
+            <span>Base URL</span>
+            <input
+              value={provider.baseUrl ?? ""}
+              placeholder={meta.defaultBase}
+              autoComplete="off"
+              onChange={(e) => onChange({ baseUrl: e.target.value })}
+            />
+          </label>
+        ) : null}
+
+        <p className="cia-ext-options-help">
+          {meta.keyHint}
+          {!ready ? " — add a key and model, then click “Use”." : ""}
+        </p>
+      </div>
     </div>
   );
 }

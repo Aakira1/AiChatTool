@@ -43,6 +43,7 @@ import { GoLivePanel } from "./components/GoLivePanel.jsx";
 import { NotepadPanel } from "./components/NotepadPanel.jsx";
 import { AppLauncher, LayersIcon } from "./components/AppLauncher.jsx";
 import { APP_CATALOG, computeAppBadges } from "../lib/apps.js";
+import { getAiProviders, streamLlm, ASSISTANT_SYSTEM, providerMeta } from "../lib/aiProviders.js";
 import { HomeScreen } from "./HomeScreen.jsx";
 
 const WELCOME_MESSAGE = {
@@ -89,6 +90,8 @@ export function SidePanelApp() {
   const [appBadges, setAppBadges] = useState({});
   const [forumDraft, setForumDraft] = useState(null);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
+  const [chatModel, setChatModel] = useState(() => getSettings().chatModel ?? "");
+  const [aiData, setAiData] = useState({ providers: [], activeIds: [] });
   const [reasoning, setReasoning] = useState(() => getSettings().reasoning ?? "auto");
   const [sources, setSources] = useState(() => getSettings().sources ?? { webSearch: false, companyKnowledge: true });
   const [connectorSources, setConnectorSources] = useState(() => getSettings().connectorSources ?? []);
@@ -104,6 +107,27 @@ export function SidePanelApp() {
   latestMessagesRef.current = messages;
 
   const handleProviderChange = (value) => { setProvider(value); saveSettings({ provider: value }); };
+  const handleChatModelChange = (value) => { setChatModel(value); saveSettings({ chatModel: value }); };
+
+  // Resolve the chat model selection into the actual provider list to use.
+  const resolveChatProviders = (sel, data) => {
+    const ready = (data.providers ?? []).filter((p) => p.enabled !== false && p.apiKey && p.model);
+    if (!sel || sel === "server") return []; // built-in
+    if (sel === "all") return ready.filter((p) => data.activeIds.includes(p.id));
+    const p = ready.find((x) => x.id === sel);
+    return p ? [p] : [];
+  };
+  const chatProviders = resolveChatProviders(chatModel, aiData);
+
+  // Keep the configured-provider list live (Settings edits update the picker/indicator).
+  useEffect(() => {
+    let alive = true;
+    const load = () => getAiProviders().then((d) => { if (alive) setAiData(d); }).catch(() => {});
+    load();
+    const handler = (changes, area) => { if (area === "local" && changes.aiProviders) load(); };
+    chrome.storage?.onChanged?.addListener?.(handler);
+    return () => { alive = false; chrome.storage?.onChanged?.removeListener?.(handler); };
+  }, []);
   const handleReasoningChange = (value) => { setReasoning(value); saveSettings({ reasoning: value }); };
   const handleSourcesChange = (value) => { setSources(value); saveSettings({ sources: value }); };
   const handleConnectorSourcesChange = (value) => { setConnectorSources(value); saveSettings({ connectorSources: value }); };
@@ -503,6 +527,32 @@ export function SidePanelApp() {
 
     let streamed = "";
     try {
+      // Regenerate with the picked model (first of the active set when "all").
+      const aiProvider = resolveChatProviders(getSettings().chatModel, await getAiProviders())[0];
+      if (aiProvider) {
+        const prior = messages
+          .filter((m) => m.id !== "welcome" && m.id !== lastAssistant.id && m.role && m.content)
+          .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content) }));
+        await streamLlm({
+          provider: aiProvider,
+          messages: [{ role: "system", content: ASSISTANT_SYSTEM }, ...prior],
+          signal: controller.signal,
+          onToken: (token) => {
+            streamed += token;
+            setMessages((cur) => cur.map((m) => (m.id === assistantId ? { ...m, content: streamed, metadata: { ...m.metadata, via: `${providerMeta(aiProvider.type).label} · ${aiProvider.model}` } } : m)));
+          },
+        });
+        if (standaloneMode) {
+          const { saveLocalThread } = await import("../lib/storage.js");
+          const cur = latestMessagesRef.current.filter((m) => m.id !== "welcome");
+          const firstUser = cur.find((m) => m.role === "user");
+          const title = (firstUser?.content || "New chat").replace(/\s+/g, " ").trim().slice(0, 40);
+          await saveLocalThread({ id: conversationId, title, messages: cur, updatedAt: new Date().toISOString() });
+          await loadThreads();
+        }
+        return;
+      }
+
       await regenerateChat({
         conversationId,
         history: regenHistory,
@@ -833,6 +883,67 @@ export function SidePanelApp() {
 
     let streamed = "";
     try {
+      // Bring-your-own AI provider path: the composer model picker decides whether
+      // to use the built-in model, one provider, or all active ones (fan out).
+      const aiProviders = resolveChatProviders(getSettings().chatModel, await getAiProviders());
+      if (aiProviders.length) {
+        let userContent = content || "(see attached)";
+        const textAtt = sendAttachments.filter((a) => a.kind !== "image" && a.content && !a.encoding);
+        if (textAtt.length) {
+          userContent += `\n\n${textAtt.map((a) => `### Attached file: ${a.name}\n${String(a.content).slice(0, 24_000)}`).join("\n\n")}`;
+        }
+        const otherAtt = sendAttachments.filter((a) => a.kind === "image" || a.encoding === "base64");
+        if (otherAtt.length) userContent += `\n\n[Attached: ${otherAtt.map((a) => a.name).join(", ")}]`;
+        if (isPageVisionAllowed() && includeContext && pageContext?.text) {
+          userContent += `\n\n[Page context — ${pageContext.title || pageContext.url || "current tab"}]\n${String(pageContext.text).slice(0, 4000)}`;
+        }
+        const prior = messages
+          .filter((m) => m.id !== "welcome" && m.role && m.content)
+          .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content) }));
+        const llmMessages = [{ role: "system", content: ASSISTANT_SYSTEM }, ...prior, { role: "user", content: userContent }];
+        const viaOf = (p) => `${providerMeta(p.type).label} · ${p.model}`;
+
+        // First provider reuses the optimistic assistant bubble; add one bubble per extra provider.
+        const ids = [assistantId, ...aiProviders.slice(1).map(() => localId("local-assistant"))];
+        setMessages((cur) => {
+          const idx = cur.findIndex((m) => m.id === assistantId);
+          const next = cur.map((m) => (m.id === assistantId ? { ...m, metadata: { ...m.metadata, via: viaOf(aiProviders[0]) } } : m));
+          const extras = aiProviders.slice(1).map((p, i) => ({ id: ids[i + 1], role: "assistant", content: "", metadata: { via: viaOf(p) } }));
+          if (extras.length) next.splice(idx + 1, 0, ...extras);
+          return next;
+        });
+
+        await Promise.all(
+          aiProviders.map((p, i) => {
+            let acc = "";
+            return streamLlm({
+              provider: p,
+              messages: llmMessages,
+              signal: controller.signal,
+              onToken: (token) => {
+                acc += token;
+                setMessages((cur) => cur.map((m) => (m.id === ids[i] ? { ...m, content: acc } : m)));
+              },
+            }).catch((e) => {
+              if (e.name !== "AbortError") {
+                setMessages((cur) => cur.map((m) => (m.id === ids[i] ? { ...m, content: `⚠️ ${viaOf(p)} failed: ${e.message}` } : m)));
+              }
+            });
+          }),
+        );
+
+        handleClearScreenshot();
+        if (standaloneMode) {
+          const { saveLocalThread } = await import("../lib/storage.js");
+          const cur = latestMessagesRef.current.filter((m) => m.id !== "welcome");
+          const firstUser = cur.find((m) => m.role === "user");
+          const title = (firstUser?.content || "New chat").replace(/\s+/g, " ").trim().slice(0, 40);
+          await saveLocalThread({ id: activeId, title, messages: cur, updatedAt: new Date().toISOString() });
+          await loadThreads();
+        }
+        return;
+      }
+
       // Privacy mode: send no page context at all.
       const rawCtx = !isPageVisionAllowed()
         ? null
@@ -1008,6 +1119,9 @@ export function SidePanelApp() {
       <TopBar
         healthState={healthState}
         user={user}
+        onClose={() => setView("home")}
+        onOpenAi={() => setView("settings")}
+        aiModels={chatProviders.map((p) => ({ name: providerMeta(p.type).label, model: p.model }))}
         apps={[
           { label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) },
           { label: "Go-Live", icon: "🚀", onClick: () => setShowGoLive(true) },
@@ -1023,10 +1137,6 @@ export function SidePanelApp() {
         onNew={handleNewThread}
         onBulkDelete={handleBulkDeleteThreads}
       />
-
-      {fallbackHint ? (
-        <FallbackBanner hint={fallbackHint} onDismiss={() => setFallbackHint(null)} />
-      ) : null}
 
       {error ? <Banner tone="error" message={error} onDismiss={() => setError("")} /> : null}
 
@@ -1047,8 +1157,9 @@ export function SidePanelApp() {
         onConnectorSourcesChange={handleConnectorSourcesChange}
         reasoning={reasoning}
         onReasoningChange={handleReasoningChange}
-        provider={provider}
-        onProviderChange={handleProviderChange}
+        chatModel={chatModel}
+        onChatModelChange={handleChatModelChange}
+        providersData={aiData}
         onTopicSelect={(text) => {
           const prefix = includeContext && pageContext?.selection ? `${text} ${pageContext.selection}` : text;
           setInput(prefix);
@@ -1091,7 +1202,7 @@ export function SidePanelApp() {
   }));
 
   return (
-    <div className="cia-ext-shell cia-ext-with-nav">
+    <div className="cia-ext-shell">
       {/* Views */}
       {view === "home" && (
         <HomeScreen
@@ -1110,7 +1221,12 @@ export function SidePanelApp() {
 
       {view === "apps" && (
         <div className="cia-ext-apps-view">
-          <AppLauncher apps={launcherApps} />
+          <AppLauncher
+            apps={[
+              { id: "home", icon: "🏠", label: "Home", desc: "Dashboard", accent: "#7c3aed", onClick: () => setView("home") },
+              ...launcherApps,
+            ]}
+          />
         </div>
       )}
 
@@ -1152,51 +1268,20 @@ export function SidePanelApp() {
 
       {showGoLive ? <GoLivePanel onClose={() => setShowGoLive(false)} /> : null}
 
-      {/* Bottom navigation — with a raised centre button for the app launcher */}
-      <nav className="cia-ext-bottom-nav" aria-label="Main navigation">
-        {[
-          { id: "home", icon: "🏠", label: "Home" },
-          { id: "chat", icon: "💬", label: "Chat" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`cia-ext-nav-btn${view === tab.id ? " is-active" : ""}`}
-            onClick={() => setView(tab.id)}
-            aria-label={tab.label}
-          >
-            <span className="cia-ext-nav-icon">{tab.icon}</span>
-            <span className="cia-ext-nav-label">{tab.label}</span>
-          </button>
-        ))}
-
-        <button
-          type="button"
-          className={`cia-ext-nav-fab${view === "apps" ? " is-active" : ""}`}
-          onClick={() => setView("apps")}
-          aria-label="Apps"
-          title="Apps"
-        >
-          <span className="cia-ext-nav-fab-btn"><LayersIcon size={24} /></span>
-          <span className="cia-ext-nav-fab-label">Apps</span>
-        </button>
-
-        {[
-          { id: "notepad", icon: "📝", label: "Notes" },
-          { id: "settings", icon: "⚙️", label: "Settings" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`cia-ext-nav-btn${view === tab.id ? " is-active" : ""}`}
-            onClick={() => setView(tab.id)}
-            aria-label={tab.label}
-          >
-            <span className="cia-ext-nav-icon">{tab.icon}</span>
-            <span className="cia-ext-nav-label">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Floating Apps launcher — bottom-right corner, present on every view.
+          Opens the app launcher (and closes any open panel first). */}
+      <button
+        type="button"
+        className={`cia-ext-fab-corner${view === "apps" ? " is-active" : ""}${view === "chat" ? " is-raised" : ""}`}
+        onClick={() => {
+          if (showChecklist || showGoLive) { setShowChecklist(false); setShowGoLive(false); setView("apps"); return; }
+          setView(view === "apps" ? "home" : "apps");
+        }}
+        aria-label={view === "apps" ? "Close apps" : "Apps"}
+        title="Apps"
+      >
+        <LayersIcon size={24} />
+      </button>
     </div>
   );
 }

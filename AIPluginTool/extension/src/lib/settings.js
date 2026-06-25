@@ -90,6 +90,9 @@ const DEFAULTS = {
   density: "comfortable",
   // App that the on-page floating bubble can quick-launch ("" = none).
   pinnedApp: "",
+  // Which AI the chat uses: "" / "server" = built-in, a provider id = that one,
+  // "all" = every active provider at once. Driven by the composer model picker.
+  chatModel: "",
   // Remember uploaded files across the chat (RAG). When off, attachments are
   // used for that one message only and never indexed/retrieved.
   rememberUploads: true,

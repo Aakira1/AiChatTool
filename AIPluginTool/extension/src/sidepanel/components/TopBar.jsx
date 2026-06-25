@@ -1,8 +1,17 @@
 import { useRef, useState } from "react";
 import { PortalPopover } from "./PortalPopover.jsx";
 
-/** Close the side panel. Chrome lets a panel page close itself via window.close(). */
+/** Close the panel. Inside the on-page floating widget (an iframe) window.close()
+ * does nothing, so tell the host widget to collapse; otherwise close the window. */
 function closeSidePanel() {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "CIA_PANEL_CLOSE" }, "*");
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
   window.close();
 }
 
@@ -62,21 +71,34 @@ function AppLauncher({ items }) {
   );
 }
 
-export function TopBar({ healthState, user, apps = [] }) {
+export function TopBar({ healthState, user, apps = [], onClose, onOpenAi, aiModels = [] }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
     status === "online" ? "Connected" : status === "offline" ? "Disconnected" : "Checking…";
 
   const launcherItems = apps;
 
+  const aiTitle = aiModels.length
+    ? `AI in use: ${aiModels.map((m) => `${m.name} · ${m.model}`).join(", ")} — click to manage`
+    : "Using the built-in model — click to add your own AI providers";
+
   return (
     <header className="cia-ext-topbar">
       <div className="cia-ext-brand">
-<div className="cia-ext-brand-text">
-          <span className={`cia-ext-status cia-ext-status-${status}`}>
-            {statusLabel}
-          </span>
-        </div>
+        <span className={`cia-ext-status cia-ext-status-${status}`} title={statusLabel}>
+          <span className="cia-ext-status-text">{statusLabel}</span>
+        </span>
+        {onOpenAi ? (
+          <button
+            type="button"
+            className={`cia-ext-ai-brainbtn${aiModels.length ? " is-on" : ""}`}
+            onClick={onOpenAi}
+            title={aiTitle}
+            aria-label={aiTitle}
+          >
+            <span className="cia-ext-ai-brain" aria-hidden="true">🧠</span>
+          </button>
+        ) : null}
       </div>
 
       <div className="cia-ext-topbar-actions">
@@ -89,9 +111,9 @@ export function TopBar({ healthState, user, apps = [] }) {
         <button
           type="button"
           className="cia-ext-icon-btn"
-          onClick={closeSidePanel}
-          title="Close panel"
-          aria-label="Close panel"
+          onClick={onClose ?? closeSidePanel}
+          title={onClose ? "Back to home" : "Close panel"}
+          aria-label={onClose ? "Back to home" : "Close panel"}
         >
           ✕
         </button>

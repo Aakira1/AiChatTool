@@ -10,6 +10,7 @@ import {
 } from "../../lib/api.js";
 import { getSettings, saveSettings, THEMES } from "../../lib/settings.js";
 import { APP_CATALOG } from "../../lib/apps.js";
+import { getAiProviders, providerMeta } from "../../lib/aiProviders.js";
 import {
   getApiBaseUrl,
   setApiBaseUrl,
@@ -269,18 +270,16 @@ function ConnectionStatus({ standaloneMode }) {
   const [phase, setPhase] = useState("checking"); // checking | online | offline
   const [host, setHost] = useState("");
   const [connectors, setConnectors] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [activeIds, setActiveIds] = useState([]);
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      const base = await getApiBaseUrl();
-      if (alive) setHost(base.replace(/^https?:\/\//, "").replace(/\/$/, ""));
-      try {
-        const h = await pingHealth();
-        if (alive) setPhase(h?.ok ? "online" : "offline");
-      } catch {
-        if (alive) setPhase("offline");
-      }
+
+    // AI providers + connectors — refreshed live so toggling "Use" updates the fork.
+    const loadConfig = async () => {
+      const d = await getAiProviders();
+      if (alive) { setProviders(d.providers || []); setActiveIds(d.activeIds || []); }
       try {
         let list = [];
         if (standaloneMode) {
@@ -299,27 +298,47 @@ function ConnectionStatus({ standaloneMode }) {
           ];
         } else {
           const data = await listConnectors();
-          list = (data.connectors ?? [])
-            .filter((c) => c.connected)
-            .map((c) => ({ id: c.id, label: c.label, iconId: c.icon }));
+          list = (data.connectors ?? []).filter((c) => c.connected).map((c) => ({ id: c.id, label: c.label, iconId: c.icon }));
         }
         if (alive) setConnectors(list);
+      } catch { /* ignore — connectors are best-effort */ }
+    };
+
+    (async () => {
+      const base = await getApiBaseUrl();
+      if (alive) setHost(base.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+      try {
+        const h = await pingHealth();
+        if (alive) setPhase(h?.ok ? "online" : "offline");
       } catch {
-        /* ignore — connectors are best-effort */
+        if (alive) setPhase("offline");
       }
+      await loadConfig();
     })();
-    return () => { alive = false; };
+
+    const onChanged = (changes, area) => {
+      if (area === "local" && (changes.aiProviders || changes.connections)) loadConfig();
+    };
+    chrome.storage?.onChanged?.addListener?.(onChanged);
+    return () => { alive = false; chrome.storage?.onChanged?.removeListener?.(onChanged); };
   }, [standaloneMode]);
 
   const label = phase === "online" ? "Connected" : phase === "offline" ? "Can't reach backend" : "Connecting…";
+  const activeProviders = providers.filter((p) => activeIds.includes(p.id) && p.enabled !== false && p.apiKey && p.model);
+
+  // The fork connects to the backend plus each ACTIVE (ticked) AI provider and
+  // any connected connector — one line per active model.
+  const branches = [
+    { id: "backend", icon: "☁", tone: phase },
+    ...providers
+      .filter((p) => activeIds.includes(p.id) && p.enabled !== false && p.apiKey && p.model)
+      .map((p) => ({ id: p.id, icon: "🧠", tone: "online", active: true })),
+    ...connectors.map((c) => ({ id: c.id, icon: c.icon ?? "🔗", iconId: c.iconId, tone: "online" })),
+  ];
 
   return (
     <section className={`cia-ext-connstatus is-${phase}`}>
-      <div className="cia-ext-cs-wirerow">
-        <span className="cia-ext-cs-node cia-ext-cs-node-app" aria-hidden="true">✦</span>
-        <span className="cia-ext-cs-wire" aria-hidden="true"><i /></span>
-        <span className="cia-ext-cs-node cia-ext-cs-node-cloud" aria-hidden="true">☁</span>
-      </div>
+      <WireDiagram phase={phase} branches={branches} />
 
       <div className="cia-ext-cs-meta">
         <span className="cia-ext-cs-badge">
@@ -327,6 +346,27 @@ function ConnectionStatus({ standaloneMode }) {
           {label}
         </span>
         {host ? <span className="cia-ext-cs-host" title={host}>{host}</span> : null}
+      </div>
+
+      <div className="cia-ext-cs-conns">
+        <span className="cia-ext-cs-conns-label">{activeProviders.length > 1 ? `AI models (${activeProviders.length} at once)` : "AI model"}</span>
+        <div className="cia-ext-cs-chips">
+          {activeProviders.length ? (
+            activeProviders.map((p) => (
+              <span key={p.id} className="cia-ext-cs-chip">
+                <span aria-hidden="true">🧠</span>
+                {providerMeta(p.type).label} · {p.model}
+                <span className="cia-ext-cs-chip-tick" aria-hidden="true">✓</span>
+              </span>
+            ))
+          ) : (
+            <span className="cia-ext-cs-chip">
+              <span aria-hidden="true">🧠</span>
+              Built-in model
+              <span className="cia-ext-cs-chip-tick" aria-hidden="true">✓</span>
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="cia-ext-cs-conns">
@@ -346,6 +386,72 @@ function ConnectionStatus({ standaloneMode }) {
         )}
       </div>
     </section>
+  );
+}
+
+// App → backend wire that forks into a branch for each added API / connector.
+function WireDiagram({ phase, branches }) {
+  const W = 300;
+  const rowH = 34;
+  const n = Math.max(1, branches.length);
+  const H = Math.max(58, n * rowH + 8);
+  const appX = 22;
+  const appY = H / 2;
+  const endX = W - 24;
+  const startX = appX + 13; // right edge of the app node — branches attach here
+  const topY = (H - n * rowH) / 2 + rowH / 2;
+  const ys = branches.map((_, i) => topY + i * rowH);
+  const toneStroke = (t) =>
+    t === "online" ? "#16a34a" : t === "offline" ? "#dc2626" : t === "idle" ? "#94a3b8" : "#7c3aed";
+
+  return (
+    <svg
+      className={`cia-ext-cs-svg is-${phase}`}
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      aria-hidden="true"
+    >
+      <defs>
+        {/* userSpaceOnUse so the gradient renders even for a flat (single) line,
+            which has a zero-height bounding box. */}
+        <linearGradient id="cia-cs-grad" gradientUnits="userSpaceOnUse" x1={startX} y1="0" x2={endX} y2="0">
+          <stop offset="0" stopColor="#7c3aed" />
+          <stop offset="1" stopColor="#16a34a" />
+        </linearGradient>
+      </defs>
+
+      {/* One branch per endpoint, all attached to the app node on the left */}
+      {branches.map((b, i) => {
+        const d = `M ${startX} ${appY} C ${startX + 70} ${appY}, ${endX - 52} ${ys[i]}, ${endX - 14} ${ys[i]}`;
+        return (
+          <g key={`b-${b.id}`}>
+            <path className="cia-ext-cs-path" d={d} />
+            {phase === "online" ? (
+              <path className="cia-ext-cs-pulse" pathLength="100" d={d} style={{ animationDelay: `${i * 0.35}s` }} />
+            ) : null}
+          </g>
+        );
+      })}
+
+      {/* App node */}
+      <circle className="cia-ext-cs-svgnode-app" cx={appX} cy={appY} r="13" />
+      <text className="cia-ext-cs-svgicon" x={appX} y={appY}>✦</text>
+
+      {/* Endpoint nodes */}
+      {branches.map((b, i) => (
+        <g key={`n-${b.id}`}>
+          <circle
+            cx={endX}
+            cy={ys[i]}
+            r="13"
+            fill="#fff"
+            stroke={toneStroke(b.tone)}
+            strokeWidth={b.active ? 3 : 2}
+          />
+          <text className="cia-ext-cs-svgicon" x={endX} y={ys[i]}>{b.icon}</text>
+        </g>
+      ))}
+    </svg>
   );
 }
 

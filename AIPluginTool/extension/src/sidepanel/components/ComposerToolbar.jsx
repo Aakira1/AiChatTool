@@ -13,8 +13,9 @@ export function ComposerToolbar({
   onConnectorSourcesChange,
   reasoning,
   onReasoningChange,
-  provider,
-  onProviderChange,
+  chatModel,
+  onChatModelChange,
+  providersData,
   onTopicSelect,
   pageContext,
   includeContext,
@@ -162,12 +163,12 @@ export function ComposerToolbar({
         <button
           ref={modelBtn}
           type="button"
-          className={`cia-ext-toolbar-pill ${provider !== "server" ? "is-active" : ""}`}
+          className={`cia-ext-toolbar-pill ${chatModel && chatModel !== "server" ? "is-active" : ""}`}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => toggle("model")}
-          title="Model"
+          title="AI model — choose which provider(s) answer"
         >
-          {providerLabel(provider)}
+          🧠 {providerLabel(chatModel, providersData)}
         </button>
         <PortalPopover
           anchorRef={modelBtn}
@@ -176,7 +177,7 @@ export function ComposerToolbar({
           align="end"
           onClose={close}
         >
-          <ModelPicker value={provider} onChange={onProviderChange} onClose={close} />
+          <ModelPicker value={chatModel} onChange={onChatModelChange} onClose={close} providersData={providersData} />
         </PortalPopover>
       </div>
     </div>

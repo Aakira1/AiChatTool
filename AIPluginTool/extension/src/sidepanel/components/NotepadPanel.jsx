@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getNotepad, saveNotepad, subscribeNotepad } from "../../lib/storage.js";
 import { NOTE_TEMPLATES } from "../../lib/noteTemplates.js";
 import { aiComplete } from "../../lib/api.js";
+import { getActiveProvider, streamLlm } from "../../lib/aiProviders.js";
 import { mdToHtml } from "../../lib/markdown.js";
 import { downloadNoteFile, isNoteFile, parseNoteFile } from "../../lib/noteFile.js";
 
@@ -23,6 +24,10 @@ const AI_ACTIONS = [
   { id: "continue", icon: "✍️", label: "Continue writing", mode: "append",
     prompt: (t) => `Continue writing the following note naturally from where it ends. Return ONLY the new continuation in Markdown — no preamble and do not repeat existing text.\n\n---\n${t}` },
 ];
+
+// Actions offered by the inline (selection) assistant — the ones that make sense
+// on a highlighted passage.
+const SELECTION_ACTIONS = AI_ACTIONS.filter((a) => ["improve", "grammar", "shorter", "longer"].includes(a.id));
 
 // NOTE: `xlsx` is heavy (~600 kB). It is dynamically imported only when a user
 // actually imports a schedule, so it stays out of the main side-panel bundle.
@@ -497,6 +502,12 @@ export function NotepadPanel({ onClose, onGenerate }) {
   const [askText, setAskText] = useState("");
   const [fileDrag, setFileDrag] = useState(false);
   const aiAbortRef = useRef(null);
+  // Inline (selection) assistant
+  const [selTool, setSelTool] = useState(null); // { x, y } of the floating icon
+  const [inlineMenuOpen, setInlineMenuOpen] = useState(false);
+  const [inlineResult, setInlineResult] = useState(null); // { label, text, busy, x, y }
+  const selRangeRef = useRef(null);
+  const inlineAbortRef = useRef(null);
   const [zipping, setZipping] = useState(false);
   const [dragId, setDragId] = useState(null);       // note id being dragged
   const [dropTarget, setDropTarget] = useState(null); // "folder:<id>" | "ungrouped" | "note:<id>"
@@ -835,7 +846,11 @@ export function NotepadPanel({ onClose, onGenerate }) {
       setAiError("Write some notes first, then run an AI action.");
       return;
     }
-    const message = customMessage
+    // Writing-copilot persona — tailors the assistant to editing/grammar work and
+    // gives it a Copilot-like "helpful in-document editor" tone.
+    const persona =
+      "You are a writing copilot embedded in a note-taking editor. Act like an expert editor: improve clarity, grammar, spelling, punctuation, tone and structure while preserving the author's meaning and voice. Reply with ONLY the requested result in clean Markdown — no preamble, no commentary, no explanations.";
+    const user = customMessage
       ? `${customMessage}\n\nUse the note below as context if relevant.\n\n---\n${text}`
       : action.prompt(text);
     setAiMenuOpen(false);
@@ -843,15 +858,21 @@ export function NotepadPanel({ onClose, onGenerate }) {
     setAiError("");
     setAiBusy(true);
     setAiPreview("");
-    setAiLabel(action?.label || "Ask AI");
+    setAiLabel(action?.label || "Copilot");
     const controller = new AbortController();
     aiAbortRef.current = controller;
+    const onToken = (t) => setAiPreview((p) => p + t);
     try {
-      const full = await aiComplete({
-        message,
-        signal: controller.signal,
-        onToken: (t) => setAiPreview((p) => p + t),
-      });
+      // Use the user's configured AI provider if set; otherwise the built-in model.
+      const provider = await getActiveProvider();
+      const full = provider
+        ? await streamLlm({
+            provider,
+            messages: [{ role: "system", content: persona }, { role: "user", content: user }],
+            signal: controller.signal,
+            onToken,
+          })
+        : await aiComplete({ message: `${persona}\n\n${user}`, signal: controller.signal, onToken });
       if (full.trim()) applyAiResult(action?.mode || "append", full.trim());
     } catch (e) {
       if (e.name !== "AbortError") setAiError(e.message || "AI request failed");
@@ -863,6 +884,73 @@ export function NotepadPanel({ onClose, onGenerate }) {
   };
 
   const cancelAi = () => aiAbortRef.current?.abort();
+
+  // ── Inline selection assistant ──────────────────────────────────────────────
+  // Show a floating ✨ icon whenever text is selected in the editor.
+  const updateSelectionTool = () => {
+    if (inlineResult) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.toString().trim()) {
+      setSelTool(null);
+      setInlineMenuOpen(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    if (!editorRef.current || !editorRef.current.contains(range.commonAncestorContainer)) {
+      setSelTool(null);
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    selRangeRef.current = range.cloneRange();
+    setSelTool({ x: rect.left + rect.width / 2, y: rect.top });
+  };
+
+  const runInlineAi = async (action) => {
+    const range = selRangeRef.current;
+    if (!range) return;
+    const text = range.toString().trim();
+    if (!text) return;
+    setInlineMenuOpen(false);
+    setSelTool(null);
+    const rect = range.getBoundingClientRect();
+    setInlineResult({ label: action.label, text: "", busy: true, x: rect.left, y: rect.bottom });
+    const controller = new AbortController();
+    inlineAbortRef.current = controller;
+    const persona =
+      "You are a writing assistant editing a selected passage of a note. Return ONLY the revised passage as plain text — no markdown headings, no surrounding quotes, no commentary.";
+    const user = action.prompt(text);
+    const onToken = (t) => setInlineResult((r) => (r ? { ...r, text: r.text + t } : r));
+    try {
+      const provider = await getActiveProvider();
+      const full = provider
+        ? await streamLlm({ provider, messages: [{ role: "system", content: persona }, { role: "user", content: user }], signal: controller.signal, onToken })
+        : await aiComplete({ message: `${persona}\n\n${user}`, signal: controller.signal, onToken });
+      setInlineResult((r) => (r ? { ...r, text: full.trim(), busy: false } : r));
+    } catch (e) {
+      if (e.name !== "AbortError") setInlineResult((r) => (r ? { ...r, text: `⚠️ ${e.message}`, busy: false } : r));
+    }
+  };
+
+  // Replace the user's selection with the AI's version.
+  const acceptInline = () => {
+    const range = selRangeRef.current;
+    const result = inlineResult;
+    if (!range || !result?.text) return;
+    editorRef.current?.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand("insertText", false, result.text);
+    saveNote();
+    setInlineResult(null);
+    selRangeRef.current = null;
+  };
+
+  // Keep the user's own text.
+  const discardInline = () => {
+    inlineAbortRef.current?.abort();
+    setInlineResult(null);
+  };
 
   // ── Note files: import via drag & drop, export to disk ──────────────────────
   const importNoteFiles = async (fileList) => {
@@ -1332,27 +1420,27 @@ export function NotepadPanel({ onClose, onGenerate }) {
         <div className="cia-ext-notepad-listmenu">
           <button
             className={`cia-ext-notepad-btn cia-ext-notepad-ai-btn${aiMenuOpen ? " is-active" : ""}`}
-            title="AI writing tools"
+            title="Assistant — AI writing help"
             onClick={() => setAiMenuOpen((v) => !v)}
             disabled={aiBusy}
           >
-            ✨ AI ⌄
+            ✨ Assistant ⌄
           </button>
           {aiMenuOpen && (
             <>
               <div className="cia-ext-notepad-list-backdrop" onClick={() => setAiMenuOpen(false)} />
               <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
-                <div className="cia-ext-notepad-list-label">AI tools</div>
+                <div className="cia-ext-notepad-list-label">Edit &amp; improve</div>
                 {AI_ACTIONS.map((a) => (
                   <button key={a.id} className="cia-ext-notepad-tpl-item" onClick={() => void runAi(a)}>
                     <span className="cia-ext-notepad-tpl-icon">{a.icon}</span>
                     <span className="cia-ext-notepad-tpl-text"><strong>{a.label}</strong></span>
                   </button>
                 ))}
-                <div className="cia-ext-notepad-list-label">Custom</div>
+                <div className="cia-ext-notepad-list-label">Ask</div>
                 <button className="cia-ext-notepad-tpl-item" onClick={() => { setAiMenuOpen(false); setAskOpen(true); }}>
                   <span className="cia-ext-notepad-tpl-icon">💬</span>
-                  <span className="cia-ext-notepad-tpl-text"><strong>Ask AI…</strong></span>
+                  <span className="cia-ext-notepad-tpl-text"><strong>Ask the assistant…</strong></span>
                 </button>
               </div>
             </>
@@ -1398,18 +1486,18 @@ export function NotepadPanel({ onClose, onGenerate }) {
           <input
             className="cia-ext-notepad-ai-input"
             autoFocus
-            placeholder="Ask the AI to do something with this note…"
+            placeholder="Ask the assistant to help with this note…"
             value={askText}
             onChange={(e) => setAskText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && askText.trim()) { void runAi({ id: "ask", label: "Ask AI", mode: "append" }, askText.trim()); setAskText(""); }
+              if (e.key === "Enter" && askText.trim()) { void runAi({ id: "ask", label: "Assistant", mode: "append" }, askText.trim()); setAskText(""); }
               if (e.key === "Escape") setAskOpen(false);
             }}
           />
           <button
             className="cia-ext-primary-btn"
             disabled={!askText.trim()}
-            onClick={() => { void runAi({ id: "ask", label: "Ask AI", mode: "append" }, askText.trim()); setAskText(""); }}
+            onClick={() => { void runAi({ id: "ask", label: "Assistant", mode: "append" }, askText.trim()); setAskText(""); }}
           >
             Send
           </button>
@@ -1437,6 +1525,53 @@ export function NotepadPanel({ onClose, onGenerate }) {
         </div>
       ) : null}
 
+      {/* Inline assistant: floating ✨ icon on a text selection */}
+      {selTool && !inlineResult ? (
+        <div
+          className="cia-ext-notepad-seltool"
+          style={{ left: selTool.x, top: selTool.y }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            className="cia-ext-notepad-seltool-btn"
+            onClick={() => setInlineMenuOpen((v) => !v)}
+            title="Improve the selection with AI"
+          >
+            ✨
+          </button>
+          {inlineMenuOpen ? (
+            <div className="cia-ext-notepad-seltool-menu" role="menu">
+              {SELECTION_ACTIONS.map((a) => (
+                <button key={a.id} type="button" onClick={() => void runInlineAi(a)}>
+                  <span aria-hidden="true">{a.icon}</span> {a.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Inline assistant: suggestion with accept / keep-mine */}
+      {inlineResult ? (
+        <div
+          className="cia-ext-notepad-inline-card"
+          style={{ left: inlineResult.x, top: inlineResult.y }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <div className="cia-ext-notepad-inline-head">
+            {inlineResult.busy ? <span className="cia-ext-notepad-ai-spinner" aria-hidden="true" /> : <span aria-hidden="true">✨</span>}
+            <span className="cia-ext-notepad-inline-title">{inlineResult.label}</span>
+            <button type="button" className="cia-ext-notepad-inline-x" onClick={discardInline} aria-label="Close">×</button>
+          </div>
+          <div className="cia-ext-notepad-inline-body">{inlineResult.text || "Thinking…"}</div>
+          <div className="cia-ext-notepad-inline-actions">
+            <button type="button" className="cia-ext-primary-btn" disabled={inlineResult.busy || !inlineResult.text} onClick={acceptInline}>✓ Use this</button>
+            <button type="button" className="cia-ext-secondary-btn" onClick={discardInline}>Keep mine</button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Editor */}
       <div
         ref={editorRef}
@@ -1444,10 +1579,11 @@ export function NotepadPanel({ onClose, onGenerate }) {
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
-        onKeyUp={handleKeyUp}
+        onKeyUp={(e) => { handleKeyUp(e); updateSelectionTool(); }}
         onKeyDown={handleEditorKeyDown}
-        onMouseUp={trackCell}
+        onMouseUp={() => { trackCell(); updateSelectionTool(); }}
         onClick={trackCell}
+        onScroll={() => setSelTool(null)}
         onDragOver={(e) => {
           if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); setFileDrag(true); }
         }}
@@ -1463,14 +1599,6 @@ export function NotepadPanel({ onClose, onGenerate }) {
       />
 
       {/* Footer */}
-      <div className="cia-ext-notepad-footer">
-        <button className="cia-ext-primary-btn cia-ext-notepad-save-btn" onClick={() => saveNote()}>
-          {saved ? "✓ Saved" : "Save"}
-        </button>
-        <button className="cia-ext-primary-btn cia-ext-notepad-generate-btn" onClick={generateReport} title="Generate PM report from these notes">
-          ✨ Generate Report
-        </button>
-      </div>
     </div>
   );
 }

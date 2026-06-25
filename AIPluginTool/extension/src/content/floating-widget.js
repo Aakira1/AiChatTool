@@ -123,6 +123,16 @@ function initFloatingWidget() {
   quickBtn.innerHTML = `<span class="cia-fw-quick-icon" aria-hidden="true"></span>`;
   root.appendChild(quickBtn);
 
+  // Collapsed-idle handle: a small 3-dot tab on the page edge. Hover/click
+  // brings the bubble back (and a click opens the assistant).
+  const dotsTab = document.createElement("button");
+  dotsTab.type = "button";
+  dotsTab.className = "cia-fw-dots";
+  dotsTab.title = "Open CiA Assistant";
+  dotsTab.setAttribute("aria-label", "Open CiA Assistant");
+  dotsTab.innerHTML = `<span></span><span></span><span></span>`;
+  root.appendChild(dotsTab);
+
   const panel = document.createElement("section");
   panel.className = "cia-fw-panel";
   panel.setAttribute("role", "dialog");
@@ -158,7 +168,7 @@ function initFloatingWidget() {
   const dragHandle = panel.querySelector("[data-drag-handle]");
   const resizer = panel.querySelector(".cia-fw-resizer");
 
-  const widget = createWidgetState(host, bubble, panel, iframe, quickBtn);
+  const widget = createWidgetState(host, bubble, panel, iframe, quickBtn, dotsTab);
 
   // Pinned-app quick launch: deep-link the panel to the chosen app, then open.
   let pinnedAppId = null;
@@ -183,26 +193,9 @@ function initFloatingWidget() {
   minimizeBtn.addEventListener("click", () => widget.collapse());
   closeBtn.addEventListener("click", () => widget.collapse());
 
-  // First-run hint: pulse + tooltip the first time the bubble appears so users
-  // notice it. Cleared the moment they interact with the widget.
-  let firstRunDismiss = null;
-  chrome.storage?.local?.get?.(["firstRunSeen"], (data) => {
-    if (!data?.firstRunSeen) {
-      bubble.classList.add("is-first-run");
-      const tooltip = document.createElement("div");
-      tooltip.className = "cia-fw-tooltip";
-      tooltip.textContent = "Click here to chat with the CiA Assistant";
-      root.appendChild(tooltip);
-
-      firstRunDismiss = () => {
-        bubble.classList.remove("is-first-run");
-        tooltip.remove();
-        chrome.storage?.local?.set?.({ firstRunSeen: true });
-        firstRunDismiss = null;
-      };
-      setTimeout(() => firstRunDismiss?.(), 12000);
-    }
-  });
+  // First-run hint removed — no start-up tooltip/pulse. Kept as a no-op so the
+  // bubble-drag click handler below can still call it safely.
+  const firstRunDismiss = null;
 
   attachBubbleDrag(bubble, widget, () => {
     firstRunDismiss?.();
@@ -241,6 +234,38 @@ function initFloatingWidget() {
 
   attachDrag(panel, dragHandle, widget);
   attachResize(panel, resizer, widget);
+
+  // Auto-collapse the idle bubble to the nearest screen edge after a period of
+  // inactivity — it peeks at the side and slides back out on hover/click.
+  const IDLE_MS = 15000;
+  let idleTimer = null;
+  const dockBubble = () => {
+    const st = widget.getState();
+    if (st.open || !st.visible || st.externalPanelOpen) return;
+    const rect = bubble.getBoundingClientRect();
+    const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? "left" : "right";
+    const y = Math.min(Math.max(rect.top + rect.height / 2 - 22, 8), window.innerHeight - 52);
+    dotsTab.dataset.dock = side;
+    dotsTab.style.top = `${y}px`;
+    dotsTab.style.left = side === "left" ? "0px" : "auto";
+    dotsTab.style.right = side === "right" ? "0px" : "auto";
+    bubble.classList.add("is-docked"); // fades the full bubble out
+    dotsTab.classList.add("is-shown"); // shows the 3-dot edge tab
+  };
+  const resetIdle = () => {
+    bubble.classList.remove("is-docked");
+    dotsTab.classList.remove("is-shown");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(dockBubble, IDLE_MS);
+  };
+  bubble.addEventListener("pointerenter", resetIdle);
+  bubble.addEventListener("pointerdown", resetIdle);
+  panel.addEventListener("pointerdown", resetIdle);
+  minimizeBtn.addEventListener("click", resetIdle);
+  closeBtn.addEventListener("click", resetIdle);
+  dotsTab.addEventListener("pointerenter", resetIdle);
+  dotsTab.addEventListener("click", () => { resetIdle(); widget.expand(); });
+  resetIdle();
 
   // If a side panel / popout is already open when this page loads, hide now.
   chrome.runtime.sendMessage({ type: "CIA_GET_PANEL_PRESENCE" }, (res) => {
@@ -291,7 +316,7 @@ function initFloatingWidget() {
   });
 }
 
-function createWidgetState(host, bubble, panel, iframe, quickBtn) {
+function createWidgetState(host, bubble, panel, iframe, quickBtn, dotsTab) {
   let state = {
     open: false,
     visible: true,
@@ -345,6 +370,11 @@ function createWidgetState(host, bubble, panel, iframe, quickBtn) {
     bubble.classList.toggle("is-hidden", bubbleHidden);
     bubble.style.pointerEvents = bubbleHidden ? "none" : "auto";
     panel.style.pointerEvents = panelOpen ? "auto" : "none";
+    // Never keep the "docked to edge" state while the bubble is hidden/open.
+    if (bubbleHidden) {
+      bubble.classList.remove("is-docked");
+      if (dotsTab) dotsTab.classList.remove("is-shown");
+    }
 
     // Position the bubble. If the user has dragged it, honor the saved
     // coordinates (clamped to the viewport so resized windows don't strand it
@@ -617,17 +647,20 @@ const SHADOW_CSS = `
     position: fixed;
     right: 24px;
     bottom: 24px;
-    width: 56px;
-    height: 56px;
-    border-radius: 30%;
-    border: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 32%;
     padding: 0;
     cursor: pointer;
-    background: white;
     color: white;
+    /* Frosted-glass look */
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(12px) saturate(170%);
+    -webkit-backdrop-filter: blur(12px) saturate(170%);
+    border: 1px solid rgba(255, 255, 255, 0.45);
     box-shadow:
-      0 12px 28px rgba(0, 0, 0, 0.18),
-      0 4px 10px rgba(26, 11, 46, 0.12);
+      0 10px 26px rgba(26, 11, 46, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
     display: grid;
     place-items: center;
     transition: transform 200ms cubic-bezier(.4,1.4,.6,1), box-shadow 200ms ease, background 200ms ease, opacity 200ms ease;
@@ -636,11 +669,11 @@ const SHADOW_CSS = `
   }
 
   .cia-fw-bubble:hover {
-    background: black;
-    transform: translateY(-3px) scale(1.05);
+    background: rgba(255, 255, 255, 0.28);
+    transform: translateY(-3px) scale(1.06);
     box-shadow:
-      0 16px 32px rgba(0, 0, 0, 0.45),
-      0 6px 14px rgba(26, 11, 46, 0.22);
+      0 16px 34px rgba(26, 11, 46, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
 
   .cia-fw-bubble:active {
@@ -661,6 +694,53 @@ const SHADOW_CSS = `
     transform: translateY(8px) scale(0.6);
     pointer-events: none;
   }
+
+  /* Idle: the full bubble fades away and a small 3-dot tab takes its place on
+     the page edge (see .cia-fw-dots). Hover/click restores the bubble. */
+  .cia-fw-bubble.is-docked {
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none;
+  }
+
+  .cia-fw-dots {
+    position: fixed;
+    width: 15px;
+    height: 44px;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    z-index: 2;
+    pointer-events: auto;
+    /* Frosted-glass edge tab */
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 6px 16px rgba(26, 11, 46, 0.2);
+    transition: width 160ms ease, background 160ms ease;
+    animation: cia-fw-dots-in 200ms ease both;
+  }
+  .cia-fw-dots.is-shown { display: flex; }
+  .cia-fw-dots[data-dock="left"] { border-radius: 0 12px 12px 0; }
+  .cia-fw-dots[data-dock="right"] { border-radius: 12px 0 0 12px; }
+  .cia-fw-dots:hover { width: 19px; background: rgba(255, 255, 255, 0.32); }
+  .cia-fw-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e4007c, #7c3aed);
+  }
+  @keyframes cia-fw-dots-in {
+    from { opacity: 0; transform: translateX(var(--dx, 0)); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .cia-fw-dots[data-dock="left"] { --dx: -8px; }
+  .cia-fw-dots[data-dock="right"] { --dx: 8px; }
 
   .cia-fw-bubble.is-first-run {
     animation: cia-fw-pulse 1.6s ease-in-out infinite;
@@ -752,8 +832,8 @@ const SHADOW_CSS = `
   .cia-fw-bubble-mark-hover {
     position: absolute;
     z-index: 1;
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
     display: block;
     transition: opacity 200ms ease;
@@ -780,15 +860,20 @@ const SHADOW_CSS = `
     width: 380px;
     height: 560px;
     border-radius: 18px;
-    background: white;
+    /* Frosted glass over the actual webpage behind the panel — light tint so
+       the page reads through clearly. */
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(22px) saturate(165%);
+    -webkit-backdrop-filter: blur(22px) saturate(165%);
     color: #1f1235;
     overflow: hidden;
     display: none;
     flex-direction: column;
     box-shadow:
-      0 24px 60px rgba(26, 11, 46, 0.35),
-      0 8px 20px rgba(26, 11, 46, 0.18),
-      0 0 0 1px rgba(124, 58, 237, 0.12);
+      0 24px 60px rgba(26, 11, 46, 0.32),
+      0 8px 20px rgba(26, 11, 46, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.35);
     transform-origin: top left;
     animation: cia-fw-pop 220ms cubic-bezier(.2,1,.4,1);
     pointer-events: none;
@@ -809,8 +894,13 @@ const SHADOW_CSS = `
     align-items: center;
     gap: 10px;
     padding: 8px 8px 8px 14px;
-    border-bottom: 1px solid rgba(124, 58, 237, 0.14);
-    background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250, 247, 255, 0.85));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    /* Apple-style frosted glass — steady white base + restrained saturation so
+       it looks the same on every page, with a bright glass edge highlight. */
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(28px) saturate(135%);
+    -webkit-backdrop-filter: blur(28px) saturate(135%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     cursor: grab;
     user-select: none;
   }
@@ -917,7 +1007,9 @@ const SHADOW_CSS = `
     flex: 1;
     width: 100%;
     border: none;
-    background: white;
+    /* Transparent so the panel's frosted-page backdrop shows through the app. */
+    background: transparent;
+    color-scheme: light;
   }
 
   .cia-fw-resizer {

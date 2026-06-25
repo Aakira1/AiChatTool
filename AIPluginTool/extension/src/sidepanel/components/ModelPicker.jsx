@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { providerMeta } from "../../lib/aiProviders.js";
 
-// Mirrors AI_PROVIDERS in client/src/lib/settings.js so the extension offers the
-// same connection options the web app and server support.
-export const PROVIDERS = [
-  { id: "server", label: "Server default", full: "Use server default", description: "Server's configured provider", icon: "✦" },
-  { id: "openai", label: "OpenAI", full: "OpenAI", description: "GPT models via OpenAI API", icon: "◍" },
-  { id: "azure", label: "Azure OpenAI", full: "Azure OpenAI", description: "Microsoft Azure OpenAI Service", icon: "◆" },
-  { id: "cloudflare", label: "Cloudflare", full: "Cloudflare Workers AI", description: "Workers AI (Llama, etc.)", icon: "▲" },
-  { id: "custom", label: "Custom", full: "Custom (OpenAI-compatible)", description: "Ollama, Together, Groq…", icon: "⊕" },
-  { id: "copilot-studio", label: "Copilot Studio", full: "Copilot Studio agent", description: "Microsoft Copilot Studio (Direct Line)", icon: "❖" },
-];
+function readyProviders(data) {
+  return (data?.providers ?? []).filter((p) => p.enabled !== false && p.apiKey && p.model);
+}
 
-export function ModelPicker({ value, onChange, onClose }) {
+// The composer model picker — lists the built-in model plus every AI provider
+// the user configured in Settings, and an "All active" option that fans the
+// chat out to several models at once.
+export function ModelPicker({ value, onChange, onClose, providersData }) {
   const panelRef = useRef(null);
   const [search, setSearch] = useState("");
 
@@ -23,8 +20,25 @@ export function ModelPicker({ value, onChange, onClose }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  const filtered = PROVIDERS.filter((p) =>
-    p.full.toLowerCase().includes(search.toLowerCase()),
+  const ready = readyProviders(providersData);
+  const activeIds = providersData?.activeIds ?? [];
+  const activeCount = ready.filter((p) => activeIds.includes(p.id)).length;
+
+  const rows = [
+    { id: "server", icon: "✦", full: "Built-in model", description: "OneChat's default (server) model" },
+    ...ready.map((p) => ({
+      id: p.id,
+      icon: "🧠",
+      full: providerMeta(p.type).label,
+      description: p.model,
+    })),
+    ...(activeCount >= 2
+      ? [{ id: "all", icon: "⛓", full: "All active models", description: `${activeCount} models at once` }]
+      : []),
+  ];
+
+  const filtered = rows.filter(
+    (r) => `${r.full} ${r.description}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -38,28 +52,39 @@ export function ModelPicker({ value, onChange, onClose }) {
           autoFocus
         />
       </div>
-      {filtered.map((provider) => (
-        <button
-          key={provider.id}
-          type="button"
-          className={`cia-ext-picker-row ${value === provider.id ? "is-selected" : ""}`}
-          onClick={() => { onChange(provider.id); onClose(); }}
-        >
-          <span className="cia-ext-picker-row-icon">{provider.icon}</span>
-          <span className="cia-ext-picker-row-text">
-            <span className="cia-ext-picker-row-label">{provider.full}</span>
-            <span className="cia-ext-picker-row-desc">{provider.description}</span>
-          </span>
-          {value === provider.id && <span className="cia-ext-picker-check">✓</span>}
-        </button>
-      ))}
-      {filtered.length === 0 && (
-        <div className="cia-ext-picker-empty">No models match “{search}”.</div>
-      )}
+      {filtered.map((r) => {
+        const selected = (value || "server") === r.id;
+        return (
+          <button
+            key={r.id}
+            type="button"
+            className={`cia-ext-picker-row ${selected ? "is-selected" : ""}`}
+            onClick={() => { onChange(r.id); onClose(); }}
+          >
+            <span className="cia-ext-picker-row-icon">{r.icon}</span>
+            <span className="cia-ext-picker-row-text">
+              <span className="cia-ext-picker-row-label">{r.full}</span>
+              <span className="cia-ext-picker-row-desc">{r.description}</span>
+            </span>
+            {selected && <span className="cia-ext-picker-check">✓</span>}
+          </button>
+        );
+      })}
+      {ready.length === 0 ? (
+        <div className="cia-ext-picker-empty">Add an AI provider in Settings → Connections to use your own model.</div>
+      ) : null}
     </div>
   );
 }
 
-export function providerLabel(id) {
-  return PROVIDERS.find((p) => p.id === id)?.label ?? "Server default";
+export function providerLabel(value, providersData) {
+  const v = value || "server";
+  if (v === "server") return "Built-in";
+  if (v === "all") {
+    const ready = readyProviders(providersData);
+    const n = ready.filter((p) => (providersData?.activeIds ?? []).includes(p.id)).length;
+    return `${n} models`;
+  }
+  const p = (providersData?.providers ?? []).find((x) => x.id === v);
+  return p ? providerMeta(p.type).label : "Built-in";
 }
