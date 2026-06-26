@@ -80,32 +80,55 @@ export const THEMES = [
   },
 ];
 
+// Dark mode overrides — applied on top of the active theme.
+const DARK_OVERRIDES = {
+  "--cia-light": "#1a1a2e",
+  "--cia-soft": "#22223a",
+  "--cia-border": "rgba(255,255,255,0.1)",
+  "--cia-body": "#e4e4ef",
+  "--cia-muted": "#9e9eb8",
+};
+
+export function applyDarkMode(on) {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (on) {
+    root.dataset.darkMode = "true";
+    Object.entries(DARK_OVERRIDES).forEach(([k, v]) => root.style.setProperty(k, v));
+  } else {
+    delete root.dataset.darkMode;
+    const settings = getSettings();
+    const theme = THEMES.find((t) => t.id === settings.theme) ?? THEMES[0];
+    Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  }
+}
+
+// User-created custom theme colors stored in settings.customThemes.
+// Each: { id, label, swatch, vars }
+export function getCustomThemes(settings) {
+  return Array.isArray(settings?.customThemes) ? settings.customThemes : [];
+}
+export function allThemes(settings) {
+  return [...THEMES, ...getCustomThemes(settings)];
+}
+
 const DEFAULTS = {
   showInsights: true,
   showArtifactsByDefault: false,
   provider: "server",
   reasoning: "auto",
   theme: "magenta",
-  // UI density for the side panel — "comfortable" (default) or "compact".
+  darkMode: false,
   density: "comfortable",
-  // App that the on-page floating bubble can quick-launch ("" = none).
   pinnedApp: "",
-  // Which AI the chat uses: "" / "server" = built-in, a provider id = that one,
-  // "all" = every active provider at once. Driven by the composer model picker.
   chatModel: "",
-  // Remember uploaded files across the chat (RAG). When off, attachments are
-  // used for that one message only and never indexed/retrieved.
   rememberUploads: true,
   sources: { webSearch: false, companyKnowledge: true },
   connectorSources: [],
-  // Page vision (reading/screenshotting the page) is ON by default on all pages.
-  // Turning Privacy mode on disables it everywhere.
   privacyMode: false,
-  // Debug: draw highlight boxes on the page showing what the relay AI is
-  // reading (input / reply / send / busy state).
   debugHighlight: false,
-  // Debug: outline the WHOLE page whenever the AI reads it (entire-page vision).
   wholePageVision: false,
+  customThemes: [],
 };
 
 // Mirror flags into chrome.storage.local so the background service worker and
@@ -174,7 +197,8 @@ export function subscribeSettings(handler) {
 // Apply a theme's colors to the document root (live, no reload).
 export function applyTheme(themeId) {
   if (typeof document === "undefined") return;
-  const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
+  const all = allThemes(getSettings());
+  const theme = all.find((t) => t.id === themeId) ?? THEMES[0];
   Object.entries(theme.vars).forEach(([key, value]) => {
     document.documentElement.style.setProperty(key, value);
   });
@@ -190,5 +214,6 @@ export function applyDensity(density) {
 export function applySettings(settings = getSettings()) {
   applyTheme(settings.theme);
   applyDensity(settings.density);
+  if (settings.darkMode) applyDarkMode(true);
   syncPrivacyToChromeStorage(settings);
 }

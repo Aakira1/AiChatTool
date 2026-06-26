@@ -1277,24 +1277,32 @@ export function NotepadPanel({ onClose, onGenerate }) {
             onClick={() => setFileMenuOpen((v) => !v)}
             title="File actions"
           >
-            🗂 File ⌄
+            File
           </button>
           {fileMenuOpen && (
             <>
               <div className="cia-ext-notepad-file-backdrop" onClick={closeFileMenu} />
               <div className="cia-ext-notepad-file-pop" role="menu">
-                <div className="cia-ext-notepad-file-label">This note</div>
-                <button onClick={() => { saveNote(); closeFileMenu(); }}>💾 Save</button>
-                <button onClick={saveNoteToFile}>🗂 Save to file (drag back in to re-add)</button>
-                <button onClick={() => downloadAs("txt")}>⬇ Download — Plain text (.txt)</button>
-                <button onClick={() => downloadAs("md")}>⬇ Download — Markdown (.md)</button>
-                <button onClick={() => void downloadAs("html")}>⬇ Download — Web page (.html)</button>
-                <button onClick={() => void downloadAs("docx")}>📄 Download — Word (.docx)</button>
-                <button onClick={() => void summaryReportPdf()}>📑 Summary report (.pdf)</button>
+                <div className="cia-ext-notepad-file-group">
+                  <button onClick={() => { saveNote(); closeFileMenu(); }}>Save</button>
+                  <button onClick={saveNoteToFile}>Save to file</button>
+                </div>
+                <div className="cia-ext-notepad-file-sep" />
+                <div className="cia-ext-notepad-file-label">Export as</div>
+                <div className="cia-ext-notepad-file-group">
+                  <button onClick={() => downloadAs("txt")}>Plain text (.txt)</button>
+                  <button onClick={() => downloadAs("md")}>Markdown (.md)</button>
+                  <button onClick={() => void downloadAs("html")}>Web page (.html)</button>
+                  <button onClick={() => void downloadAs("docx")}>Word (.docx)</button>
+                  <button onClick={() => void summaryReportPdf()}>Summary report (.pdf)</button>
+                </div>
+                <div className="cia-ext-notepad-file-sep" />
                 <div className="cia-ext-notepad-file-label">All notes</div>
-                <button onClick={() => void downloadAllZip()} disabled={zipping}>
-                  🗜 {zipping ? "Zipping…" : "Download all as ZIP (.docx + .pdf)"}
-                </button>
+                <div className="cia-ext-notepad-file-group">
+                  <button onClick={() => void downloadAllZip()} disabled={zipping}>
+                    {zipping ? "Exporting…" : "Export all as ZIP"}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -1307,7 +1315,6 @@ export function NotepadPanel({ onClose, onGenerate }) {
         >
           📅 Schedule
         </button>
-        <button className="cia-ext-icon-btn" onClick={() => { saveNote(); onClose(); }} title="Close">✕</button>
       </div>
 
       {/* Schedule uploader (collapsible) */}
@@ -1349,99 +1356,96 @@ export function NotepadPanel({ onClose, onGenerate }) {
 
       {/* Toolbar */}
       <div className="cia-ext-notepad-toolbar">
-        <select className="cia-ext-notepad-font" value={font} onChange={(e) => setFont(e.target.value)} title="Font family">
-          {FONTS.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
-        </select>
-        <div className="cia-ext-notepad-sep" />
-        <button className="cia-ext-notepad-btn" title="Bold (Ctrl+B)" onClick={() => exec("bold")}><b>B</b></button>
-        <button className="cia-ext-notepad-btn" title="Italic (Ctrl+I)" onClick={() => exec("italic")}><i>I</i></button>
-        <button className="cia-ext-notepad-btn" title="Underline (Ctrl+U)" onClick={() => exec("underline")}><u>U</u></button>
-        <div className="cia-ext-notepad-sep" />
-        <div className="cia-ext-notepad-listmenu">
-          <button
-            className={`cia-ext-notepad-btn${listMenuOpen ? " is-active" : ""}`}
-            title="Lists"
-            onClick={() => setListMenuOpen((v) => !v)}
-          >
-            ☰ List ⌄
-          </button>
-          {listMenuOpen && (
-            <>
-              <div className="cia-ext-notepad-list-backdrop" onClick={() => setListMenuOpen(false)} />
-              <div className="cia-ext-notepad-list-pop" role="menu">
-                <div className="cia-ext-notepad-list-label">Bulleted</div>
-                <button onClick={() => insertList("disc")}>● Filled bullet</button>
-                <button onClick={() => insertList("circle")}>○ Hollow bullet</button>
-                <button onClick={() => insertList("square")}>▪ Square bullet</button>
-                <div className="cia-ext-notepad-list-label">Numbered</div>
-                <button onClick={() => insertList("decimal")}>1. Numbers</button>
-                <button onClick={() => insertList("lower-alpha")}>a. Letters</button>
-                <button onClick={() => insertList("lower-roman")}>i. Roman</button>
-              </div>
-            </>
-          )}
+        <div className="cia-ext-notepad-toolbar-row">
+          <select className="cia-ext-notepad-font" value={font} onChange={(e) => setFont(e.target.value)} title="Font family">
+            {FONTS.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+          </select>
+          <div className="cia-ext-notepad-sep" />
+          <button className="cia-ext-notepad-btn" title="Bold (Ctrl+B)" onClick={() => exec("bold")}><b>B</b></button>
+          <button className="cia-ext-notepad-btn" title="Italic (Ctrl+I)" onClick={() => exec("italic")}><i>I</i></button>
+          <button className="cia-ext-notepad-btn" title="Underline (Ctrl+U)" onClick={() => exec("underline")}><u>U</u></button>
+          <div className="cia-ext-notepad-sep" />
+          <div className="cia-ext-notepad-listmenu">
+            <button
+              className={`cia-ext-notepad-btn${listMenuOpen ? " is-active" : ""}`}
+              title="Lists"
+              onClick={() => setListMenuOpen((v) => !v)}
+            >
+              List
+            </button>
+            {listMenuOpen && (
+              <>
+                <div className="cia-ext-notepad-list-backdrop" onClick={() => setListMenuOpen(false)} />
+                <div className="cia-ext-notepad-list-pop" role="menu">
+                  <div className="cia-ext-notepad-list-label">Bulleted</div>
+                  <button onClick={() => insertList("disc")}>Filled</button>
+                  <button onClick={() => insertList("circle")}>Hollow</button>
+                  <button onClick={() => insertList("square")}>Square</button>
+                  <div className="cia-ext-notepad-list-label">Numbered</div>
+                  <button onClick={() => insertList("decimal")}>1, 2, 3</button>
+                  <button onClick={() => insertList("lower-alpha")}>a, b, c</button>
+                  <button onClick={() => insertList("lower-roman")}>i, ii, iii</button>
+                </div>
+              </>
+            )}
+          </div>
+          <button className="cia-ext-notepad-btn" title="Insert table" onClick={() => insertTable(3, 3)}>Table</button>
         </div>
-        <div className="cia-ext-notepad-sep" />
-        <button className="cia-ext-notepad-btn" title="Insert table" onClick={() => insertTable(3, 3)}>⊞ Table</button>
-        <div className="cia-ext-notepad-sep" />
-        <div className="cia-ext-notepad-listmenu">
-          <button
-            className={`cia-ext-notepad-btn${templateMenuOpen ? " is-active" : ""}`}
-            title="Insert a template"
-            onClick={() => setTemplateMenuOpen((v) => !v)}
-          >
-            ＋ Template ⌄
-          </button>
-          {templateMenuOpen && (
-            <>
-              <div className="cia-ext-notepad-list-backdrop" onClick={() => setTemplateMenuOpen(false)} />
-              <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
-                <div className="cia-ext-notepad-list-label">Insert template</div>
-                {NOTE_TEMPLATES.map((tpl) => (
-                  <button key={tpl.id} className="cia-ext-notepad-tpl-item" onClick={() => insertTemplate(tpl)}>
-                    <span className="cia-ext-notepad-tpl-icon">{tpl.icon}</span>
-                    <span className="cia-ext-notepad-tpl-text">
-                      <strong>{tpl.label}</strong>
-                      <small>{tpl.desc}</small>
-                    </span>
+        <div className="cia-ext-notepad-toolbar-row">
+          <div className="cia-ext-notepad-listmenu">
+            <button
+              className={`cia-ext-notepad-btn${templateMenuOpen ? " is-active" : ""}`}
+              title="Insert a template"
+              onClick={() => setTemplateMenuOpen((v) => !v)}
+            >
+              Template
+            </button>
+            {templateMenuOpen && (
+              <>
+                <div className="cia-ext-notepad-list-backdrop" onClick={() => setTemplateMenuOpen(false)} />
+                <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
+                  <div className="cia-ext-notepad-list-label">Insert template</div>
+                  {NOTE_TEMPLATES.map((tpl) => (
+                    <button key={tpl.id} className="cia-ext-notepad-tpl-item" onClick={() => insertTemplate(tpl)}>
+                      <span className="cia-ext-notepad-tpl-text">
+                        <strong>{tpl.label}</strong>
+                        <small>{tpl.desc}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="cia-ext-notepad-listmenu">
+            <button
+              className={`cia-ext-notepad-btn cia-ext-notepad-ai-btn${aiMenuOpen ? " is-active" : ""}`}
+              title="Assistant — AI writing help"
+              onClick={() => setAiMenuOpen((v) => !v)}
+              disabled={aiBusy}
+            >
+              Assistant
+            </button>
+            {aiMenuOpen && (
+              <>
+                <div className="cia-ext-notepad-list-backdrop" onClick={() => setAiMenuOpen(false)} />
+                <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
+                  <div className="cia-ext-notepad-list-label">Edit &amp; improve</div>
+                  {AI_ACTIONS.map((a) => (
+                    <button key={a.id} className="cia-ext-notepad-tpl-item" onClick={() => void runAi(a)}>
+                      <span className="cia-ext-notepad-tpl-text"><strong>{a.label}</strong></span>
+                    </button>
+                  ))}
+                  <div className="cia-ext-notepad-list-label">Ask</div>
+                  <button className="cia-ext-notepad-tpl-item" onClick={() => { setAiMenuOpen(false); setAskOpen(true); }}>
+                    <span className="cia-ext-notepad-tpl-text"><strong>Ask the assistant…</strong></span>
                   </button>
-                ))}
-              </div>
-            </>
-          )}
+                </div>
+              </>
+            )}
+          </div>
+          <button className={`cia-ext-notepad-btn${showShortcodes ? " is-active" : ""}`} title="Shortcodes" onClick={() => setShowShortcodes((v) => !v)}>Shortcodes</button>
         </div>
-        <div className="cia-ext-notepad-sep" />
-        <div className="cia-ext-notepad-listmenu">
-          <button
-            className={`cia-ext-notepad-btn cia-ext-notepad-ai-btn${aiMenuOpen ? " is-active" : ""}`}
-            title="Assistant — AI writing help"
-            onClick={() => setAiMenuOpen((v) => !v)}
-            disabled={aiBusy}
-          >
-            ✨ Assistant ⌄
-          </button>
-          {aiMenuOpen && (
-            <>
-              <div className="cia-ext-notepad-list-backdrop" onClick={() => setAiMenuOpen(false)} />
-              <div className="cia-ext-notepad-list-pop cia-ext-notepad-tpl-pop" role="menu">
-                <div className="cia-ext-notepad-list-label">Edit &amp; improve</div>
-                {AI_ACTIONS.map((a) => (
-                  <button key={a.id} className="cia-ext-notepad-tpl-item" onClick={() => void runAi(a)}>
-                    <span className="cia-ext-notepad-tpl-icon">{a.icon}</span>
-                    <span className="cia-ext-notepad-tpl-text"><strong>{a.label}</strong></span>
-                  </button>
-                ))}
-                <div className="cia-ext-notepad-list-label">Ask</div>
-                <button className="cia-ext-notepad-tpl-item" onClick={() => { setAiMenuOpen(false); setAskOpen(true); }}>
-                  <span className="cia-ext-notepad-tpl-icon">💬</span>
-                  <span className="cia-ext-notepad-tpl-text"><strong>Ask the assistant…</strong></span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="cia-ext-notepad-sep" />
-        <button className={`cia-ext-notepad-btn${showShortcodes ? " is-active" : ""}`} title="Shortcodes" onClick={() => setShowShortcodes((v) => !v)}>{"{ }"}</button>
       </div>
 
       {/* Shortcodes */}
@@ -1462,14 +1466,14 @@ export function NotepadPanel({ onClose, onGenerate }) {
       {inTable && (
         <div className="cia-ext-notepad-tabletools" onMouseDown={(e) => e.preventDefault()}>
           <span className="cia-ext-notepad-tt-label">Table</span>
-          <button className="cia-ext-notepad-btn" title="Insert row above" onClick={() => insertTableRow("above")}>⤒ Row</button>
-          <button className="cia-ext-notepad-btn" title="Insert row below" onClick={() => insertTableRow("below")}>⤓ Row</button>
-          <button className="cia-ext-notepad-btn" title="Insert column left" onClick={() => insertTableCol("left")}>⇤ Col</button>
-          <button className="cia-ext-notepad-btn" title="Insert column right" onClick={() => insertTableCol("right")}>⇥ Col</button>
+          <button className="cia-ext-notepad-btn" title="Insert row above" onClick={() => insertTableRow("above")}>Row above</button>
+          <button className="cia-ext-notepad-btn" title="Insert row below" onClick={() => insertTableRow("below")}>Row below</button>
+          <button className="cia-ext-notepad-btn" title="Insert column left" onClick={() => insertTableCol("left")}>Col left</button>
+          <button className="cia-ext-notepad-btn" title="Insert column right" onClick={() => insertTableCol("right")}>Col right</button>
           <div className="cia-ext-notepad-sep" />
-          <button className="cia-ext-notepad-btn" title="Delete row" onClick={deleteTableRow}>✕ Row</button>
-          <button className="cia-ext-notepad-btn" title="Delete column" onClick={deleteTableCol}>✕ Col</button>
-          <button className="cia-ext-notepad-btn cia-ext-notepad-tt-del" title="Delete table" onClick={deleteTable}>🗑 Table</button>
+          <button className="cia-ext-notepad-btn" title="Delete row" onClick={deleteTableRow}>Del row</button>
+          <button className="cia-ext-notepad-btn" title="Delete column" onClick={deleteTableCol}>Del col</button>
+          <button className="cia-ext-notepad-btn cia-ext-notepad-tt-del" title="Delete table" onClick={deleteTable}>Del table</button>
         </div>
       )}
 

@@ -1,17 +1,13 @@
 import { useRef, useState } from "react";
 import { PortalPopover } from "./PortalPopover.jsx";
 
-/** Close the panel. Inside the on-page floating widget (an iframe) window.close()
- * does nothing, so tell the host widget to collapse; otherwise close the window. */
 function closeSidePanel() {
   try {
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: "CIA_PANEL_CLOSE" }, "*");
       return;
     }
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
   window.close();
 }
 
@@ -53,14 +49,9 @@ function AppLauncher({ items }) {
                 key={item.label}
                 type="button"
                 className={`cia-ext-launcher-app${item.danger ? " is-danger" : ""}`}
-                onClick={() => {
-                  item.onClick();
-                  setOpen(false);
-                }}
+                onClick={() => { item.onClick(); setOpen(false); }}
               >
-                <span className="cia-ext-launcher-app-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
+                <span className="cia-ext-launcher-app-icon" aria-hidden="true">{item.icon}</span>
                 <span className="cia-ext-launcher-app-label">{item.label}</span>
               </button>
             ))}
@@ -71,12 +62,10 @@ function AppLauncher({ items }) {
   );
 }
 
-export function TopBar({ healthState, user, apps = [], onClose, onOpenAi, aiModels = [] }) {
+export function TopBar({ healthState, user, apps = [], onClose, onOpenAi, aiModels = [], darkMode, onToggleDark }) {
   const status = healthState?.ok === true ? "online" : healthState?.ok === false ? "offline" : "unknown";
   const statusLabel =
     status === "online" ? "Connected" : status === "offline" ? "Disconnected" : "Checking…";
-
-  const launcherItems = apps;
 
   const aiTitle = aiModels.length
     ? `AI in use: ${aiModels.map((m) => `${m.name} · ${m.model}`).join(", ")} — click to manage`
@@ -102,21 +91,21 @@ export function TopBar({ healthState, user, apps = [], onClose, onOpenAi, aiMode
       </div>
 
       <div className="cia-ext-topbar-actions">
-        {user?.email ? (
-          <span className="cia-ext-user" title={user.email}>
-            {user.email}
-          </span>
+        {onToggleDark ? (
+          <button
+            type="button"
+            className="cia-ext-dark-toggle"
+            onClick={onToggleDark}
+            title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={darkMode ? "Light mode" : "Dark mode"}
+          >
+            {darkMode ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 9.5a5.5 5.5 0 01-7-7A5.5 5.5 0 1013.5 9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+            )}
+          </button>
         ) : null}
-        <AppLauncher items={launcherItems} />
-        <button
-          type="button"
-          className="cia-ext-icon-btn"
-          onClick={onClose ?? closeSidePanel}
-          title={onClose ? "Back to home" : "Close panel"}
-          aria-label={onClose ? "Back to home" : "Close panel"}
-        >
-          ✕
-        </button>
       </div>
     </header>
   );

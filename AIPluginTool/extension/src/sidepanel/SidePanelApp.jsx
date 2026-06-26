@@ -16,7 +16,7 @@ import {
   relayPlanStep,
   relayConclude,
 } from "../lib/api.js";
-import { openWebApp, openPopoutWindow } from "../lib/storage.js";
+import { openWebApp, openPopoutWindow, getStored, setStored } from "../lib/storage.js";
 import { pickPageContextForApi } from "../lib/pageContextPayload.js";
 import { capturePageView, getPageContext } from "../lib/pageContext.js";
 import { detectPageAi, relayToPageAi, flashPageVision } from "../lib/pageAiRelay.js";
@@ -26,6 +26,7 @@ import {
   applySettings,
   applyTheme,
   applyDensity,
+  applyDarkMode,
   subscribeSettings,
   isPageVisionAllowed,
 } from "../lib/settings.js";
@@ -44,6 +45,7 @@ import { NotepadPanel } from "./components/NotepadPanel.jsx";
 import { AppLauncher, LayersIcon } from "./components/AppLauncher.jsx";
 import { APP_CATALOG, computeAppBadges } from "../lib/apps.js";
 import { getAiProviders, streamLlm, ASSISTANT_SYSTEM, providerMeta } from "../lib/aiProviders.js";
+import { AppCreatorPanel, AppRunner } from "./components/AppCreatorPanel.jsx";
 import { HomeScreen } from "./HomeScreen.jsx";
 
 const WELCOME_MESSAGE = {
@@ -88,6 +90,8 @@ export function SidePanelApp() {
   const [showChecklist, setShowChecklist] = useState(false);
   const [showGoLive, setShowGoLive] = useState(false);
   const [appBadges, setAppBadges] = useState({});
+  const [customApps, setCustomApps] = useState([]);
+  const [runningCustomApp, setRunningCustomApp] = useState(null);
   const [forumDraft, setForumDraft] = useState(null);
   const [provider, setProvider] = useState(() => getSettings().provider ?? "server");
   const [chatModel, setChatModel] = useState(() => getSettings().chatModel ?? "");
@@ -100,12 +104,19 @@ export function SidePanelApp() {
   const [visionLog, setVisionLog] = useState([]);
   const [livePreview, setLivePreview] = useState(null); // { text, busy, phase, updatedAt }
   const [wholePageVision, setWholePageVision] = useState(() => getSettings().wholePageVision === true);
+  const [darkMode, setDarkMode] = useState(() => getSettings().darkMode === true);
   const relayStopRef = useRef(false);
   const messagesRef = useRef(null);
   const abortRef = useRef(null);
   const latestMessagesRef = useRef(messages);
   latestMessagesRef.current = messages;
 
+  const handleToggleDark = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    saveSettings({ darkMode: next });
+    applyDarkMode(next);
+  };
   const handleProviderChange = (value) => { setProvider(value); saveSettings({ provider: value }); };
   const handleChatModelChange = (value) => { setChatModel(value); saveSettings({ chatModel: value }); };
 
@@ -327,7 +338,12 @@ export function SidePanelApp() {
   // Apply theme colors on mount and live-update whenever settings change.
   useEffect(() => {
     applySettings();
-    return subscribeSettings((next) => { applyTheme(next.theme); applyDensity(next.density); });
+    return subscribeSettings((next) => {
+      applyTheme(next.theme);
+      applyDensity(next.density);
+      setDarkMode(next.darkMode === true);
+      applyDarkMode(next.darkMode === true);
+    });
   }, []);
 
   useEffect(() => {
@@ -350,6 +366,9 @@ export function SidePanelApp() {
       if (!event.data || typeof event.data !== "object") return;
       if (event.data.type === "CIA_PREFILL_FROM_SELECTION") {
         handleMessage(event.data);
+      }
+      if (event.data.type === "CIA_NAV_HOME") {
+        setView("home");
       }
       if (event.data.type === "CIA_PAGE_CAPTURE" && event.data.context) {
         setPageContext(event.data.context);
@@ -1064,9 +1083,24 @@ export function SidePanelApp() {
       case "golive": setShowGoLive(true); break;
       case "settings": setView("settings"); break;
       case "apps": setView("apps"); break;
-      default: break;
+      case "appcreator": setView("appcreator"); break;
+      default: {
+        const custom = customApps.find((a) => a.id === id);
+        if (custom) { setRunningCustomApp(custom); setView("customapp"); }
+        break;
+      }
     }
-  }, [handleNewThread]);
+  }, [handleNewThread, customApps]);
+
+  // Load user-created apps so they appear in the launcher.
+  useEffect(() => {
+    let alive = true;
+    const load = () => getStored(["customApps"]).then((s) => { if (alive) setCustomApps(Array.isArray(s.customApps) ? s.customApps : []); }).catch(() => {});
+    load();
+    const handler = (changes, area) => { if (area === "local" && changes.customApps) load(); };
+    chrome.storage?.onChanged?.addListener?.(handler);
+    return () => { alive = false; chrome.storage?.onChanged?.removeListener?.(handler); };
+  }, []);
 
   // Recompute launcher badges on mount and whenever the underlying data changes.
   useEffect(() => {
@@ -1108,7 +1142,7 @@ export function SidePanelApp() {
   if (!user) {
     return (
       <div className="cia-ext-shell">
-        <TopBar healthState={healthState} compact />
+        <TopBar healthState={healthState} compact darkMode={darkMode} onToggleDark={handleToggleDark} />
         <LoginScreen onLogin={handleLogin} onRegister={handleRegister} healthState={healthState} />
       </div>
     );
@@ -1122,6 +1156,8 @@ export function SidePanelApp() {
         onClose={() => setView("home")}
         onOpenAi={() => setView("settings")}
         aiModels={chatProviders.map((p) => ({ name: providerMeta(p.type).label, model: p.model }))}
+        darkMode={darkMode}
+        onToggleDark={handleToggleDark}
         apps={[
           { label: "Companion", icon: "✅", onClick: () => setShowChecklist(true) },
           { label: "Go-Live", icon: "🚀", onClick: () => setShowGoLive(true) },
@@ -1151,20 +1187,12 @@ export function SidePanelApp() {
       />
 
       <ComposerToolbar
-        sources={sources}
-        onSourcesChange={handleSourcesChange}
-        connectorSources={connectorSources}
-        onConnectorSourcesChange={handleConnectorSourcesChange}
         reasoning={reasoning}
         onReasoningChange={handleReasoningChange}
         chatModel={chatModel}
         onChatModelChange={handleChatModelChange}
         providersData={aiData}
-        onTopicSelect={(text) => {
-          const prefix = includeContext && pageContext?.selection ? `${text} ${pageContext.selection}` : text;
-          setInput(prefix);
-        }}
-        pageContext={pageContext}
+pageContext={pageContext}
         includeContext={includeContext}
         capturingPage={capturingPage}
         onToggleContext={() => setIncludeContext((value) => !value)}
@@ -1195,11 +1223,21 @@ export function SidePanelApp() {
   );
 
   // Apps shown in the drag-and-drop launcher / Quick actions, with live badges.
-  const launcherApps = APP_CATALOG.map((a) => ({
+  const builtInApps = APP_CATALOG.map((a) => ({
     ...a,
     badge: appBadges[a.id] ?? 0,
     onClick: () => openApp(a.id),
   }));
+  const userApps = customApps.map((a) => ({
+    id: a.id,
+    icon: a.icon ?? "📋",
+    label: a.name,
+    desc: a.desc || `${a.widgets.length} widget${a.widgets.length !== 1 ? "s" : ""}`,
+    accent: a.color ?? "#7c3aed",
+    badge: 0,
+    onClick: () => openApp(a.id),
+  }));
+  const launcherApps = [...builtInApps, ...userApps];
 
   return (
     <div className="cia-ext-shell">
@@ -1239,6 +1277,26 @@ export function SidePanelApp() {
             setView("chat");
           }}
         />
+      )}
+
+      {view === "appcreator" && (
+        <AppCreatorPanel onClose={() => setView("home")} />
+      )}
+
+      {view === "customapp" && runningCustomApp && (
+        <div className="cia-ext-settings-overlay cia-ext-ca-panel">
+          <AppRunner
+            app={runningCustomApp}
+            onChange={(updated) => {
+              setRunningCustomApp(updated);
+              const next = customApps.map((a) => (a.id === updated.id ? updated : a));
+              setCustomApps(next);
+              void setStored({ customApps: next });
+            }}
+            onBack={() => { setRunningCustomApp(null); setView("home"); }}
+            onEdit={() => { setView("appcreator"); setRunningCustomApp(null); }}
+          />
+        </div>
       )}
 
       {view === "settings" && (

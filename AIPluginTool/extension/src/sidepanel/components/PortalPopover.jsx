@@ -1,24 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 
-/**
- * Renders children in a React portal positioned relative to an anchor element,
- * escaping every parent stacking context (backdrop-filter, transform, opacity…).
- *
- * Use when a popover must visually sit above other UI but its DOM parent has
- * styling (filter / backdrop-filter / transform) that pins it to a lower
- * compositor layer regardless of z-index.
- *
- * Props:
- *  - anchorRef: ref to the trigger element used as positioning origin
- *  - open: whether the popover is mounted
- *  - placement: "below" (default) | "above"
- *  - align: "end" (default — right-edge aligned) | "start" (left-edge aligned)
- *  - offset: gap in px between anchor and popover (default 8)
- *  - onClose: called when the user clicks outside the popover or the anchor
- *  - className: extra class on the portal container
- *  - width: optional fixed width; otherwise content drives it
- */
 export function PortalPopover({
   anchorRef,
   open,
@@ -31,34 +13,51 @@ export function PortalPopover({
   children,
 }) {
   const popRef = useRef(null);
-  const [coords, setCoords] = useState(null);
+  const [style, setStyle] = useState(null);
 
-  // Position the popover from the anchor's viewport rect. Recompute on resize +
-  // scroll so it stays glued to the anchor while the user interacts.
+  const reposition = useCallback(() => {
+    const anchor = anchorRef?.current;
+    const pop = popRef.current;
+    if (!anchor || !pop) return;
+
+    const r = anchor.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const m = 8;
+
+    let top = placement === "above" ? null : r.bottom + offset;
+    let bottom = placement === "above" ? window.innerHeight - r.top + offset : null;
+
+    let left;
+    if (align === "start") {
+      left = r.left;
+    } else {
+      left = r.right - popRect.width;
+    }
+    left = Math.max(m, Math.min(left, vw - popRect.width - m));
+
+    setStyle({
+      position: "fixed",
+      zIndex: 2147483647,
+      ...(top != null ? { top } : {}),
+      ...(bottom != null ? { bottom } : {}),
+      left,
+      ...(width ? { width } : {}),
+      maxWidth: `calc(100vw - ${m * 2}px)`,
+    });
+  }, [anchorRef, placement, align, offset, width]);
+
   useLayoutEffect(() => {
-    if (!open) return undefined;
-    const compute = () => {
-      const anchor = anchorRef?.current;
-      if (!anchor) return;
-      const r = anchor.getBoundingClientRect();
-      const next = {
-        top: placement === "above" ? null : r.bottom + offset,
-        bottom: placement === "above" ? window.innerHeight - r.top + offset : null,
-        left: align === "start" ? r.left : null,
-        right: align === "end" ? window.innerWidth - r.right : null,
-      };
-      setCoords(next);
-    };
-    compute();
-    window.addEventListener("resize", compute);
-    window.addEventListener("scroll", compute, true);
+    if (!open) { setStyle(null); return; }
+    requestAnimationFrame(reposition);
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
     return () => {
-      window.removeEventListener("resize", compute);
-      window.removeEventListener("scroll", compute, true);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
     };
-  }, [open, anchorRef, placement, align, offset]);
+  }, [open, reposition]);
 
-  // Click-outside (ignores the anchor — the parent owns toggle behaviour).
   useEffect(() => {
     if (!open || !onClose) return undefined;
     const onDoc = (e) => {
@@ -71,23 +70,17 @@ export function PortalPopover({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open, onClose, anchorRef]);
 
-  if (!open || !coords) return null;
-
-  // Clamp into viewport. Picker may be wider than the side panel — keep it
-  // inside the visible area with a margin so the right edge isn't clipped.
-  const style = {
-    position: "fixed",
-    zIndex: 2147483647,
-    ...(coords.top != null ? { top: coords.top } : {}),
-    ...(coords.bottom != null ? { bottom: coords.bottom } : {}),
-    ...(coords.left != null ? { left: Math.max(8, coords.left) } : {}),
-    ...(coords.right != null ? { right: Math.max(8, coords.right) } : {}),
-    ...(width ? { width } : {}),
-    maxWidth: "calc(100vw - 16px)",
-  };
+  if (!open) return null;
 
   return createPortal(
-    <div ref={popRef} className={`cia-ext-portal-popover ${className}`} style={style}>
+    <div
+      ref={(el) => {
+        popRef.current = el;
+        if (el && !style) requestAnimationFrame(reposition);
+      }}
+      className={`cia-ext-portal-popover ${className}`}
+      style={style ?? { position: "fixed", visibility: "hidden", zIndex: 2147483647 }}
+    >
       {children}
     </div>,
     document.body,

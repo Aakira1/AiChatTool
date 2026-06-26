@@ -441,7 +441,6 @@ export function ChecklistPanel({ onClose }) {
     <div className="cia-ext-settings-overlay" role="dialog" aria-label="Companion checklist">
       <div className="cia-ext-settings-header">
         <strong>✅ Companion</strong>
-        <button type="button" className="cia-ext-icon-btn" onClick={onClose} aria-label="Close">×</button>
       </div>
 
       <div

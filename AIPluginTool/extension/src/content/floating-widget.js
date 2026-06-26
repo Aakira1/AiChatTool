@@ -143,11 +143,21 @@ function initFloatingWidget() {
         <span class="cia-fw-brand-name">OneChat</span>
       </div>
       <div class="cia-fw-actions">
-        <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture visible page (screenshot + text)" aria-label="Capture visible page">👁</button>
-        <button type="button" class="cia-fw-icon-btn" data-action="dock" title="Open in browser side panel">⇲</button>
-        <button type="button" class="cia-fw-icon-btn" data-action="popout" title="Pop out into its own window" aria-label="Pop out">⤢</button>
-        <button type="button" class="cia-fw-icon-btn" data-action="minimize" title="Minimize">—</button>
-        <button type="button" class="cia-fw-icon-btn" data-action="close" title="Close">×</button>
+        <button type="button" class="cia-fw-icon-btn" data-action="home" title="Home" aria-label="Home">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8.5V14h4.5v-4h3v4H14V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 8l7-6.5L15 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="cia-fw-icon-btn" data-action="capture" title="Capture page" aria-label="Capture visible page">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="cia-fw-icon-btn" data-action="dock" title="Side panel" aria-label="Open in side panel">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 2.5v11" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button type="button" class="cia-fw-icon-btn" data-action="popout" title="Pop out" aria-label="Pop out into its own window">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9 1.5h5.5V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2L8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 9.5v3a2 2 0 01-2 2H3.5a2 2 0 01-2-2V6a2 2 0 012-2H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="cia-fw-icon-btn" data-action="minimize" title="Minimize" aria-label="Minimize">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </header>
     <iframe class="cia-fw-iframe" src="about:blank" title="OneChat" loading="lazy"></iframe>
@@ -158,11 +168,11 @@ function initFloatingWidget() {
   document.documentElement.appendChild(host);
 
   const iframe = panel.querySelector(".cia-fw-iframe");
+  const homeBtn = panel.querySelector('[data-action="home"]');
   const captureBtn = panel.querySelector('[data-action="capture"]');
   const dockBtn = panel.querySelector('[data-action="dock"]');
   const popoutBtn = panel.querySelector('[data-action="popout"]');
   const minimizeBtn = panel.querySelector('[data-action="minimize"]');
-  const closeBtn = panel.querySelector('[data-action="close"]');
   const dragHandle = panel.querySelector("[data-drag-handle]");
   const resizer = panel.querySelector(".cia-fw-resizer");
 
@@ -189,7 +199,9 @@ function initFloatingWidget() {
   // "fully hide the bubble" affordance here — the bubble is the only way users
   // can summon the panel back without leaving the page.
   minimizeBtn.addEventListener("click", () => widget.collapse());
-  closeBtn.addEventListener("click", () => widget.collapse());
+  homeBtn.addEventListener("click", () => {
+    iframe.contentWindow?.postMessage?.({ type: "CIA_NAV_HOME" }, "*");
+  });
 
   // First-run hint removed — no start-up tooltip/pulse. Kept as a no-op so the
   // bubble-drag click handler below can still call it safely.
@@ -267,7 +279,6 @@ function initFloatingWidget() {
   bubble.addEventListener("pointerdown", resetIdle);
   panel.addEventListener("pointerdown", resetIdle);
   minimizeBtn.addEventListener("click", resetIdle);
-  closeBtn.addEventListener("click", resetIdle);
   dotsTab.addEventListener("pointerenter", resetIdle);
   dotsTab.addEventListener("click", () => { resetIdle(); widget.expand(); });
   resetIdle();
@@ -1037,40 +1048,35 @@ const SHADOW_CSS = `
 
   .cia-fw-actions {
     display: flex;
-    gap: 4px;
+    gap: 2px;
   }
 
   .cia-fw-icon-btn {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border: none;
-    border-radius: 7px;
+    border-radius: 8px;
     background: transparent;
     color: #6b6285;
-    font-size: 13px;
     cursor: pointer;
     display: grid;
     place-items: center;
     transition: background 120ms ease, color 120ms ease;
   }
+  .cia-fw-icon-btn svg { display: block; }
 
   .cia-fw-icon-btn:hover {
     background: rgba(124, 58, 237, 0.1);
-    color: #1f1235;
-  }
-
-  .cia-fw-icon-btn[data-action="capture"] {
-    font-size: 14px;
+    color: #7c3aed;
   }
 
   .cia-fw-icon-btn[data-action="capture"].has-shot {
-    background: rgba(34, 197, 94, 0.18);
+    background: rgba(34, 197, 94, 0.15);
     color: #15803d;
-    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
   }
 
   .cia-fw-icon-btn[data-action="capture"].is-capturing {
-    opacity: 0.65;
+    opacity: 0.55;
     cursor: wait;
   }
 

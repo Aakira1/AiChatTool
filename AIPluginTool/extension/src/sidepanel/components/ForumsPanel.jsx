@@ -201,14 +201,6 @@ export function ForumsPanel({ onClose, initialDraft = null }) {
     <div className="cia-ext-settings-overlay" role="dialog" aria-label="Forums">
       <div className="cia-ext-settings-header">
         <strong>Forums</strong>
-        <button
-          type="button"
-          className="cia-ext-icon-btn"
-          onClick={onClose}
-          aria-label="Close forums"
-        >
-          ×
-        </button>
       </div>
 
       <div className="cia-ext-settings-body">

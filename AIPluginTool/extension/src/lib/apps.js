@@ -8,6 +8,7 @@ export const APP_CATALOG = [
   { id: "notepad", icon: "📝", label: "Notepad", desc: "Notes & templates", accent: "#2563eb" },
   { id: "companion", icon: "✅", label: "Companion", desc: "Implementation checklist", accent: "#16a34a" },
   { id: "golive", icon: "🚀", label: "Go-Live", desc: "Cutover run sheets", accent: "#db2777" },
+  { id: "appcreator", icon: "🧩", label: "App Creator", desc: "Build custom micro-apps", accent: "#8b5cf6" },
   { id: "settings", icon: "⚙️", label: "Settings", desc: "Preferences", accent: "#64748b" },
 ];
 
