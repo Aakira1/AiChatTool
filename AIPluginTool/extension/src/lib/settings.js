@@ -78,6 +78,90 @@ export const THEMES = [
       "--cia-muted": "#64748b",
     },
   },
+  {
+    id: "sunset",
+    label: "Sunset",
+    swatch: "linear-gradient(135deg, #f97316, #db2777)",
+    vars: {
+      "--cia-deep": "#3b0a2e", "--cia-navy": "#7c2d52",
+      "--cia-magenta": "#db2777", "--cia-magenta-dark": "#be185d",
+      "--cia-orange": "#f97316", "--cia-purple": "#e11d48",
+      "--cia-light": "#fff7f3", "--cia-soft": "#ffeee6",
+      "--cia-border": "rgba(219, 39, 119, 0.16)", "--cia-body": "#4a1130", "--cia-muted": "#9d6b80",
+    },
+  },
+  {
+    id: "grape",
+    label: "Grape",
+    swatch: "linear-gradient(135deg, #7c3aed, #c026d3)",
+    vars: {
+      "--cia-deep": "#2e1065", "--cia-navy": "#4c1d95",
+      "--cia-magenta": "#a21caf", "--cia-magenta-dark": "#86198f",
+      "--cia-orange": "#c026d3", "--cia-purple": "#7c3aed",
+      "--cia-light": "#faf5ff", "--cia-soft": "#f3e8ff",
+      "--cia-border": "rgba(124, 58, 237, 0.16)", "--cia-body": "#3b0764", "--cia-muted": "#7e6b9c",
+    },
+  },
+  {
+    id: "rose",
+    label: "Rose",
+    swatch: "linear-gradient(135deg, #f43f5e, #fb7185)",
+    vars: {
+      "--cia-deep": "#4c0519", "--cia-navy": "#881337",
+      "--cia-magenta": "#e11d48", "--cia-magenta-dark": "#be123c",
+      "--cia-orange": "#fb7185", "--cia-purple": "#f43f5e",
+      "--cia-light": "#fff1f3", "--cia-soft": "#ffe4e8",
+      "--cia-border": "rgba(244, 63, 94, 0.16)", "--cia-body": "#4c0519", "--cia-muted": "#a16270",
+    },
+  },
+  {
+    id: "teal",
+    label: "Teal",
+    swatch: "linear-gradient(135deg, #0d9488, #14b8a6)",
+    vars: {
+      "--cia-deep": "#042f2e", "--cia-navy": "#134e4a",
+      "--cia-magenta": "#0d9488", "--cia-magenta-dark": "#0f766e",
+      "--cia-orange": "#14b8a6", "--cia-purple": "#0891b2",
+      "--cia-light": "#f0fdfa", "--cia-soft": "#ccfbf1",
+      "--cia-border": "rgba(13, 148, 136, 0.18)", "--cia-body": "#134e4a", "--cia-muted": "#5a8a85",
+    },
+  },
+  {
+    id: "amber",
+    label: "Amber",
+    swatch: "linear-gradient(135deg, #d97706, #f59e0b)",
+    vars: {
+      "--cia-deep": "#451a03", "--cia-navy": "#78350f",
+      "--cia-magenta": "#d97706", "--cia-magenta-dark": "#b45309",
+      "--cia-orange": "#f59e0b", "--cia-purple": "#ea580c",
+      "--cia-light": "#fffbeb", "--cia-soft": "#fef3c7",
+      "--cia-border": "rgba(217, 119, 6, 0.18)", "--cia-body": "#78350f", "--cia-muted": "#9a7b4f",
+    },
+  },
+  {
+    id: "indigo",
+    label: "Indigo",
+    swatch: "linear-gradient(135deg, #4f46e5, #818cf8)",
+    vars: {
+      "--cia-deep": "#1e1b4b", "--cia-navy": "#312e81",
+      "--cia-magenta": "#4f46e5", "--cia-magenta-dark": "#4338ca",
+      "--cia-orange": "#6366f1", "--cia-purple": "#4f46e5",
+      "--cia-light": "#f5f5ff", "--cia-soft": "#eef2ff",
+      "--cia-border": "rgba(79, 70, 229, 0.16)", "--cia-body": "#312e81", "--cia-muted": "#6e6c9c",
+    },
+  },
+  {
+    id: "crimson",
+    label: "Crimson",
+    swatch: "linear-gradient(135deg, #dc2626, #991b1b)",
+    vars: {
+      "--cia-deep": "#450a0a", "--cia-navy": "#7f1d1d",
+      "--cia-magenta": "#dc2626", "--cia-magenta-dark": "#b91c1c",
+      "--cia-orange": "#ef4444", "--cia-purple": "#dc2626",
+      "--cia-light": "#fef5f5", "--cia-soft": "#fee2e2",
+      "--cia-border": "rgba(220, 38, 38, 0.16)", "--cia-body": "#7f1d1d", "--cia-muted": "#a36868",
+    },
+  },
 ];
 
 // Dark mode overrides — applied on top of the active theme.

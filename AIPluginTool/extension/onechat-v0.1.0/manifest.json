@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CiA Transition Assistant",
-  "short_name": "CiA Assistant",
-  "description": "AI-powered Ci → CiA transition helper. Click the floating bubble or right-click any selection to ask the assistant.",
+  "name": "OneChat",
+  "short_name": "OneChat",
+  "description": "Your AI assistant in the browser. Click the floating bubble or right-click any selection to ask OneChat.",
   "version": "0.1.0",
   "version_name": "0.1.0-dev",
   "icons": {
@@ -12,7 +12,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "Toggle CiA Assistant",
+    "default_title": "Toggle OneChat",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -40,7 +40,7 @@
     },
     {
       "js": [
-        "assets/floating-widget.js-NhhmHuIR.js"
+        "assets/floating-widget.js-DGccT0FF.js"
       ],
       "matches": [
         "<all_urls>"
@@ -72,7 +72,7 @@
         "src/sidepanel/index.html",
         "assets/*",
         "assets/index.js-_o2FHpzX.js",
-        "assets/floating-widget.js-NhhmHuIR.js"
+        "assets/floating-widget.js-DGccT0FF.js"
       ],
       "use_dynamic_url": false
     }

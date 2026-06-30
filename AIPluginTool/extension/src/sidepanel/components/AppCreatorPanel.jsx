@@ -1,7 +1,92 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getStored, setStored } from "../../lib/storage.js";
+import { getActiveProvider, streamLlm } from "../../lib/aiProviders.js";
+import { aiComplete } from "../../lib/api.js";
 
 const STORAGE_KEY = "customApps";
+const USAGE_KEY = "appCreatorUsage";
+const MAX_USAGE_ENTRIES = 50;
+
+// ── Usage learning: stores recent interactions so AI gains user-specific context
+async function logUsage(entry) {
+  try {
+    const { [USAGE_KEY]: d } = await getStored([USAGE_KEY]);
+    const list = Array.isArray(d) ? d : [];
+    const next = [{ ...entry, ts: Date.now() }, ...list].slice(0, MAX_USAGE_ENTRIES);
+    await setStored({ [USAGE_KEY]: next });
+  } catch { /* non-fatal */ }
+}
+
+async function getUsageContext(widgetType, maxItems = 6) {
+  try {
+    const { [USAGE_KEY]: d } = await getStored([USAGE_KEY]);
+    const list = Array.isArray(d) ? d : [];
+    const sameType = list.filter((x) => x.widgetType === widgetType).slice(0, maxItems);
+    const recent = list.slice(0, maxItems);
+    const picks = [...new Map([...sameType, ...recent].map((x) => [x.ts, x])).values()].slice(0, maxItems);
+    if (!picks.length) return "";
+    const lines = picks.map((x) => `- [${x.widgetType}] ${x.summary}`).join("\n");
+    return `Recent context from this user's prior work (use this to match their domain, terminology and style):\n${lines}`;
+  } catch { return ""; }
+}
+
+// ── AI helper: BYO provider first, falls back to backend, with learned context
+async function callAi(prompt, system, opts = {}) {
+  const { widgetType, learn = true, summary } = opts;
+  let sysWithCtx = system ?? "";
+  if (learn && widgetType) {
+    const ctx = await getUsageContext(widgetType);
+    if (ctx) sysWithCtx = `${sysWithCtx}\n\n${ctx}`.trim();
+  }
+  let result = "";
+  try {
+    const provider = await getActiveProvider();
+    if (provider) {
+      const messages = sysWithCtx ? [{ role: "system", content: sysWithCtx }, { role: "user", content: prompt }] : [{ role: "user", content: prompt }];
+      let full = "";
+      await streamLlm({ provider, messages, onToken: (t) => { full += t; }, maxTokens: 4096 });
+      result = full.trim();
+    }
+  } catch { /* fall through */ }
+  if (!result) result = (await aiComplete({ message: sysWithCtx ? `${sysWithCtx}\n\n${prompt}` : prompt })).trim();
+  if (learn && widgetType) void logUsage({ widgetType, summary: summary ?? prompt.slice(0, 140) });
+  return result;
+}
+
+// ── Sandboxed JS runner (bypasses extension CSP via iframe sandbox) ────────
+function runSandboxed(code) {
+  return new Promise((resolve) => {
+    const id = `sb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const html = `<!DOCTYPE html><html><head></head><body><script>
+      const __logs = [];
+      const __wrap = (k) => (...a) => __logs.push("[" + k + "] " + a.map(v => { try { return typeof v === "object" ? JSON.stringify(v) : String(v); } catch { return String(v); } }).join(" "));
+      const console = { log: __wrap("log"), info: __wrap("info"), warn: __wrap("warn"), error: __wrap("error") };
+      let __ret;
+      try {
+        __ret = (function(){ ${code} })();
+      } catch (e) {
+        parent.postMessage({ type: "sb", id: "${id}", ok: false, value: e.message, logs: __logs }, "*");
+        throw 0;
+      }
+      const out = __ret === undefined ? (__logs.length ? "" : "(no return value)") : (typeof __ret === "object" ? JSON.stringify(__ret, null, 2) : String(__ret));
+      parent.postMessage({ type: "sb", id: "${id}", ok: true, value: out, logs: __logs }, "*");
+    <\/script></body></html>`;
+    const iframe = document.createElement("iframe");
+    iframe.sandbox = "allow-scripts";
+    iframe.style.display = "none";
+    iframe.srcdoc = html;
+    let done = false;
+    const cleanup = () => { if (done) return; done = true; window.removeEventListener("message", onMsg); try { iframe.remove(); } catch { /* noop */ } };
+    const onMsg = (e) => {
+      if (e.data?.type !== "sb" || e.data.id !== id) return;
+      cleanup();
+      resolve({ ok: e.data.ok, value: e.data.value, logs: e.data.logs ?? [] });
+    };
+    window.addEventListener("message", onMsg);
+    document.body.appendChild(iframe);
+    setTimeout(() => { if (!done) { cleanup(); resolve({ ok: false, value: "Timed out after 30s — code took too long to run", logs: [] }); } }, 30000);
+  });
+}
 
 // ── Widget type registry ───────────────────────────────────────────────────
 const WIDGET_TYPES = [
@@ -30,16 +115,23 @@ const WIDGET_TYPES = [
   // Utility
   { type: "converter", label: "Unit Converter", desc: "Convert between units", category: "utility", defaults: { title: "Converter", category: "length" } },
   { type: "calculator", label: "Calculator", desc: "Basic calculator", category: "utility", defaults: { title: "Calculator" } },
-  { type: "dice", label: "Dice & Random", desc: "Roll dice or pick random numbers", category: "utility", defaults: { title: "Dice", sides: 6, count: 1, results: [] } },
   { type: "json", label: "JSON Viewer", desc: "View and edit JSON data", category: "utility", defaults: { title: "JSON", text: '{\n  "key": "value"\n}' } },
-  { type: "colorpicker", label: "Color Palette", desc: "Pick and save colors", category: "utility", defaults: { title: "Colors", colors: ["#7c3aed", "#e4007c", "#f7941d", "#16a34a", "#0ea5e9"], current: "#7c3aed" } },
   { type: "poll", label: "Poll", desc: "Quick voting widget", category: "utility", defaults: { title: "Poll", question: "Which option?", options: [{ text: "Option A", votes: 0 }, { text: "Option B", votes: 0 }] } },
   { type: "budget", label: "Budget", desc: "Simple income & expense tracker", category: "utility", defaults: { title: "Budget", entries: [{ label: "", amount: 0, type: "expense" }] } },
-  { type: "scripter", label: "Scripter", desc: "Run custom JavaScript", category: "utility", defaults: { title: "Script", code: '// Write JavaScript here\nreturn "Hello!";', autoRun: false } },
-  { type: "quotes", label: "Quotes", desc: "Rotating motivational quotes", category: "utility", defaults: { title: "Quotes", items: ["The best way to predict the future is to create it.", "Done is better than perfect.", "Ship it."] } },
+  { type: "scripter", label: "Code Scripter", desc: "Run code in 10 languages", category: "utility", defaults: { title: "Scripter", lang: "javascript", code: 'console.log("Hello!");\nreturn 1 + 2;', autoRun: false } },
+  // AI
+  { type: "ai_sql", label: "SQL Generator", desc: "AI writes SQL from natural language", category: "ai", defaults: { title: "SQL Generator", dialect: "PostgreSQL", request: "", result: "" } },
+  { type: "ai_writer", label: "AI Writer", desc: "Generate text in any style", category: "ai", defaults: { title: "AI Writer", style: "Professional email", prompt: "", result: "" } },
+  { type: "ai_translate", label: "AI Translator", desc: "Translate to any language", category: "ai", defaults: { title: "Translator", target: "Spanish", source: "", result: "" } },
+  { type: "ai_summary", label: "AI Summarizer", desc: "Summarize long text", category: "ai", defaults: { title: "Summarizer", source: "", style: "Bullet points", result: "" } },
+  { type: "ai_brainstorm", label: "Brainstorm Buddy", desc: "Generate ideas on any topic", category: "ai", defaults: { title: "Brainstorm", topic: "", count: 5, result: "" } },
+  { type: "ai_explain", label: "Explain Like I'm 5", desc: "Simplify any concept", category: "ai", defaults: { title: "Explain it", concept: "", level: "5-year-old", result: "" } },
+  { type: "ai_regex", label: "Regex Builder", desc: "AI builds regex from description", category: "ai", defaults: { title: "Regex", request: "", result: "" } },
+  { type: "ai_testscripts", label: "Test Script Generator", desc: "AI builds test cases in the standard template", category: "ai", defaults: { title: "Test Cases", module: "", moduleCode: "", subProcess: "", context: "", count: 8, rows: [], startingTestNum: 1 } },
 ];
 
 const WIDGET_CATEGORIES = [
+  { id: "ai", label: "AI" },
   { id: "layout", label: "Layout" },
   { id: "productivity", label: "Productivity" },
   { id: "content", label: "Content" },
@@ -371,10 +463,43 @@ function ProsConsWidget({ data, onChange }) {
 }
 
 function EmbedWidget({ data, onChange }) {
+  const [failed, setFailed] = useState(false);
+  const [key, setKey] = useState(0);
+  const url = (data.url ?? "").trim();
+  let hostname = ""; let valid = false;
+  try { const u = new URL(url); hostname = u.hostname; valid = true; } catch { /* invalid */ }
+  const reload = () => { setFailed(false); setKey((k) => k + 1); };
+  const openTab = () => { if (chrome?.tabs?.create) chrome.tabs.create({ url }); else window.open(url, "_blank", "noopener"); };
+  useEffect(() => { setFailed(false); }, [url, key]);
+  // Many sites set X-Frame-Options/CSP and block embedding. Detect with a short timeout — if onLoad never fires, assume blocked.
+  useEffect(() => {
+    if (!valid) return;
+    const t = setTimeout(() => setFailed((f) => f || true), 4500);
+    return () => clearTimeout(t);
+  }, [url, key, valid]);
+  const favicon = valid ? `https://www.google.com/s2/favicons?sz=64&domain=${hostname}` : null;
   return (
-    <div className="cia-ext-ca-widget-body">
-      <input value={data.url ?? ""} onChange={(e) => onChange({ ...data, url: e.target.value })} placeholder="https://example.com" style={{ width: "100%", border: "1px solid var(--cia-border)", borderRadius: 6, padding: "5px 8px", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }} />
-      {data.url ? <iframe src={data.url} title={data.title} style={{ width: "100%", height: data.height ?? 300, border: "1px solid var(--cia-border)", borderRadius: 6 }} sandbox="allow-scripts allow-same-origin" /> : <div className="cia-ext-ca-empty">Enter a URL above</div>}
+    <div className="cia-ext-ca-widget-body cia-ext-ca-embed">
+      <div className="cia-ext-ca-embed-bar">
+        <input className="cia-ext-ca-embed-url" value={data.url ?? ""} onChange={(e) => onChange({ ...data, url: e.target.value })} placeholder="https://example.com" />
+        {valid && <button className="cia-ext-ca-embed-btn" onClick={openTab} title="Open in new tab">↗</button>}
+      </div>
+      {!valid ? (
+        <div className="cia-ext-ca-empty"><span className="cia-ext-ca-empty-icon">🌐</span>Enter a URL above (must start with http:// or https://)</div>
+      ) : failed ? (
+        <div className="cia-ext-ca-embed-fallback">
+          {favicon && <img src={favicon} alt="" className="cia-ext-ca-embed-favicon" />}
+          <div className="cia-ext-ca-embed-host">{hostname}</div>
+          <div className="cia-ext-ca-embed-msg">Can't embed this site — it blocks iframes for security. Use Open instead.</div>
+          <div className="cia-ext-ca-embed-actions">
+            <button className="cia-ext-ca-embed-open" onClick={openTab}>↗ Open {hostname}</button>
+            <button className="cia-ext-ca-embed-retry" onClick={reload}>Retry</button>
+          </div>
+          <small className="cia-ext-ca-embed-tip">Sites that <em>do</em> embed: YouTube, CodePen, Google Docs (preview links), Figma (embed URLs).</small>
+        </div>
+      ) : (
+        <iframe key={key} src={url} title={data.title} onLoad={() => setFailed(false)} style={{ width: "100%", height: data.height ?? 320, border: "1px solid var(--cia-border)", borderRadius: 8, background: "#fff" }} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer" />
+      )}
     </div>
   );
 }
@@ -415,13 +540,55 @@ function ConverterWidget({ data, onChange }) {
   );
 }
 
+// Small safe expression evaluator: supports + - * / ( ) decimal numbers and unary minus.
+function safeEvalArith(input) {
+  const s = String(input).replace(/\s+/g, "");
+  if (!/^[-+/*().0-9]+$/.test(s)) throw new Error("invalid");
+  let i = 0;
+  const peek = () => s[i];
+  const eat = (c) => { if (s[i] !== c) throw new Error("syntax"); i++; };
+  const parseNumber = () => {
+    let n = "";
+    while (i < s.length && /[0-9.]/.test(s[i])) { n += s[i++]; }
+    if (!n) throw new Error("number");
+    return parseFloat(n);
+  };
+  const parseFactor = () => {
+    if (peek() === "(") { eat("("); const v = parseExpr(); eat(")"); return v; }
+    if (peek() === "-") { eat("-"); return -parseFactor(); }
+    if (peek() === "+") { eat("+"); return parseFactor(); }
+    return parseNumber();
+  };
+  const parseTerm = () => {
+    let v = parseFactor();
+    while (peek() === "*" || peek() === "/") {
+      const op = s[i++];
+      const r = parseFactor();
+      v = op === "*" ? v * r : v / r;
+    }
+    return v;
+  };
+  function parseExpr() {
+    let v = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const op = s[i++];
+      const r = parseTerm();
+      v = op === "+" ? v + r : v - r;
+    }
+    return v;
+  }
+  const result = parseExpr();
+  if (i !== s.length) throw new Error("trailing");
+  return result;
+}
+
 function CalculatorWidget() {
   const [display, setDisplay] = useState("0");
   const [expr, setExpr] = useState("");
   const press = (v) => {
     if (v === "C") { setDisplay("0"); setExpr(""); return; }
     if (v === "⌫") { setDisplay((d) => d.length > 1 ? d.slice(0, -1) : "0"); setExpr((e) => e.slice(0, -1)); return; }
-    if (v === "=") { try { const r = new Function(`return (${expr})`)(); setDisplay(String(r)); setExpr(String(r)); } catch { setDisplay("Error"); } return; }
+    if (v === "=") { try { const r = safeEvalArith(expr); setDisplay(String(r)); setExpr(String(r)); } catch { setDisplay("Error"); } return; }
     if (v === "±") { setDisplay((d) => d.startsWith("-") ? d.slice(1) : `-${d}`); setExpr((e) => e.startsWith("-") ? e.slice(1) : `-${e}`); return; }
     const op = ["+", "−", "×", "÷"].includes(v);
     const mapped = v === "×" ? "*" : v === "÷" ? "/" : v === "−" ? "-" : v;
@@ -437,23 +604,6 @@ function CalculatorWidget() {
   );
 }
 
-function DiceWidget({ data, onChange }) {
-  const { sides = 6, count = 1, results = [] } = data;
-  const roll = () => { const r = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1); onChange({ ...data, results: r }); };
-  const total = results.reduce((a, b) => a + b, 0);
-  return (
-    <div className="cia-ext-ca-widget-body cia-ext-ca-counter">
-      <div className="cia-ext-ca-dice-results">{results.length ? results.map((r, i) => <span key={i} className="cia-ext-ca-dice-die">{r}</span>) : <span className="cia-ext-ca-progress-label">Roll to start</span>}</div>
-      {results.length > 1 && <div className="cia-ext-ca-progress-label">Total: {total}</div>}
-      <button className="cia-ext-ca-add-btn" onClick={roll} style={{ margin: "8px auto 0", display: "block" }}>Roll</button>
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
-        <label className="cia-ext-ca-counter-step">Sides <input type="number" min="2" value={sides} onChange={(e) => onChange({ ...data, sides: Math.max(2, +e.target.value || 6) })} /></label>
-        <label className="cia-ext-ca-counter-step">Count <input type="number" min="1" max="20" value={count} onChange={(e) => onChange({ ...data, count: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
-      </div>
-    </div>
-  );
-}
-
 function JsonWidget({ data, onChange }) {
   const [error, setError] = useState(null);
   const [formatted, setFormatted] = useState(null);
@@ -463,27 +613,6 @@ function JsonWidget({ data, onChange }) {
       <textarea className="cia-ext-ca-scripter-code" value={data.text ?? ""} onChange={(e) => { onChange({ ...data, text: e.target.value }); setError(null); }} rows={6} spellCheck={false} />
       <div className="cia-ext-ca-scripter-bar"><button className="cia-ext-ca-add-btn" onClick={format}>Format</button>{formatted && <span style={{ fontSize: 11, color: "#16a34a" }}>Formatted</span>}</div>
       {error && <pre className="cia-ext-ca-scripter-error">{error}</pre>}
-    </div>
-  );
-}
-
-function ColorPickerWidget({ data, onChange }) {
-  const colors = data.colors ?? []; const current = data.current ?? "#000000";
-  return (
-    <div className="cia-ext-ca-widget-body">
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-        {colors.map((c, i) => (
-          <div key={i} style={{ position: "relative" }}>
-            <button style={{ width: 32, height: 32, borderRadius: 6, border: c === current ? "2px solid var(--cia-purple)" : "1px solid var(--cia-border)", background: c, cursor: "pointer" }} onClick={() => onChange({ ...data, current: c })} title={c} />
-            <button className="cia-ext-ca-remove-sm" style={{ position: "absolute", top: -4, right: -4, width: 14, height: 14, fontSize: 9, padding: 0 }} onClick={() => onChange({ ...data, colors: colors.filter((_, j) => j !== i) })}>×</button>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <input type="color" value={current} onChange={(e) => onChange({ ...data, current: e.target.value })} style={{ width: 34, height: 28, border: "1px solid var(--cia-border)", borderRadius: 6, padding: 2, cursor: "pointer" }} />
-        <span style={{ fontSize: 12, fontFamily: "monospace", color: "var(--cia-body)" }}>{current}</span>
-        <button className="cia-ext-ca-add-btn" onClick={() => { if (!colors.includes(current)) onChange({ ...data, colors: [...colors, current] }); }}>Save</button>
-      </div>
     </div>
   );
 }
@@ -543,37 +672,449 @@ function BudgetWidget({ data, onChange }) {
   );
 }
 
+const SCRIPTER_LANGS = [
+  { id: "javascript", label: "JavaScript", placeholder: 'console.log("Hello!");\nreturn 1 + 2;', native: true },
+  { id: "python", label: "Python", placeholder: 'print("Hello!")\nresult = 1 + 2\nprint(result)' },
+  { id: "sql", label: "SQL", placeholder: "SELECT name, COUNT(*)\nFROM users\nGROUP BY name;" },
+  { id: "bash", label: "Bash", placeholder: 'echo "Hello"\nls -la' },
+  { id: "html", label: "HTML", placeholder: '<h1>Hello</h1>\n<p>World</p>', preview: true },
+  { id: "typescript", label: "TypeScript", placeholder: 'const x: number = 42;\nconsole.log(x);' },
+  { id: "ruby", label: "Ruby", placeholder: 'puts "Hello"\np 1 + 2' },
+  { id: "go", label: "Go", placeholder: 'fmt.Println("Hello")' },
+  { id: "rust", label: "Rust", placeholder: 'println!("Hello");' },
+  { id: "json", label: "JSON", placeholder: '{ "hello": "world" }' },
+];
+
 function ScripterWidget({ data, onChange }) {
   const [output, setOutput] = useState(null);
+  const [logs, setLogs] = useState([]);
   const [error, setError] = useState(null);
-  const run = () => { setError(null); setOutput(null); try { const r = new Function(data.code ?? "")(); setOutput(r !== undefined ? String(r) : "(no return value)"); } catch (e) { setError(e.message); } };
+  const [running, setRunning] = useState(false);
+  const lang = SCRIPTER_LANGS.find((l) => l.id === (data.lang ?? "javascript")) ?? SCRIPTER_LANGS[0];
+
+  const run = async () => {
+    setError(null); setOutput(null); setLogs([]); setRunning(true);
+    const code = data.code ?? "";
+    try {
+      if (lang.id === "javascript" || lang.id === "typescript") {
+        const r = await runSandboxed(code);
+        if (r.ok) { setOutput(r.value); setLogs(r.logs); }
+        else { setError(r.value); setLogs(r.logs); }
+      } else if (lang.id === "json") {
+        try { setOutput(JSON.stringify(JSON.parse(code), null, 2)); }
+        catch (e) { setError(`Invalid JSON: ${e.message}`); }
+      } else if (lang.id === "html") {
+        // preview happens inline below; nothing to "run"
+        setOutput("");
+      } else {
+        // For non-native languages, use AI as a runner — it simulates execution.
+        const sys = `You are a ${lang.label} interpreter. Execute the user's code mentally and reply ONLY with what the program would print to stdout. If the program would error, reply with the error message. No commentary, no markdown fences, no labels — just the literal output.`;
+        const out = await callAi(code, sys, { widgetType: "scripter", summary: `${lang.label}: ${code.slice(0, 80)}` });
+        setOutput(out);
+      }
+    } catch (e) { setError(e.message); }
+    finally { setRunning(false); }
+  };
+
   return (
     <div className="cia-ext-ca-widget-body cia-ext-ca-scripter">
-      <textarea className="cia-ext-ca-scripter-code" value={data.code ?? ""} onChange={(e) => onChange({ ...data, code: e.target.value })} placeholder="// JavaScript…" rows={6} spellCheck={false} />
-      <div className="cia-ext-ca-scripter-bar"><button className="cia-ext-ca-add-btn" onClick={run}>Run</button><label className="cia-ext-ca-scripter-auto"><input type="checkbox" checked={data.autoRun ?? false} onChange={(e) => onChange({ ...data, autoRun: e.target.checked })} />Auto-run</label></div>
-      {output !== null && <pre className="cia-ext-ca-scripter-output">{output}</pre>}
-      {error && <pre className="cia-ext-ca-scripter-error">{error}</pre>}
+      <div className="cia-ext-ca-scripter-langbar">
+        <select className="cia-ext-ca-scripter-lang" value={lang.id} onChange={(e) => onChange({ ...data, lang: e.target.value })}>
+          {SCRIPTER_LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}{!l.native && !l.preview && l.id !== "json" ? " · AI" : ""}</option>)}
+        </select>
+        {!lang.native && lang.id !== "html" && lang.id !== "json" && <span className="cia-ext-ca-scripter-hint">✨ AI simulates output</span>}
+        {lang.native && <span className="cia-ext-ca-scripter-hint">Sandboxed · 30s limit</span>}
+      </div>
+      <textarea className="cia-ext-ca-scripter-code" value={data.code ?? ""} onChange={(e) => onChange({ ...data, code: e.target.value })} placeholder={lang.placeholder} rows={7} spellCheck={false} />
+      <div className="cia-ext-ca-scripter-bar">
+        <button className="cia-ext-ca-run-btn" onClick={run} disabled={running}>{running ? "Running…" : lang.id === "html" ? "Refresh preview" : "▶ Run"}</button>
+        {lang.native && <label className="cia-ext-ca-scripter-auto"><input type="checkbox" checked={data.autoRun ?? false} onChange={(e) => onChange({ ...data, autoRun: e.target.checked })} />Auto-run</label>}
+      </div>
+      {lang.id === "html" && (data.code ?? "").trim() && (
+        <iframe className="cia-ext-ca-scripter-preview" sandbox="allow-scripts" srcDoc={`<!DOCTYPE html><html><head><style>body{font-family:system-ui,sans-serif;padding:12px;margin:0}</style></head><body>${data.code}</body></html>`} title="HTML preview" />
+      )}
+      {logs.length > 0 && <pre className="cia-ext-ca-scripter-logs">{logs.join("\n")}</pre>}
+      {output !== null && output !== "" && <pre className="cia-ext-ca-scripter-output">→ {output}</pre>}
+      {error && <pre className="cia-ext-ca-scripter-error">⚠ {error}</pre>}
     </div>
   );
 }
 
-function QuotesWidget({ data, onChange }) {
-  const items = data.items ?? [];
-  const [idx, setIdx] = useState(() => Math.floor(Math.random() * Math.max(1, items.length)));
-  if (!items.length) return <div className="cia-ext-ca-widget-body cia-ext-ca-empty">Add some quotes below.</div>;
+// ── AI Widgets ──────────────────────────────────────────────────────────────
+function AiRunButton({ onClick, running, label = "Generate" }) {
+  return <button className="cia-ext-ca-ai-run" onClick={onClick} disabled={running}>{running ? <><span className="cia-ext-ca-ai-spinner" />Thinking…</> : <>✨ {label}</>}</button>;
+}
+
+function AiResult({ result, onClear }) {
+  if (!result) return null;
   return (
-    <div className="cia-ext-ca-widget-body cia-ext-ca-counter">
-      <div style={{ fontSize: 14, fontStyle: "italic", color: "var(--cia-body)", lineHeight: 1.5, padding: "8px 4px", minHeight: 40 }}>"{items[idx % items.length]}"</div>
-      <button className="cia-ext-ca-add-btn" onClick={() => setIdx(Math.floor(Math.random() * items.length))} style={{ margin: "6px auto 0", display: "block" }}>New quote</button>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        {items.map((q, i) => (
-          <div key={i} style={{ display: "flex", gap: 4 }}>
-            <input value={q} onChange={(e) => onChange({ ...data, items: items.map((x, j) => j === i ? e.target.value : x) })} style={{ flex: 1, border: "1px solid var(--cia-border)", borderRadius: 4, padding: "3px 6px", fontSize: 11, fontFamily: "inherit" }} />
-            <button className="cia-ext-ca-remove-sm" onClick={() => onChange({ ...data, items: items.filter((_, j) => j !== i) })}>×</button>
-          </div>
-        ))}
+    <div className="cia-ext-ca-ai-result">
+      <pre className="cia-ext-ca-ai-result-text">{result}</pre>
+      <div className="cia-ext-ca-ai-result-bar">
+        <button onClick={() => navigator.clipboard?.writeText(result)}>Copy</button>
+        <button onClick={onClear}>Clear</button>
       </div>
-      <button className="cia-ext-ca-add-btn" onClick={() => onChange({ ...data, items: [...items, ""] })} style={{ marginTop: 4 }}>Add quote</button>
+    </div>
+  );
+}
+
+function SqlGeneratorWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.request?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const sys = `You are a SQL expert. Write a single ${data.dialect ?? "SQL"} query. Reply with ONLY the SQL — no markdown fences, no explanation. Use plausible table/column names if not specified.`;
+      const r = await callAi(data.request, sys, { widgetType: "ai_sql", summary: data.request });
+      onChange({ ...data, result: r.replace(/^```(?:sql)?\n?|```$/g, "").trim() });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <div className="cia-ext-ca-ai-row">
+        <label className="cia-ext-ca-ai-label">Dialect</label>
+        <select value={data.dialect ?? "PostgreSQL"} onChange={(e) => onChange({ ...data, dialect: e.target.value })} className="cia-ext-ca-ai-select">
+          {["PostgreSQL", "MySQL", "SQLite", "MS SQL Server", "Oracle", "BigQuery", "Snowflake"].map((d) => <option key={d}>{d}</option>)}
+        </select>
+      </div>
+      <label className="cia-ext-ca-ai-label">What do you want?</label>
+      <textarea className="cia-ext-ca-ai-text" rows={3} value={data.request ?? ""} onChange={(e) => onChange({ ...data, request: e.target.value })} placeholder="e.g. Top 10 users by signups this month, joined with their last login" />
+      <AiRunButton onClick={run} running={running} label="Generate SQL" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiWriterWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.prompt?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(`Write in this style: ${data.style}\n\n${data.prompt}`, "You are a versatile writer. Produce well-crafted text matching the requested style.", { widgetType: "ai_writer", summary: `${data.style}: ${data.prompt}` });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  const styles = ["Professional email", "Casual message", "Tweet", "LinkedIn post", "Blog intro", "Marketing copy", "Poem", "Apology", "Thank-you note"];
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <label className="cia-ext-ca-ai-label">Style</label>
+      <select value={data.style ?? styles[0]} onChange={(e) => onChange({ ...data, style: e.target.value })} className="cia-ext-ca-ai-select">{styles.map((s) => <option key={s}>{s}</option>)}</select>
+      <label className="cia-ext-ca-ai-label">What about?</label>
+      <textarea className="cia-ext-ca-ai-text" rows={3} value={data.prompt ?? ""} onChange={(e) => onChange({ ...data, prompt: e.target.value })} placeholder="e.g. Ask my manager for a day off next Friday" />
+      <AiRunButton onClick={run} running={running} label="Write" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiTranslateWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.source?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(data.source, `Translate the user's text to ${data.target}. Reply with ONLY the translation — no quotes, no explanation.`, { widgetType: "ai_translate", summary: `→${data.target}: ${data.source.slice(0, 80)}` });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  const langs = ["Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Japanese", "Mandarin Chinese", "Korean", "Arabic", "Russian", "Hindi", "English"];
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <label className="cia-ext-ca-ai-label">Translate to</label>
+      <select value={data.target ?? langs[0]} onChange={(e) => onChange({ ...data, target: e.target.value })} className="cia-ext-ca-ai-select">{langs.map((l) => <option key={l}>{l}</option>)}</select>
+      <textarea className="cia-ext-ca-ai-text" rows={3} value={data.source ?? ""} onChange={(e) => onChange({ ...data, source: e.target.value })} placeholder="Text to translate…" />
+      <AiRunButton onClick={run} running={running} label="Translate" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiSummaryWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.source?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(data.source, `Summarize the user's text as ${data.style}. Be concise and faithful.`, { widgetType: "ai_summary", summary: `${data.style}: ${data.source.slice(0, 80)}` });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <label className="cia-ext-ca-ai-label">Style</label>
+      <select value={data.style ?? "Bullet points"} onChange={(e) => onChange({ ...data, style: e.target.value })} className="cia-ext-ca-ai-select">{["Bullet points", "One sentence", "Paragraph", "Key takeaways", "TL;DR"].map((s) => <option key={s}>{s}</option>)}</select>
+      <textarea className="cia-ext-ca-ai-text" rows={5} value={data.source ?? ""} onChange={(e) => onChange({ ...data, source: e.target.value })} placeholder="Paste text to summarize…" />
+      <AiRunButton onClick={run} running={running} label="Summarize" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiBrainstormWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.topic?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(`Topic: ${data.topic}\nGenerate ${data.count ?? 5} distinct, creative ideas. Number them.`, "You are a creative brainstorming partner.", { widgetType: "ai_brainstorm", summary: data.topic });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <div className="cia-ext-ca-ai-row">
+        <label className="cia-ext-ca-ai-label">Ideas</label>
+        <input type="number" min={1} max={20} value={data.count ?? 5} onChange={(e) => onChange({ ...data, count: Number(e.target.value) })} className="cia-ext-ca-ai-num" />
+      </div>
+      <label className="cia-ext-ca-ai-label">Topic</label>
+      <textarea className="cia-ext-ca-ai-text" rows={2} value={data.topic ?? ""} onChange={(e) => onChange({ ...data, topic: e.target.value })} placeholder="e.g. Names for a coffee shop" />
+      <AiRunButton onClick={run} running={running} label="Brainstorm" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiExplainWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.concept?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(`Explain "${data.concept}" to a ${data.level}. Use simple words and a short analogy.`, "", { widgetType: "ai_explain", summary: data.concept });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <label className="cia-ext-ca-ai-label">Audience</label>
+      <select value={data.level ?? "5-year-old"} onChange={(e) => onChange({ ...data, level: e.target.value })} className="cia-ext-ca-ai-select">{["5-year-old", "high schooler", "college student", "expert in a different field"].map((s) => <option key={s}>{s}</option>)}</select>
+      <label className="cia-ext-ca-ai-label">Concept</label>
+      <textarea className="cia-ext-ca-ai-text" rows={2} value={data.concept ?? ""} onChange={(e) => onChange({ ...data, concept: e.target.value })} placeholder="e.g. Quantum entanglement" />
+      <AiRunButton onClick={run} running={running} label="Explain" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+function AiRegexWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const run = async () => {
+    if (!data.request?.trim()) return;
+    setRunning(true); setErr(null);
+    try {
+      const r = await callAi(data.request, "You are a regex expert. Reply with the regex pattern, then on a new line a short explanation. No markdown fences.", { widgetType: "ai_regex", summary: data.request });
+      onChange({ ...data, result: r });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ai">
+      <label className="cia-ext-ca-ai-label">Describe the pattern</label>
+      <textarea className="cia-ext-ca-ai-text" rows={2} value={data.request ?? ""} onChange={(e) => onChange({ ...data, request: e.target.value })} placeholder="e.g. Match Australian phone numbers" />
+      <AiRunButton onClick={run} running={running} label="Build regex" />
+      {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      <AiResult result={data.result} onClear={() => onChange({ ...data, result: "" })} />
+    </div>
+  );
+}
+
+// ── Test Script Generator ─────────────────────────────────────────────────
+// Follows the standard "Test Cases Template" structure:
+// Business Process | # | Sub-Process | Test # | Test | Prerequisite | Expected Outcome | Data | Result | If Failed - Issue # | Retest Result | Notes/Actions
+const TS_COLUMNS = ["Business Process", "#", "Sub-Process", "Test #", "Test", "Prerequisite", "Expected Outcome", "Data", "Result", "If Failed - Issue #", "Retest Result", "Notes/Actions"];
+const TS_RESULTS = ["Not Complete", "Pass", "Fail", "Blocked", "N/A"];
+
+function csvCell(v) {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function TestScriptsWidget({ data, onChange }) {
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState(null);
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+
+  const generate = async () => {
+    if (!data.module?.trim()) { setErr("Set a Business Process (e.g. Debtors)."); return; }
+    setRunning(true); setErr(null);
+    try {
+      const code = (data.moduleCode || data.module.replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase() || "MOD").trim();
+      const startNum = Number(data.startingTestNum) || (rows.length ? Math.max(...rows.map((r) => Number(String(r[3]).split(".").pop()) || 0)) + 1 : 1);
+      const sys = [
+        "You generate software test cases that follow a strict CSV template.",
+        "Output ONLY a JSON array of objects — no markdown, no commentary.",
+        "Each object must have these EXACT keys:",
+        '"businessProcess","subProcessCode","subProcess","testNumber","test","prerequisite","expectedOutcome","data"',
+        "Conventions (match the customer's house style):",
+        `- businessProcess: "${data.module}" on the first row of each Sub-Process group, blank on continuation rows.`,
+        `- subProcessCode: short code like "${code}1", "${code}2", etc. — increments per Sub-Process. Blank on continuation rows.`,
+        `- subProcess: name of the sub-process (e.g. "Debtor Navigation"). Blank on continuation rows.`,
+        `- testNumber: "${code}<group>.<n>" e.g. "${code}1.1", "${code}1.2", "${code}2.1".`,
+        `- test: a first-person user statement like "I can …" or "I am able to …".`,
+        `- prerequisite: a prior test number it depends on (e.g. "${code}1.1") or a high-level requirement like "User account".`,
+        `- expectedOutcome: short, concrete pass criterion ("Able to …").`,
+        `- data: keep blank unless specific test data is essential.`,
+        "Generate realistic, non-overlapping test cases that cover happy paths, edge cases, permissions and reporting.",
+      ].join("\n");
+      const userMsg = [
+        `Business Process: ${data.module}`,
+        `Module code: ${code}`,
+        `Starting test number for this batch: ${code}<group>.${startNum}`,
+        data.subProcess ? `Focus sub-process(es): ${data.subProcess}` : null,
+        `How many test cases to generate: ${data.count ?? 8}`,
+        data.context ? `Extra context / requirements:\n${data.context}` : null,
+      ].filter(Boolean).join("\n");
+      const raw = await callAi(userMsg, sys, { widgetType: "ai_testscripts", summary: `${data.module} (${data.count})` });
+      // Extract JSON array even if model wrapped it
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error("AI did not return a JSON array");
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed)) throw new Error("Expected an array");
+      const newRows = parsed.map((p) => [
+        p.businessProcess ?? "",
+        p.subProcessCode ?? "",
+        p.subProcess ?? "",
+        p.testNumber ?? "",
+        p.test ?? "",
+        p.prerequisite ?? "",
+        p.expectedOutcome ?? "",
+        p.data ?? "",
+        "Not Complete",
+        "",
+        "Not Complete",
+        "",
+      ]);
+      onChange({ ...data, rows: [...rows, ...newRows] });
+    } catch (e) { setErr(e.message); }
+    finally { setRunning(false); }
+  };
+
+  const updateCell = (ri, ci, v) => {
+    const next = rows.map((r, i) => i === ri ? r.map((c, j) => (j === ci ? v : c)) : r);
+    onChange({ ...data, rows: next });
+  };
+  const addRow = () => onChange({ ...data, rows: [...rows, ["", "", "", "", "", "", "", "", "Not Complete", "", "Not Complete", ""]] });
+  const removeRow = (i) => onChange({ ...data, rows: rows.filter((_, j) => j !== i) });
+  const clearAll = () => onChange({ ...data, rows: [] });
+
+  const exportCsv = () => {
+    const header = ["Business Process", "#", "Sub-Process", "Test #", "Test", "Prerequisite", "Expected Outcome", "Data", "Result", "If Failed - Issue #", "Retest Result", "Notes/Actions"];
+    const csv = [header.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${data.module || "test-cases"}-test-cases.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  };
+
+  const passCount = rows.filter((r) => r[8] === "Pass").length;
+  const failCount = rows.filter((r) => r[8] === "Fail").length;
+  const total = rows.length;
+  const pct = total > 0 ? Math.round((passCount / total) * 100) : 0;
+
+  return (
+    <div className="cia-ext-ca-widget-body cia-ext-ca-ts">
+      <div className="cia-ext-ca-ts-config">
+        <div className="cia-ext-ca-ts-row">
+          <div className="cia-ext-ca-ts-field" style={{ flex: 2 }}>
+            <label className="cia-ext-ca-ai-label">Business Process</label>
+            <input className="cia-ext-ca-ai-text" value={data.module ?? ""} onChange={(e) => onChange({ ...data, module: e.target.value })} placeholder="e.g. Debtors, Creditors, GL" style={{ minHeight: 0 }} />
+          </div>
+          <div className="cia-ext-ca-ts-field" style={{ width: 76 }}>
+            <label className="cia-ext-ca-ai-label">Code</label>
+            <input className="cia-ext-ca-ai-text" value={data.moduleCode ?? ""} onChange={(e) => onChange({ ...data, moduleCode: e.target.value.toUpperCase().slice(0, 4) })} placeholder="DB" style={{ minHeight: 0, textTransform: "uppercase" }} maxLength={4} />
+          </div>
+          <div className="cia-ext-ca-ts-field" style={{ width: 70 }}>
+            <label className="cia-ext-ca-ai-label">Cases</label>
+            <input type="number" min={1} max={30} className="cia-ext-ca-ai-num" value={data.count ?? 8} onChange={(e) => onChange({ ...data, count: Number(e.target.value) })} style={{ width: "100%" }} />
+          </div>
+        </div>
+        <div className="cia-ext-ca-ts-field">
+          <label className="cia-ext-ca-ai-label">Focus sub-process(es) — optional</label>
+          <input className="cia-ext-ca-ai-text" value={data.subProcess ?? ""} onChange={(e) => onChange({ ...data, subProcess: e.target.value })} placeholder="e.g. Invoice creation, Payment plans" style={{ minHeight: 0 }} />
+        </div>
+        <div className="cia-ext-ca-ts-field">
+          <label className="cia-ext-ca-ai-label">Extra context — optional</label>
+          <textarea className="cia-ext-ca-ai-text" rows={2} value={data.context ?? ""} onChange={(e) => onChange({ ...data, context: e.target.value })} placeholder="Council policies, integrations, edge cases the AI should cover…" />
+        </div>
+        <div className="cia-ext-ca-ts-actions">
+          <AiRunButton onClick={generate} running={running} label={rows.length ? "Generate more" : "Generate test cases"} />
+          {rows.length > 0 && (
+            <>
+              <button className="cia-ext-ca-ts-secondary" onClick={addRow}>+ Row</button>
+              <button className="cia-ext-ca-ts-secondary" onClick={exportCsv}>⬇ CSV</button>
+              <button className="cia-ext-ca-ts-secondary cia-ext-ca-ts-danger" onClick={clearAll}>Clear</button>
+            </>
+          )}
+        </div>
+        {err && <div className="cia-ext-ca-ai-err">{err}</div>}
+      </div>
+
+      {total > 0 && (
+        <div className="cia-ext-ca-ts-progress">
+          <div className="cia-ext-ca-ts-progress-bar">
+            <div className="cia-ext-ca-ts-progress-pass" style={{ width: `${(passCount / total) * 100}%` }} />
+            <div className="cia-ext-ca-ts-progress-fail" style={{ width: `${(failCount / total) * 100}%`, left: `${(passCount / total) * 100}%` }} />
+          </div>
+          <div className="cia-ext-ca-ts-progress-meta">
+            <span className="cia-ext-ca-ts-stat is-pass">✓ {passCount} pass</span>
+            <span className="cia-ext-ca-ts-stat is-fail">✗ {failCount} fail</span>
+            <span className="cia-ext-ca-ts-stat">{total} total · {pct}%</span>
+          </div>
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="cia-ext-ca-ts-table-wrap">
+          <table className="cia-ext-ca-ts-table">
+            <thead>
+              <tr>
+                {TS_COLUMNS.map((c) => <th key={c}>{c}</th>)}
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri} className={r[8] === "Pass" ? "is-pass" : r[8] === "Fail" ? "is-fail" : ""}>
+                  {r.map((c, ci) => (
+                    <td key={ci}>
+                      {ci === 8 || ci === 10 ? (
+                        <select value={c} onChange={(e) => updateCell(ri, ci, e.target.value)} className="cia-ext-ca-ts-cell-select">
+                          {TS_RESULTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <textarea value={c} onChange={(e) => updateCell(ri, ci, e.target.value)} className="cia-ext-ca-ts-cell" rows={1} />
+                      )}
+                    </td>
+                  ))}
+                  <td><button className="cia-ext-ca-remove-sm" onClick={() => removeRow(ri)} title="Remove row">×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -587,9 +1128,11 @@ const WIDGET_MAP = {
   links: LinksWidget, table: TableWidget, contacts: ContactsWidget,
   flashcards: FlashcardsWidget, proscons: ProsConsWidget, embed: EmbedWidget,
   image: ImageWidget, converter: ConverterWidget, calculator: CalculatorWidget,
-  dice: DiceWidget, json: JsonWidget, colorpicker: ColorPickerWidget,
+  json: JsonWidget,
   poll: PollWidget, budget: BudgetWidget, scripter: ScripterWidget,
-  quotes: QuotesWidget,
+  ai_sql: SqlGeneratorWidget, ai_writer: AiWriterWidget, ai_translate: AiTranslateWidget,
+  ai_summary: AiSummaryWidget, ai_brainstorm: AiBrainstormWidget,
+  ai_explain: AiExplainWidget, ai_regex: AiRegexWidget, ai_testscripts: TestScriptsWidget,
 };
 
 // ── Drag-reorder ───────────────────────────────────────────────────────────
@@ -602,59 +1145,244 @@ function useDragReorder(widgets, setWidgets) {
   return { dragging, onDragStart, onDragOver, onDragEnd };
 }
 
+// ── Milanote-style free board ──────────────────────────────────────────────
+// Position model per widget: pos = { x, y, w, h } in world pixels. The board is
+// an infinite pannable / zoomable surface; cards float on it.
+const SNAP = 8;
+const snap = (n) => Math.round(n / SNAP) * SNAP;
+function defaultFreePos(index) {
+  return { x: snap(24 + (index % 2) * 296), y: snap(24 + Math.floor(index / 2) * 236), w: 272, h: 208 };
+}
+// Treat old percentage-based positions (tiny w) as legacy → reseed to px grid.
+const isLegacyPos = (p) => !p || typeof p.w !== "number" || p.w <= 130;
+function seedFreePositions(widgets) {
+  return widgets.map((w, i) => (isLegacyPos(w.pos) ? { ...w, pos: defaultFreePos(i) } : w));
+}
+function posOf(w, i) {
+  return isLegacyPos(w.pos) ? defaultFreePos(i) : w.pos;
+}
+
+function FreeBoard({ widgets, editable, onMovePos, onAdd, renderCard, full }) {
+  const [view, setView] = useState({ x: 0, y: 0, z: 1 });
+  const [drag, setDrag] = useState(null);   // card move / resize
+  const [pan, setPan] = useState(null);     // empty-space pan
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const startCard = (id, mode) => (e) => {
+    if (!editable) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = widgets.find((x) => x.id === id);
+    setDrag({ id, mode, startX: e.clientX, startY: e.clientY, orig: posOf(w, 0) });
+  };
+  const startPan = (e) => {
+    if (e.target !== e.currentTarget) return; // only when grabbing empty board
+    setPan({ startX: e.clientX, startY: e.clientY, orig: { x: view.x, y: view.y } });
+  };
+
+  useEffect(() => {
+    if (!drag) return undefined;
+    const move = (e) => {
+      const z = viewRef.current.z;
+      const dx = (e.clientX - drag.startX) / z;
+      const dy = (e.clientY - drag.startY) / z;
+      if (drag.mode === "move") {
+        onMovePos(drag.id, { ...drag.orig, x: snap(drag.orig.x + dx), y: snap(drag.orig.y + dy) });
+      } else {
+        onMovePos(drag.id, { ...drag.orig, w: Math.max(150, snap(drag.orig.w + dx)), h: Math.max(96, snap(drag.orig.h + dy)) });
+      }
+    };
+    const up = () => setDrag(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [drag, onMovePos]);
+
+  useEffect(() => {
+    if (!pan) return undefined;
+    const move = (e) => setView((v) => ({ ...v, x: pan.orig.x + (e.clientX - pan.startX), y: pan.orig.y + (e.clientY - pan.startY) }));
+    const up = () => setPan(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, [pan]);
+
+  const zoomBy = (f) => setView((v) => ({ ...v, z: Math.min(2, Math.max(0.3, Math.round(v.z * f * 100) / 100)) }));
+  const reset = () => setView({ x: 0, y: 0, z: 1 });
+
+  // Scroll wheel pans the board (Milanote-style); shift makes it horizontal.
+  // Native non-passive listener so preventDefault stops the panel from scrolling.
+  const boardRef = useRef(null);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return undefined;
+    const onWheel = (e) => {
+      e.preventDefault();
+      // Some browsers already map shift+wheel onto deltaX, others keep it on
+      // deltaY — pick whichever is non-zero so horizontal panning always works.
+      if (e.shiftKey) {
+        const dx = e.deltaX || e.deltaY;
+        setView((v) => ({ ...v, x: v.x - dx }));
+      } else {
+        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  return (
+    <div ref={boardRef} className={`cia-ext-ca-board${pan ? " is-panning" : ""}${editable ? " is-editable" : ""}${full ? " is-full" : ""}`}>
+      <div className="cia-ext-ca-board-world" onPointerDown={startPan} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
+        {widgets.map((w, i) => {
+          const p = posOf(w, i);
+          return (
+            <div key={w.id} className={`cia-ext-ca-board-item${drag?.id === w.id ? " is-active" : ""}`} style={{ left: p.x, top: p.y, width: p.w, height: p.h }}>
+              {renderCard(w, { onDragHandle: startCard(w.id, "move"), editable })}
+              {editable && <div className="cia-ext-ca-board-resize" onPointerDown={startCard(w.id, "resize")} title="Resize" />}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="cia-ext-ca-board-toolbar" onPointerDown={(e) => e.stopPropagation()}>
+        <button onClick={() => zoomBy(0.9)} title="Zoom out">−</button>
+        <button className="cia-ext-ca-board-zoom" onClick={reset} title="Reset view">{Math.round(view.z * 100)}%</button>
+        <button onClick={() => zoomBy(1.1)} title="Zoom in">+</button>
+        {editable && onAdd && <button className="cia-ext-ca-board-add" onClick={onAdd} title="Add a card">＋ Card</button>}
+      </div>
+      {editable && widgets.length === 0 && <div className="cia-ext-ca-board-hint">Drag empty space to pan · Ctrl+scroll to zoom · add cards and arrange them freely</div>}
+    </div>
+  );
+}
+
 // ── App editor ─────────────────────────────────────────────────────────────
 function AppEditor({ app, onSave, onCancel }) {
   const [name, setName] = useState(app?.name ?? "");
   const [icon, setIcon] = useState(app?.icon ?? "📋");
   const [desc, setDesc] = useState(app?.desc ?? "");
   const [color, setColor] = useState(app?.color ?? "#7c3aed");
-  const [widgets, setWidgets] = useState(app?.widgets ?? []);
+  const [layout, setLayout] = useState(app?.layout ?? "stack");
+  const [widgets, setWidgets] = useState(() => (app?.layout === "free" ? seedFreePositions(app?.widgets ?? []) : (app?.widgets ?? [])));
   const [addingWidget, setAddingWidget] = useState(false);
   const [pickerCat, setPickerCat] = useState("all");
 
   const { dragging, onDragStart, onDragOver, onDragEnd } = useDragReorder(widgets, setWidgets);
   const updateWidget = (i, data) => setWidgets((ws) => ws.map((w, j) => (j === i ? { ...w, data } : w)));
   const removeWidget = (i) => setWidgets((ws) => ws.filter((_, j) => j !== i));
+  const removeWidgetById = (id) => setWidgets((ws) => ws.filter((w) => w.id !== id));
   const duplicateWidget = (i) => setWidgets((ws) => { const w = { ...ws[i], id: crypto.randomUUID(), data: { ...ws[i].data } }; const next = [...ws]; next.splice(i + 1, 0, w); return next; });
-  const addWidget = (wt) => { setWidgets([...widgets, { id: crypto.randomUUID(), type: wt.type, data: { ...wt.defaults } }]); setAddingWidget(false); };
+  const addWidget = (wt) => {
+    const w = { id: crypto.randomUUID(), type: wt.type, data: { ...wt.defaults } };
+    if (layout === "free") w.pos = defaultFreePos(widgets.length);
+    setWidgets([...widgets, w]);
+    setAddingWidget(false);
+  };
+  const setWidgetPos = (id, pos) => setWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, pos } : w)));
+  const updateWidgetById = (id, data) => setWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, data } : w)));
+  // Switching layout: seed free positions when entering free mode.
+  const changeLayout = (next) => {
+    if (next === "free") setWidgets((ws) => seedFreePositions(ws));
+    setLayout(next);
+  };
   const valid = name.trim().length > 0;
+  const isFree = layout === "free";
   const filtered = pickerCat === "all" ? WIDGET_TYPES : WIDGET_TYPES.filter((w) => w.category === pickerCat);
 
   return (
     <div className="cia-ext-ca-editor">
-      <div className="cia-ext-ca-editor-header"><span>{app ? "Edit app" : "Create app"}</span></div>
-      <div className="cia-ext-ca-field-group">
-        <div className="cia-ext-ca-field"><label>App name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="My App" maxLength={40} /></div>
-        <div className="cia-ext-ca-field"><label>Description</label><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What does this app do?" maxLength={80} /></div>
-        <div className="cia-ext-ca-field-row">
-          <div className="cia-ext-ca-field" style={{ flex: 1 }}><label>Icon</label><div className="cia-ext-ca-emoji-row">{EMOJI_PICKS.map((e) => (<button key={e} className={`cia-ext-ca-emoji-btn${icon === e ? " is-active" : ""}`} onClick={() => setIcon(e)}>{e}</button>))}</div></div>
-          <div className="cia-ext-ca-field" style={{ width: 70 }}><label>Color</label><input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="cia-ext-ca-color-pick" /></div>
+      <div className="cia-ext-ca-editor-hero">
+        <div className="cia-ext-ca-editor-hero-icon" style={{ background: color }}>{icon}</div>
+        <div className="cia-ext-ca-editor-hero-meta">
+          <input className="cia-ext-ca-hero-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="App name" maxLength={40} />
+          <input className="cia-ext-ca-hero-desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What does this app do?" maxLength={80} />
         </div>
       </div>
 
-      <div className="cia-ext-ca-section-label">Widgets<span className="cia-ext-ca-section-count">{widgets.length}</span></div>
-      {widgets.length === 0 && <div className="cia-ext-ca-empty">No widgets yet — add one below.</div>}
-
-      <div className="cia-ext-ca-widget-list">
-        {widgets.map((w, i) => {
-          const Comp = WIDGET_MAP[w.type];
-          const meta = WIDGET_TYPES.find((t) => t.type === w.type);
-          const isLayout = w.type === "header" || w.type === "divider";
-          return (
-            <div key={w.id} className={`cia-ext-ca-widget-card${dragging === i ? " is-dragging" : ""}${isLayout ? " is-layout" : ""}`} draggable onDragStart={onDragStart(i)} onDragOver={onDragOver(i)} onDragEnd={onDragEnd}>
-              <div className="cia-ext-ca-widget-head">
-                <span className="cia-ext-ca-widget-grip" title="Drag to reorder">⠿</span>
-                {isLayout ? <span className="cia-ext-ca-widget-type-label">{meta?.label}</span> : <input className="cia-ext-ca-widget-title" value={w.data.title ?? meta?.label ?? w.type} onChange={(e) => updateWidget(i, { ...w.data, title: e.target.value })} />}
-                <div className="cia-ext-ca-widget-actions">
-                  <button onClick={() => duplicateWidget(i)} title="Duplicate">⧉</button>
-                  <button onClick={() => removeWidget(i)} title="Remove">×</button>
-                </div>
-              </div>
-              {Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode />}
-            </div>
-          );
-        })}
+      <div className="cia-ext-ca-card">
+        <div className="cia-ext-ca-card-title">Appearance</div>
+        <div className="cia-ext-ca-field"><label>Icon</label><div className="cia-ext-ca-emoji-row">{EMOJI_PICKS.map((e) => (<button key={e} className={`cia-ext-ca-emoji-btn${icon === e ? " is-active" : ""}`} onClick={() => setIcon(e)}>{e}</button>))}</div></div>
+        <div className="cia-ext-ca-field"><label>Accent color</label><div className="cia-ext-ca-color-row"><input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="cia-ext-ca-color-pick" /><span className="cia-ext-ca-color-hex">{color.toUpperCase()}</span></div></div>
       </div>
+
+      <div className="cia-ext-ca-card">
+        <div className="cia-ext-ca-card-title">Layout</div>
+        <div className="cia-ext-ca-layout-selector">
+          {[
+            { id: "stack", bars: [{ w: "100%" }], label: "Stack" },
+            { id: "grid-2", bars: [{ w: "46%" }, { w: "46%" }], label: "2 cols" },
+            { id: "grid-3", bars: [{ w: "30%" }, { w: "30%" }, { w: "30%" }], label: "3 cols" },
+            { id: "grid-sidebar-l", bars: [{ w: "30%" }, { w: "62%" }], label: "Sidebar L" },
+            { id: "grid-sidebar-r", bars: [{ w: "62%" }, { w: "30%" }], label: "Sidebar R" },
+            { id: "free", free: true, label: "Free" },
+          ].map((l) => (
+            <button key={l.id} className={`cia-ext-ca-layout-btn${layout === l.id ? " is-active" : ""}`} onClick={() => changeLayout(l.id)} title={l.label}>
+              <span className="cia-ext-ca-layout-preview">
+                {l.free ? (
+                  <span className="cia-ext-ca-layout-free"><span /><span /><span /></span>
+                ) : l.bars.map((b, i) => <span key={i} className="cia-ext-ca-layout-bar" style={{ width: b.w }} />)}
+              </span>
+              <span className="cia-ext-ca-layout-name">{l.label}</span>
+            </button>
+          ))}
+        </div>
+        {isFree && <div className="cia-ext-ca-layout-tip">Milanote-style board — drag cards by their header to move, drag a card's corner to resize, drag empty space to pan, and Ctrl/⌘+scroll to zoom. Positions lock when the app is opened.</div>}
+      </div>
+
+      <div className="cia-ext-ca-section-title">
+        <span>Widgets</span>
+        <span className="cia-ext-ca-section-count">{widgets.length}</span>
+      </div>
+      {widgets.length === 0 && <div className="cia-ext-ca-empty"><span className="cia-ext-ca-empty-icon">✨</span>No widgets yet — tap "Add widget" below.</div>}
+
+      {isFree ? (
+        (
+          <FreeBoard
+            widgets={widgets}
+            editable
+            onMovePos={setWidgetPos}
+            onAdd={() => { setAddingWidget(true); setPickerCat("all"); }}
+            renderCard={(w, { onDragHandle }) => {
+              const Comp = WIDGET_MAP[w.type];
+              const meta = WIDGET_TYPES.find((t) => t.type === w.type);
+              const isLayout = w.type === "header" || w.type === "divider";
+              return (
+                <div className="cia-ext-ca-widget-card cia-ext-ca-canvas-card">
+                  <div className="cia-ext-ca-widget-head" onPointerDown={onDragHandle}>
+                    <span className="cia-ext-ca-widget-grip" title="Drag to move">✥</span>
+                    {isLayout ? <span className="cia-ext-ca-widget-type-label">{meta?.label}</span> : <input className="cia-ext-ca-widget-title" value={w.data.title ?? meta?.label ?? w.type} onChange={(e) => updateWidgetById(w.id, { ...w.data, title: e.target.value })} onPointerDown={(e) => e.stopPropagation()} />}
+                    <div className="cia-ext-ca-widget-actions" onPointerDown={(e) => e.stopPropagation()}>
+                      <button onClick={() => removeWidgetById(w.id)} title="Remove">×</button>
+                    </div>
+                  </div>
+                  <div className="cia-ext-ca-canvas-card-body">{Comp && <Comp data={w.data} onChange={(d) => updateWidgetById(w.id, d)} editMode />}</div>
+                </div>
+              );
+            }}
+          />
+        )
+      ) : (
+        <div className="cia-ext-ca-widget-list">
+          {widgets.map((w, i) => {
+            const Comp = WIDGET_MAP[w.type];
+            const meta = WIDGET_TYPES.find((t) => t.type === w.type);
+            const isLayout = w.type === "header" || w.type === "divider";
+            return (
+              <div key={w.id} className={`cia-ext-ca-widget-card${dragging === i ? " is-dragging" : ""}${isLayout ? " is-layout" : ""}`} draggable onDragStart={onDragStart(i)} onDragOver={onDragOver(i)} onDragEnd={onDragEnd}>
+                <div className="cia-ext-ca-widget-head">
+                  <span className="cia-ext-ca-widget-grip" title="Drag to reorder">⠿</span>
+                  {isLayout ? <span className="cia-ext-ca-widget-type-label">{meta?.label}</span> : <input className="cia-ext-ca-widget-title" value={w.data.title ?? meta?.label ?? w.type} onChange={(e) => updateWidget(i, { ...w.data, title: e.target.value })} />}
+                  <div className="cia-ext-ca-widget-actions">
+                    <button onClick={() => duplicateWidget(i)} title="Duplicate">⧉</button>
+                    <button onClick={() => removeWidget(i)} title="Remove">×</button>
+                  </div>
+                </div>
+                {Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode />}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {addingWidget ? (
         <div className="cia-ext-ca-widget-picker">
@@ -663,15 +1391,21 @@ function AppEditor({ app, onSave, onCancel }) {
             <button className={`cia-ext-ca-picker-cat${pickerCat === "all" ? " is-active" : ""}`} onClick={() => setPickerCat("all")}>All</button>
             {WIDGET_CATEGORIES.map((c) => (<button key={c.id} className={`cia-ext-ca-picker-cat${pickerCat === c.id ? " is-active" : ""}`} onClick={() => setPickerCat(c.id)}>{c.label}</button>))}
           </div>
-          <div className="cia-ext-ca-widget-grid">{filtered.map((wt) => (<button key={wt.type} className="cia-ext-ca-widget-option" onClick={() => addWidget(wt)}><strong>{wt.label}</strong><small>{wt.desc}</small></button>))}</div>
+          <div className="cia-ext-ca-widget-grid">{filtered.map((wt) => (
+            <button key={wt.type} className={`cia-ext-ca-widget-option${wt.category === "ai" ? " is-ai" : ""}`} onClick={() => addWidget(wt)}>
+              {wt.category === "ai" && <span className="cia-ext-ca-widget-ai-badge">AI</span>}
+              <strong>{wt.label}</strong>
+              <small>{wt.desc}</small>
+            </button>
+          ))}</div>
         </div>
       ) : (
-        <button className="cia-ext-ca-add-widget-btn" onClick={() => { setAddingWidget(true); setPickerCat("all"); }}>Add widget</button>
+        <button className="cia-ext-ca-add-widget-btn" onClick={() => { setAddingWidget(true); setPickerCat("all"); }}>+ Add widget</button>
       )}
 
       <div className="cia-ext-ca-editor-footer">
         <button className="cia-ext-ca-cancel-btn" onClick={onCancel}>Cancel</button>
-        <button className="cia-ext-ca-save-btn" disabled={!valid} onClick={() => onSave({ id: app?.id ?? crypto.randomUUID(), name: name.trim(), icon, desc: desc.trim(), color, widgets })}>{app ? "Save changes" : "Create app"}</button>
+        <button className="cia-ext-ca-save-btn" disabled={!valid} onClick={() => onSave({ id: app?.id ?? crypto.randomUUID(), name: name.trim(), icon, desc: desc.trim(), color, layout, widgets })}>{app ? "Save changes" : "Create app"}</button>
       </div>
     </div>
   );
@@ -680,32 +1414,132 @@ function AppEditor({ app, onSave, onCancel }) {
 // ── App runner ─────────────────────────────────────────────────────────────
 export function AppRunner({ app, onChange, onBack, onEdit }) {
   const updateWidget = (i, data) => onChange({ ...app, widgets: app.widgets.map((w, j) => (j === i ? { ...w, data } : w)) });
-  useEffect(() => { app.widgets.forEach((w) => { if (w.type === "scripter" && w.data.autoRun) { try { new Function(w.data.code ?? "")(); } catch { /* */ } } }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const updateWidgetById = (id, data) => onChange({ ...app, widgets: app.widgets.map((w) => (w.id === id ? { ...w, data } : w)) });
+  const moveWidgetPos = (id, pos) => onChange({ ...app, widgets: app.widgets.map((w) => (w.id === id ? { ...w, pos } : w)) });
+  useEffect(() => { app.widgets.forEach((w) => { if (w.type === "scripter" && w.data.autoRun) { void runSandboxed(w.data.code ?? ""); } }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const isFree = app.layout === "free";
 
+  const accent = app.color || "#7c3aed";
   return (
-    <div className="cia-ext-ca-runner">
-      <div className="cia-ext-ca-runner-header">
-        <button className="cia-ext-ca-back-btn" onClick={onBack}>Back</button>
-        <span className="cia-ext-ca-runner-title">{app.icon} {app.name}</span>
-        <button className="cia-ext-ca-edit-inline" onClick={onEdit}>Edit</button>
+    <div className={`cia-ext-ca-runner${isFree ? " is-board-mode" : ""}`} style={{ "--ca-accent": accent }}>
+      <div className="cia-ext-ca-runner-hero" style={{ background: `linear-gradient(135deg, ${accent}22, ${accent}08 60%, transparent)` }}>
+        <button className="cia-ext-ca-back-btn" onClick={onBack} aria-label="Back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div className="cia-ext-ca-runner-icon" style={{ background: accent }}>{app.icon}</div>
+        <div className="cia-ext-ca-runner-meta">
+          <div className="cia-ext-ca-runner-title">{app.name}</div>
+          {app.desc && <div className="cia-ext-ca-runner-desc">{app.desc}</div>}
+        </div>
+        <button className="cia-ext-ca-edit-inline" onClick={onEdit} aria-label="Edit app">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit
+        </button>
       </div>
-      {app.desc && <div className="cia-ext-ca-runner-desc">{app.desc}</div>}
-      <div className="cia-ext-ca-runner-widgets">
-        {app.widgets.map((w, i) => {
-          const Comp = WIDGET_MAP[w.type];
-          if (w.type === "header" || w.type === "divider") return <div key={w.id}>{Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode={false} />}</div>;
-          return (
-            <div key={w.id} className="cia-ext-ca-widget-card">
-              <div className="cia-ext-ca-widget-head"><span className="cia-ext-ca-widget-title-static">{w.data.title ?? w.type}</span></div>
-              {Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode={false} />}
-            </div>
-          );
-        })}
-      </div>
-      {app.widgets.length === 0 && <div className="cia-ext-ca-empty">This app has no widgets. Edit it to add some.</div>}
+      {isFree ? (
+        <div className="cia-ext-ca-runner-canvas-wrap is-board">
+          <FreeBoard
+            widgets={app.widgets}
+            editable
+            full
+            onMovePos={moveWidgetPos}
+            renderCard={(w, { onDragHandle }) => {
+              const Comp = WIDGET_MAP[w.type];
+              const meta = WIDGET_TYPES.find((t) => t.type === w.type);
+              const isAi = meta?.category === "ai";
+              const isLayout = w.type === "header" || w.type === "divider";
+              if (isLayout) return (
+                <div className={`cia-ext-ca-widget-card cia-ext-ca-runner-card cia-ext-ca-canvas-card${isAi ? " is-ai" : ""}`}>
+                  <div className="cia-ext-ca-widget-head cia-ext-ca-canvas-drag" onPointerDown={onDragHandle}><span className="cia-ext-ca-widget-grip">✥</span></div>
+                  <div className="cia-ext-ca-canvas-card-body">{Comp && <Comp data={w.data} onChange={(d) => updateWidgetById(w.id, d)} editMode={false} />}</div>
+                </div>
+              );
+              return (
+                <div className={`cia-ext-ca-widget-card cia-ext-ca-runner-card cia-ext-ca-canvas-card${isAi ? " is-ai" : ""}`}>
+                  <div className="cia-ext-ca-widget-head cia-ext-ca-canvas-drag" onPointerDown={onDragHandle}>
+                    <span className="cia-ext-ca-widget-grip" title="Drag to move">✥</span>
+                    <span className="cia-ext-ca-widget-title-static">{w.data.title ?? w.type}</span>
+                    {isAi && <span className="cia-ext-ca-widget-ai-pill">✨ AI</span>}
+                  </div>
+                  <div className="cia-ext-ca-canvas-card-body">{Comp && <Comp data={w.data} onChange={(d) => updateWidgetById(w.id, d)} editMode={false} />}</div>
+                </div>
+              );
+            }}
+          />
+        </div>
+      ) : (
+        <div className={`cia-ext-ca-runner-widgets${app.layout && app.layout !== "stack" ? ` ${app.layout}` : ""}`}>
+          {app.widgets.map((w, i) => {
+            const Comp = WIDGET_MAP[w.type];
+            const meta = WIDGET_TYPES.find((t) => t.type === w.type);
+            const isAi = meta?.category === "ai";
+            if (w.type === "header" || w.type === "divider") return <div key={w.id} data-span="full">{Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode={false} />}</div>;
+            return (
+              <div key={w.id} className={`cia-ext-ca-widget-card cia-ext-ca-runner-card${isAi ? " is-ai" : ""}`} style={{ animationDelay: `${i * 50}ms` }}>
+                <div className="cia-ext-ca-widget-head">
+                  <span className="cia-ext-ca-widget-title-static">{w.data.title ?? w.type}</span>
+                  {isAi && <span className="cia-ext-ca-widget-ai-pill">✨ AI</span>}
+                </div>
+                {Comp && <Comp data={w.data} onChange={(d) => updateWidget(i, d)} editMode={false} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {app.widgets.length === 0 && <div className="cia-ext-ca-empty"><span className="cia-ext-ca-empty-icon">✨</span>This app has no widgets. Tap Edit to add some.</div>}
     </div>
   );
 }
+
+// ── Starter templates ─────────────────────────────────────────────────────
+const tplWidget = (type, dataOverrides = {}) => {
+  const meta = WIDGET_TYPES.find((w) => w.type === type);
+  return { id: crypto.randomUUID(), type, data: { ...meta.defaults, ...dataOverrides } };
+};
+
+const APP_TEMPLATES = {
+  testScripts: {
+    name: "Test Cases",
+    icon: "🧪",
+    desc: "Generate BPT-style test cases with AI and track results",
+    color: "#7c3aed",
+    layout: "stack",
+    widgets: [
+      tplWidget("header", { title: "Business Process Testing", subtitle: "AI-generated test cases. Edit, run, mark Pass/Fail, export to CSV." }),
+      tplWidget("ai_testscripts", { title: "Test Cases", module: "Debtors", moduleCode: "DB", count: 8 }),
+      tplWidget("divider", { style: "space" }),
+      tplWidget("notes", { title: "Tester notes", text: "" }),
+    ],
+  },
+  aiToolkit: {
+    name: "AI Toolkit",
+    icon: "✨",
+    desc: "All the AI helpers in one place",
+    color: "#e4007c",
+    layout: "stack",
+    widgets: [
+      tplWidget("header", { title: "AI helpers", subtitle: "Tap any widget to use it. Each one learns from your prior prompts." }),
+      tplWidget("ai_writer"),
+      tplWidget("ai_summary"),
+      tplWidget("ai_translate"),
+      tplWidget("ai_sql"),
+      tplWidget("ai_regex"),
+      tplWidget("ai_brainstorm"),
+    ],
+  },
+  standup: {
+    name: "Standup Board",
+    icon: "📋",
+    desc: "Daily kanban + checklist + standup notes",
+    color: "#0ea5e9",
+    layout: "stack",
+    widgets: [
+      tplWidget("kanban", { title: "Sprint board" }),
+      tplWidget("checklist", { title: "Today's checklist", items: [{ text: "Standup", done: false }, { text: "PRs to review", done: false }] }),
+      tplWidget("notes", { title: "Standup notes", text: "" }),
+    ],
+  },
+};
 
 // ── Main panel ─────────────────────────────────────────────────────────────
 export function AppCreatorPanel({ onClose }) {
@@ -719,6 +1553,13 @@ export function AppCreatorPanel({ onClose }) {
   const handleDuplicate = (app) => { persist([...apps, { ...app, id: crypto.randomUUID(), name: `${app.name} (copy)`, widgets: app.widgets.map((w) => ({ ...w, id: crypto.randomUUID() })) }]); };
   const handleRunChange = (updated) => { persist(apps.map((a) => a.id === updated.id ? updated : a)); setActiveApp(updated); };
 
+  const handleStartFromTemplate = (tpl) => {
+    const newApp = { id: crypto.randomUUID(), ...tpl };
+    persist([...apps, newApp]);
+    setActiveApp(newApp);
+    setMode("edit");
+  };
+
   if (mode === "create" || mode === "edit") return (<div className="cia-ext-settings-overlay cia-ext-ca-panel"><AppEditor app={mode === "edit" ? activeApp : null} onSave={handleSave} onCancel={() => { setMode("list"); setActiveApp(null); }} /></div>);
   if (mode === "run" && activeApp) return (<div className="cia-ext-settings-overlay cia-ext-ca-panel"><AppRunner app={activeApp} onChange={handleRunChange} onBack={() => { setMode("list"); setActiveApp(null); }} onEdit={() => setMode("edit")} /></div>);
 
@@ -726,8 +1567,25 @@ export function AppCreatorPanel({ onClose }) {
     <div className="cia-ext-settings-overlay cia-ext-ca-panel">
       <div className="cia-ext-settings-header"><strong>App Creator</strong></div>
       <div className="cia-ext-ca-body">
-        <div className="cia-ext-ca-intro">Build custom micro-apps from {WIDGET_TYPES.length} widget types — kanban boards, calculators, flashcards, budgets and more.</div>
-        <button className="cia-ext-ca-create-btn" onClick={() => setMode("create")}>Create new app</button>
+        <div className="cia-ext-ca-intro">Build custom micro-apps from {WIDGET_TYPES.length} widget types — including {WIDGET_TYPES.filter((w) => w.category === "ai").length} AI-powered ones.</div>
+        <div className="cia-ext-ca-templates">
+          <div className="cia-ext-ca-templates-label">Quick start</div>
+          <div className="cia-ext-ca-templates-grid">
+            <button className="cia-ext-ca-template-tile" onClick={() => handleStartFromTemplate(APP_TEMPLATES.testScripts)}>
+              <span className="cia-ext-ca-template-icon" style={{ background: "#7c3aed" }}>🧪</span>
+              <span><strong>Test Cases</strong><small>BPT template with AI generation</small></span>
+            </button>
+            <button className="cia-ext-ca-template-tile" onClick={() => handleStartFromTemplate(APP_TEMPLATES.aiToolkit)}>
+              <span className="cia-ext-ca-template-icon" style={{ background: "#e4007c" }}>✨</span>
+              <span><strong>AI Toolkit</strong><small>SQL, writer, translate & more</small></span>
+            </button>
+            <button className="cia-ext-ca-template-tile" onClick={() => handleStartFromTemplate(APP_TEMPLATES.standup)}>
+              <span className="cia-ext-ca-template-icon" style={{ background: "#0ea5e9" }}>📋</span>
+              <span><strong>Standup Board</strong><small>Kanban + checklist + notes</small></span>
+            </button>
+          </div>
+        </div>
+        <button className="cia-ext-ca-create-btn" onClick={() => setMode("create")}>+ Create blank app</button>
         {apps.length === 0 && <div className="cia-ext-ca-empty">No apps yet. Create one to get started.</div>}
         <div className="cia-ext-ca-app-list">
           {apps.map((app) => (
